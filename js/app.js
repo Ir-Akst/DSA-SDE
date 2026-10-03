@@ -32,6 +32,9 @@
   // --- INITIALIZATION ---
   function init() {
     loadData();
+    if (window.RoadmapEngine) {
+      RoadmapEngine.initProgress();
+    }
     populateTopicDropdown();
     setupEventListeners();
     renderAll();
@@ -157,18 +160,18 @@
 
   // --- TOPIC & FILTER DROPDOWNS POPULATOR ---
   function populateTopicDropdown() {
+    // Count problems per canonical topic
+    const topicCounts = {};
+    allProblems.forEach(p => {
+      const topic = SRSEngine.canonicalizeTopic(p.topic);
+      topicCounts[topic] = (topicCounts[topic] || 0) + 1;
+    });
+
+    const topics = Object.keys(topicCounts).sort();
+
     const topicSelect = document.getElementById('filter-topic');
     if (topicSelect) {
       const currentSelected = topicSelect.value || 'all';
-
-      // Count problems per canonical topic
-      const topicCounts = {};
-      allProblems.forEach(p => {
-        const topic = SRSEngine.canonicalizeTopic(p.topic);
-        topicCounts[topic] = (topicCounts[topic] || 0) + 1;
-      });
-
-      const topics = Object.keys(topicCounts).sort();
       topicSelect.innerHTML = `<option value="all">📂 All Topics (${allProblems.length})</option>`;
       topics.forEach(topic => {
         const opt = document.createElement('option');
@@ -179,6 +182,25 @@
 
       if (currentSelected && (topics.includes(currentSelected) || currentSelected === 'all')) {
         topicSelect.value = currentSelected;
+      }
+    }
+
+    // Update Flashcard topic filter dropdown
+    const fcTopicSelect = document.getElementById('flashcard-filter-topic');
+    if (fcTopicSelect) {
+      const currentFc = fcTopicSelect.value || 'due';
+      fcTopicSelect.innerHTML = `
+        <option value="due">⚡ Problems Due for Review</option>
+        <option value="all">📚 All Master Problems (${allProblems.length})</option>
+      `;
+      topics.forEach(topic => {
+        const opt = document.createElement('option');
+        opt.value = topic;
+        opt.textContent = `📂 ${topic} (${topicCounts[topic]})`;
+        fcTopicSelect.appendChild(opt);
+      });
+      if (['due', 'all', ...topics].includes(currentFc)) {
+        fcTopicSelect.value = currentFc;
       }
     }
 
@@ -235,6 +257,7 @@
     renderAnalytics();
     renderFlashcards();
     renderActivityHeatmap();
+    renderRoadmapView();
     updateSidebarBadges();
   }
 
@@ -693,8 +716,15 @@
     if (filterMode === 'due') {
       flashcardDeck = allProblems.filter(p => SRSEngine.isDue(userStates[p.id]));
       if (flashcardDeck.length === 0) flashcardDeck = allProblems.slice(0, 25);
-    } else {
+    } else if (filterMode === 'all') {
       flashcardDeck = [...allProblems];
+    } else {
+      // Topic specific filter (e.g. Weekend Flashcard Drill)
+      flashcardDeck = allProblems.filter(p => p.topic.toLowerCase() === filterMode.toLowerCase());
+      if (flashcardDeck.length === 0) {
+        flashcardDeck = allProblems.filter(p => p.topic.toLowerCase().includes(filterMode.toLowerCase()));
+      }
+      if (flashcardDeck.length === 0) flashcardDeck = [...allProblems];
     }
 
     const totalCountEl = document.getElementById('flashcard-total-count');
@@ -703,7 +733,11 @@
 
     if (totalCountEl) totalCountEl.textContent = flashcardDeck.length;
     if (curIndexEl) curIndexEl.textContent = flashcardDeck.length > 0 ? flashcardCurrentIndex + 1 : 0;
-    if (deckNameEl) deckNameEl.textContent = filterMode === 'due' ? 'Due for Review Deck' : 'All Topics Deck';
+    if (deckNameEl) {
+      if (filterMode === 'due') deckNameEl.textContent = 'Due for Review Deck';
+      else if (filterMode === 'all') deckNameEl.textContent = 'All Topics Deck';
+      else deckNameEl.textContent = `${filterMode} Deck`;
+    }
 
     displayActiveFlashcard();
   }
@@ -1173,6 +1207,526 @@
     }
   }
 
+  // --- VIEW 7: STUDY ROADMAP & DAY-WISE PLAN ---
+  function renderRoadmapView() {
+    if (!window.RoadmapEngine) return;
+    if (!RoadmapEngine.progress) {
+      RoadmapEngine.initProgress();
+    }
+
+    const activeTrack = RoadmapEngine.progress.activeTrack || 'striver_hero';
+    const trackMeta = RoadmapEngine.TRACKS[activeTrack] || RoadmapEngine.TRACKS.striver_hero;
+    const schedule = RoadmapEngine.getSchedule(activeTrack, allProblems);
+
+    // 1. Update Hero Card
+    const trackTitleEl = document.getElementById('roadmap-track-title');
+    const trackSubEl = document.getElementById('roadmap-track-subtitle');
+    const trackSelectEl = document.getElementById('roadmap-track-select');
+
+    if (trackTitleEl) trackTitleEl.textContent = trackMeta.title;
+    if (trackSubEl) trackSubEl.textContent = trackMeta.subtitle;
+    if (trackSelectEl && trackSelectEl.value !== activeTrack) {
+      trackSelectEl.value = activeTrack;
+    }
+
+    // 2. Calculate Overall Track Progress
+    let totalDaysInTrack = 0;
+    let completedDaysInTrack = 0;
+    schedule.forEach(week => {
+      week.days.forEach(day => {
+        totalDaysInTrack++;
+        if (RoadmapEngine.isDayCompleted(activeTrack, week.weekNumber, day.dayNumber)) {
+          completedDaysInTrack++;
+        }
+      });
+    });
+
+    const progressPercent = totalDaysInTrack > 0 ? Math.round((completedDaysInTrack / totalDaysInTrack) * 100) : 0;
+    const statProgressEl = document.getElementById('roadmap-stat-progress');
+    const statDaysDoneEl = document.getElementById('roadmap-stat-days-done');
+    const trackProgressFill = document.getElementById('roadmap-track-progress-fill');
+
+    if (statProgressEl) statProgressEl.textContent = `${progressPercent}%`;
+    if (statDaysDoneEl) statDaysDoneEl.textContent = `${completedDaysInTrack} / ${totalDaysInTrack}`;
+    if (trackProgressFill) trackProgressFill.style.width = `${progressPercent}%`;
+
+    // 3. Ensure valid selectedWeek & selectedDay
+    if (!RoadmapEngine.progress.selectedWeek || RoadmapEngine.progress.selectedWeek > schedule.length || RoadmapEngine.progress.selectedWeek < 1) {
+      RoadmapEngine.progress.selectedWeek = 1;
+    }
+    const currentWeek = schedule.find(w => w.weekNumber === RoadmapEngine.progress.selectedWeek) || schedule[0];
+
+    if (!RoadmapEngine.progress.selectedDay || RoadmapEngine.progress.selectedDay > currentWeek.days.length || RoadmapEngine.progress.selectedDay < 1) {
+      RoadmapEngine.progress.selectedDay = 1;
+    }
+    const currentDay = currentWeek.days.find(d => d.dayNumber === RoadmapEngine.progress.selectedDay) || currentWeek.days[0];
+
+    const statActiveFocusEl = document.getElementById('roadmap-stat-active-focus');
+    if (statActiveFocusEl) statActiveFocusEl.textContent = currentDay.topic || currentWeek.topic;
+
+    // 4. Render Week Cards in Horizontal Scroll Container
+    const weeksContainer = document.getElementById('roadmap-weeks-container');
+    if (weeksContainer) {
+      weeksContainer.innerHTML = '';
+      schedule.forEach(week => {
+        let weekDoneCount = 0;
+        week.days.forEach(d => {
+          if (RoadmapEngine.isDayCompleted(activeTrack, week.weekNumber, d.dayNumber)) {
+            weekDoneCount++;
+          }
+        });
+        const isWeekComplete = weekDoneCount === week.days.length;
+        const isWeekSelected = week.weekNumber === RoadmapEngine.progress.selectedWeek;
+
+        const card = document.createElement('div');
+        card.className = `roadmap-week-card ${isWeekSelected ? 'active' : ''} ${isWeekComplete ? 'completed' : ''}`;
+        card.dataset.weekNum = week.weekNumber;
+        card.innerHTML = `
+          <div class="week-card-header">
+            <span class="week-num-badge">Week ${week.weekNumber}</span>
+            <span class="week-topic-badge">${week.topic}</span>
+          </div>
+          <h4 class="week-card-title">${week.title}</h4>
+          <p class="week-card-desc">${week.description || ''}</p>
+          <div class="week-card-footer">
+            <div class="week-mini-progress">
+              <div class="week-mini-fill" style="width:${Math.round((weekDoneCount / week.days.length) * 100)}%;"></div>
+            </div>
+            <span class="week-status-badge ${isWeekComplete ? 'done' : ''}">
+              ${isWeekComplete ? '<i class="fa-solid fa-circle-check"></i> Complete' : `${weekDoneCount}/${week.days.length} Days`}
+            </span>
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          RoadmapEngine.progress.selectedWeek = week.weekNumber;
+          RoadmapEngine.progress.selectedDay = 1;
+          RoadmapEngine.saveProgress();
+          renderRoadmapView();
+        });
+        weeksContainer.appendChild(card);
+      });
+    }
+
+    // 5. Render Day Selector Pills Strip
+    const headingEl = document.getElementById('roadmap-selected-week-heading');
+    const progressTxtEl = document.getElementById('roadmap-week-progress-txt');
+    let currentWeekDoneCount = 0;
+    currentWeek.days.forEach(d => {
+      if (RoadmapEngine.isDayCompleted(activeTrack, currentWeek.weekNumber, d.dayNumber)) {
+        currentWeekDoneCount++;
+      }
+    });
+
+    if (headingEl) {
+      headingEl.innerHTML = `<i class="fa-solid fa-calendar-check" style="color:var(--primary); margin-right:6px;"></i> Week ${currentWeek.weekNumber}: ${currentWeek.title} <span class="badge badge-srs-upcoming" style="margin-left:8px; vertical-align:middle;">${currentWeek.topic}</span>`;
+    }
+    if (progressTxtEl) {
+      progressTxtEl.textContent = `${currentWeekDoneCount} / ${currentWeek.days.length} Days Completed`;
+    }
+
+    const daysPillsContainer = document.getElementById('roadmap-days-pills-container');
+    if (daysPillsContainer) {
+      daysPillsContainer.innerHTML = '';
+      currentWeek.days.forEach(day => {
+        const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, currentWeek.weekNumber, day.dayNumber);
+        const isDayActive = day.dayNumber === RoadmapEngine.progress.selectedDay;
+
+        const pill = document.createElement('button');
+        pill.className = `roadmap-day-pill ${isDayActive ? 'active' : ''} ${isDayDone ? 'completed' : ''} ${day.isWeekend ? 'weekend' : ''}`;
+        pill.dataset.dayNum = day.dayNumber;
+
+        let icon = isDayDone ? '<i class="fa-solid fa-check"></i>' : (day.isExamDay ? '<i class="fa-solid fa-trophy"></i>' : day.isReviewDay ? '<i class="fa-solid fa-bolt"></i>' : `<i class="fa-solid fa-code"></i>`);
+        let label = day.isExamDay ? `Day ${day.dayNumber} (Exam)` : day.isReviewDay ? `Day ${day.dayNumber} (Super Rev)` : `Day ${day.dayNumber}`;
+
+        pill.innerHTML = `${icon} <span>${label}</span>`;
+        pill.addEventListener('click', () => {
+          RoadmapEngine.progress.selectedDay = day.dayNumber;
+          RoadmapEngine.saveProgress();
+          renderRoadmapView();
+        });
+        daysPillsContainer.appendChild(pill);
+      });
+    }
+
+    // 6. Render Active Day Workspace
+    renderActiveDayContent(activeTrack, currentWeek, currentDay);
+  }
+
+  function renderActiveDayContent(activeTrack, currentWeek, currentDay) {
+    const container = document.getElementById('roadmap-active-day-content');
+    if (!container) return;
+
+    const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, currentWeek.weekNumber, currentDay.dayNumber);
+
+    // Day Header Card
+    let headerHtml = `
+      <div class="roadmap-day-focus-card">
+        <div class="day-focus-header">
+          <div class="day-focus-meta">
+            <span class="day-badge"><i class="fa-solid fa-bookmark"></i> Week ${currentWeek.weekNumber} • Day ${currentDay.dayNumber}</span>
+            <span class="badge badge-srs-upcoming">${currentDay.topic}</span>
+            ${currentDay.isWeekend ? `<span class="badge" style="background:rgba(234,179,8,0.15); color:#fbbf24; border:1px solid rgba(234,179,8,0.3);"><i class="fa-solid fa-star"></i> Weekend Special</span>` : ''}
+          </div>
+          <h3 class="day-focus-title">${currentDay.title}</h3>
+          <p class="day-focus-desc"><i class="fa-solid fa-bullseye" style="color:var(--primary); margin-right:6px;"></i> ${currentDay.focus}</p>
+        </div>
+        <div class="day-focus-actions">
+          <button id="btn-toggle-day-complete" class="btn ${isDayDone ? 'btn-secondary' : 'btn-primary'}" data-track="${activeTrack}" data-week="${currentWeek.weekNumber}" data-day="${currentDay.dayNumber}">
+            <i class="fa-solid ${isDayDone ? 'fa-arrow-rotate-left' : 'fa-circle-check'}"></i>
+            <span>${isDayDone ? 'Completed (Click to Undo)' : 'Mark Day as Completed'}</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Case 1: Weekend Sunday Diagnostic Exam
+    if (currentDay.isExamDay) {
+      headerHtml += `
+        <div class="roadmap-weekend-banner exam" style="margin-top:20px;">
+          <div class="weekend-banner-left">
+            <div class="weekend-icon-wrap exam">
+              <i class="fa-solid fa-trophy"></i>
+            </div>
+            <div>
+              <div class="weekend-pill exam"><i class="fa-solid fa-stopwatch"></i> 30-Minute Timed Checkpoint</div>
+              <h3 style="font-size:20px; font-weight:800; color:#f8fafc; margin-top:4px;">Weekend Diagnostic Mock Assessment</h3>
+              <p style="font-size:13px; color:var(--text-muted); margin-top:6px; max-width:650px; line-height:1.5;">
+                Evaluate your true problem-solving speed and algorithm recall for <strong style="color:#fbbf24;">${currentWeek.topic}</strong>. Test covers 3 curated problems (1 Easy, 2 Medium) under interview conditions with live scratchpad and countdown timer.
+              </p>
+              <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
+                <span class="badge badge-easy">1 Easy Warmup</span>
+                <span class="badge badge-medium">2 Medium Core Challenges</span>
+                <span class="badge badge-srs-upcoming">Topic: ${currentWeek.topic}</span>
+              </div>
+            </div>
+          </div>
+          <div class="weekend-banner-actions">
+            <button class="btn btn-primary" id="btn-launch-weekend-exam" data-topic="${currentWeek.topic}" style="background:linear-gradient(135deg, #eab308 0%, #f59e0b 100%); color:#0f172a; font-weight:800; padding:12px 24px; font-size:14px; box-shadow:0 6px 20px rgba(234,179,8,0.3);">
+              <i class="fa-solid fa-play"></i> Start 30-Min Diagnostic Exam
+            </button>
+          </div>
+        </div>
+      `;
+      container.innerHTML = headerHtml;
+      return;
+    }
+
+    // Case 2: Weekend Saturday Super Revision
+    if (currentDay.isReviewDay) {
+      const weekKeywords = [];
+      currentWeek.days.filter(d => !d.isWeekend && d.problemKeywords).forEach(d => {
+        weekKeywords.push(...d.problemKeywords);
+      });
+      const weekProblems = RoadmapEngine.findProblems(allProblems, weekKeywords, currentWeek.topic, 10);
+
+      headerHtml += `
+        <div class="roadmap-weekend-banner flashcards" style="margin-top:20px;">
+          <div class="weekend-banner-left">
+            <div class="weekend-icon-wrap flashcard">
+              <i class="fa-solid fa-bolt"></i>
+            </div>
+            <div>
+              <div class="weekend-pill flashcard"><i class="fa-solid fa-brain"></i> Active Recall Speed Drill</div>
+              <h3 style="font-size:20px; font-weight:800; color:#f8fafc; margin-top:4px;">Weekend Super Revision: ${currentWeek.topic}</h3>
+              <p style="font-size:13px; color:var(--text-muted); margin-top:6px; max-width:650px; line-height:1.5;">
+                Reinforce algorithmic intuition, time/space tradeoffs, and common edge cases for all techniques covered throughout this week. Flip through flashcards and self-rate before tomorrow's assessment.
+              </p>
+            </div>
+          </div>
+          <div class="weekend-banner-actions">
+            <button class="btn btn-primary" id="btn-launch-weekend-flashcards" data-topic="${currentWeek.topic}" style="background:linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); font-weight:800; padding:12px 24px; font-size:14px; box-shadow:0 6px 20px rgba(6,182,212,0.3);">
+              <i class="fa-solid fa-bolt"></i> Launch Weekly Flashcard Drill
+            </button>
+          </div>
+        </div>
+
+        <div class="section-title-wrap" style="margin-top:24px;">
+          <div>
+            <h3><i class="fa-solid fa-list-check" style="color:var(--primary);"></i> Week ${currentWeek.weekNumber} Mastered & In-Progress Problems (${weekProblems.length})</h3>
+            <span style="font-size:12px; color:var(--text-dim);">Review your mastery status across all problems introduced this week</span>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="problem-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">Done</th>
+                <th>Problem Title</th>
+                <th>Topic & Pattern</th>
+                <th>Difficulty</th>
+                <th>SRS Status & Next Due</th>
+                <th style="width: 130px;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${weekProblems.map(p => {
+                const state = userStates[p.id];
+                const dueInfo = SRSEngine.getDueStatus(state);
+                const isSolved = state && state.lastReviewed;
+                return `
+                  <tr class="${dueInfo.code === 'due' ? 'due-row' : dueInfo.code === 'mastered' ? 'mastered-row' : ''}">
+                    <td>
+                      <input type="checkbox" class="prob-checkbox" data-id="${p.id}" ${isSolved ? 'checked' : ''} style="cursor:pointer; width:16px; height:16px; accent-color:var(--primary);">
+                    </td>
+                    <td>
+                      <div class="problem-title-cell">
+                        <a href="${p.url || '#'}" target="_blank" class="problem-title">${p.title} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px; color:var(--text-dim);"></i></a>
+                        ${p.companies && p.companies.length ? `
+                          <div class="company-chip-wrap" style="margin-top:4px;">
+                            ${p.companies.slice(0, 2).map(c => `<span class="company-badge ${c.toLowerCase().replace(/[^a-z]/g, '')}">🏢 ${c}</span>`).join('')}
+                          </div>
+                        ` : ''}
+                      </div>
+                    </td>
+                    <td><strong>${p.topic}</strong><br><span style="font-size:11px; color:var(--text-dim);">${p.pattern || ''}</span></td>
+                    <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
+                    <td><span class="badge ${dueInfo.badgeClass}">${dueInfo.label}</span></td>
+                    <td>
+                      <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}">
+                        <i class="fa-solid fa-rotate"></i> Revise
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+      container.innerHTML = headerHtml;
+      return;
+    }
+
+    // Case 3: Normal Study Day (Days 1 to 5)
+    // Part A: Daily Target Problems
+    const targetProblems = RoadmapEngine.findProblems(allProblems, currentDay.problemKeywords || [], currentDay.topic, 4);
+
+    // Part B: Today's Due Spaced Revisions
+    const topicDueProblems = allProblems.filter(p => {
+      const state = userStates[p.id];
+      const isDue = SRSEngine.isDue(state);
+      const isTopicMatch = p.topic.toLowerCase().includes((currentDay.topic || '').toLowerCase());
+      return isDue && isTopicMatch;
+    });
+
+    const generalDueProblems = allProblems.filter(p => SRSEngine.isDue(userStates[p.id]) && !topicDueProblems.includes(p)).slice(0, 3);
+    const combinedDueRevisions = [...topicDueProblems, ...generalDueProblems];
+
+    headerHtml += `
+      <!-- Section 1: Today's Curated Target Problems -->
+      <div class="section-title-wrap" style="margin-top:20px;">
+        <div>
+          <h3><i class="fa-solid fa-crosshairs" style="color:var(--primary);"></i> 1. Today's Target Core Problems (${targetProblems.length})</h3>
+          <span style="font-size:12px; color:var(--text-dim);">Focus on implementing and understanding these curated pattern algorithms today</span>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="problem-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">Done</th>
+              <th>Problem Title</th>
+              <th>Pattern Focus</th>
+              <th>Difficulty</th>
+              <th>Sheets</th>
+              <th>SRS Interval</th>
+              <th style="width: 140px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${targetProblems.length === 0 ? `
+              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No specific problems matched. Explore all problems in the Explorer tab.</td></tr>
+            ` : targetProblems.map(p => {
+              const state = userStates[p.id];
+              const dueInfo = SRSEngine.getDueStatus(state);
+              const isSolved = state && state.lastReviewed;
+              const sheetsList = p.sheets || (p.sheet ? [p.sheet] : ['Custom']);
+
+              return `
+                <tr class="${dueInfo.code === 'due' ? 'due-row' : dueInfo.code === 'mastered' ? 'mastered-row' : ''}">
+                  <td>
+                    <input type="checkbox" class="prob-checkbox" data-id="${p.id}" ${isSolved ? 'checked' : ''} style="cursor:pointer; width:16px; height:16px; accent-color:var(--primary);">
+                  </td>
+                  <td>
+                    <div class="problem-title-cell">
+                      <a href="${p.url || '#'}" target="_blank" class="problem-title">${p.title} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px; color:var(--text-dim);"></i></a>
+                      ${p.companies && p.companies.length ? `
+                        <div class="company-chip-wrap" style="margin-top:4px;">
+                          ${p.companies.slice(0, 2).map(c => `<span class="company-badge ${c.toLowerCase().replace(/[^a-z]/g, '')}">🏢 ${c}</span>`).join('')}
+                        </div>
+                      ` : ''}
+                    </div>
+                  </td>
+                  <td><span style="font-size:12px; font-weight:600; color:#e2e8f0;">${p.pattern || 'Pattern Focus'}</span><br><span style="font-size:11px; color:var(--text-dim);">${p.topic}</span></td>
+                  <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
+                  <td>
+                    <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                      ${sheetsList.slice(0, 2).map(s => `<span class="badge badge-srs-upcoming" style="font-size:10px;">${s}</span>`).join('')}
+                    </div>
+                  </td>
+                  <td><span class="badge ${dueInfo.badgeClass}">${dueInfo.label}</span></td>
+                  <td>
+                    <div style="display:flex; gap:6px;">
+                      <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}" title="Solve & Log SRS Rating">
+                        <i class="fa-solid fa-rotate"></i> Rate
+                      </button>
+                      <button class="btn btn-secondary btn-sm btn-action-detail" data-id="${p.id}" title="View Notes & History">
+                        <i class="fa-solid fa-file-lines"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Section 2: Today's Due Spaced Revisions -->
+      <div class="section-title-wrap" style="margin-top:28px;">
+        <div>
+          <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-amber);"></i> 2. Today's Due Spaced Revisions (${combinedDueRevisions.length})</h3>
+          <span style="font-size:12px; color:var(--text-dim);">Prevent memory decay by clearing your due Spaced Repetition queue before moving on</span>
+        </div>
+      </div>
+
+      ${combinedDueRevisions.length === 0 ? `
+        <div style="background:rgba(16, 185, 129, 0.08); border:1px solid rgba(16, 185, 129, 0.25); border-radius:var(--radius-md); padding:18px 22px; display:flex; align-items:center; gap:16px;">
+          <div style="width:40px; height:40px; border-radius:50%; background:rgba(16,185,129,0.2); display:flex; align-items:center; justify-content:center; color:#34d399; font-size:18px;">
+            <i class="fa-solid fa-circle-check"></i>
+          </div>
+          <div>
+            <strong style="color:#34d399; font-size:14px;">All Caught Up on Revisions!</strong>
+            <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">You have 0 overdue spaced repetition items right now. Full focus on today's target problems above!</p>
+          </div>
+        </div>
+      ` : `
+        <div class="table-container">
+          <table class="problem-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">Done</th>
+                <th>Problem Title</th>
+                <th>Topic</th>
+                <th>Difficulty</th>
+                <th>SRS Status</th>
+                <th style="width: 130px;">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${combinedDueRevisions.map(p => {
+                const state = userStates[p.id];
+                const dueInfo = SRSEngine.getDueStatus(state);
+                return `
+                  <tr class="due-row">
+                    <td>
+                      <input type="checkbox" class="prob-checkbox" data-id="${p.id}" checked style="cursor:pointer; width:16px; height:16px; accent-color:var(--primary);">
+                    </td>
+                    <td>
+                      <a href="${p.url || '#'}" target="_blank" class="problem-title">${p.title} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px; color:var(--text-dim);"></i></a>
+                    </td>
+                    <td><strong>${p.topic}</strong></td>
+                    <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
+                    <td><span class="badge ${dueInfo.badgeClass}">${dueInfo.label}</span></td>
+                    <td>
+                      <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}">
+                        <i class="fa-solid fa-rotate"></i> Revise
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `}
+    `;
+
+    container.innerHTML = headerHtml;
+  }
+
+  function startWeekendExam(topic) {
+    let topicProblems = allProblems.filter(p => p.topic.toLowerCase().includes((topic || '').toLowerCase()));
+    if (topicProblems.length < 3) {
+      topicProblems = allProblems;
+    }
+
+    const easy = topicProblems.filter(p => p.difficulty === 'Easy');
+    const medium = topicProblems.filter(p => p.difficulty === 'Medium');
+    const hard = topicProblems.filter(p => p.difficulty === 'Hard');
+
+    const selected = [];
+    if (easy.length > 0) selected.push(easy[Math.floor(Math.random() * easy.length)]);
+    if (medium.length > 0) selected.push(medium[Math.floor(Math.random() * medium.length)]);
+    if (hard.length > 0) {
+      selected.push(hard[Math.floor(Math.random() * hard.length)]);
+    } else if (medium.length > 1) {
+      const medRemainder = medium.filter(p => !selected.includes(p));
+      if (medRemainder.length > 0) selected.push(medRemainder[Math.floor(Math.random() * medRemainder.length)]);
+    }
+
+    while (selected.length < 3 && topicProblems.length > selected.length) {
+      const remaining = topicProblems.filter(p => !selected.includes(p));
+      selected.push(remaining[Math.floor(Math.random() * remaining.length)]);
+    }
+
+    const testSession = {
+      id: 'weekend-exam-' + Date.now(),
+      date: new Date().toISOString(),
+      durationMinutes: 30,
+      topics: [topic || 'DSA Foundations'],
+      problems: selected.length > 0 ? selected : allProblems.slice(0, 3),
+      isWeekendDiagnostic: true
+    };
+
+    activeTestSession = testSession;
+    activeTestQuestionIndex = 0;
+    testAnswers = {};
+    testTimeRemainingSeconds = 30 * 60;
+    saveActiveExamState();
+
+    const listEl = document.getElementById('test-question-list');
+    if (listEl) {
+      listEl.innerHTML = '';
+      testSession.problems.forEach((p, idx) => {
+        const qDiv = document.createElement('div');
+        qDiv.className = `test-q-item ${idx === 0 ? 'active' : ''}`;
+        qDiv.dataset.idx = idx;
+        qDiv.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="font-size:13px;">Q${idx + 1}: ${p.title}</strong>
+            <span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-dim);">${p.topic}</div>
+        `;
+        qDiv.addEventListener('click', () => switchTestQuestion(idx));
+        listEl.appendChild(qDiv);
+      });
+    }
+
+    renderActiveTestQuestion();
+
+    if (testTimerInterval) clearInterval(testTimerInterval);
+    updateTimerDisplay();
+    testTimerInterval = setInterval(() => {
+      testTimeRemainingSeconds--;
+      updateTimerDisplay();
+      if (testTimeRemainingSeconds % 5 === 0) {
+        saveActiveExamState();
+      }
+      if (testTimeRemainingSeconds <= 0) {
+        clearInterval(testTimerInterval);
+        clearActiveExamState();
+        alert('Time is up! Submitting assessment for evaluation.');
+        finishMonthlyExam();
+      }
+    }, 1000);
+
+    document.getElementById('monthly-test-overlay')?.classList.add('open');
+  }
+
   // --- BACKUP & RESTORE ---
   function exportDataJSON() {
     const payload = {
@@ -1348,8 +1902,50 @@
       });
     });
 
-    // Delegate table actions (Solve checkbox, Rate, Details)
+    // Roadmap Track Switcher
+    document.getElementById('roadmap-track-select')?.addEventListener('change', (e) => {
+      if (!window.RoadmapEngine) return;
+      RoadmapEngine.progress.activeTrack = e.target.value;
+      RoadmapEngine.progress.selectedWeek = 1;
+      RoadmapEngine.progress.selectedDay = 1;
+      RoadmapEngine.saveProgress();
+      renderRoadmapView();
+    });
+
+    // Delegate table and roadmap actions (Solve checkbox, Rate, Details, Day Complete, Weekend Exam/Flashcards)
     document.body.addEventListener('click', (e) => {
+      const toggleDayBtn = e.target.closest('#btn-toggle-day-complete');
+      if (toggleDayBtn && window.RoadmapEngine) {
+        const track = toggleDayBtn.dataset.track;
+        const week = parseInt(toggleDayBtn.dataset.week, 10);
+        const day = parseInt(toggleDayBtn.dataset.day, 10);
+        RoadmapEngine.toggleDayCompleted(track, week, day);
+        renderRoadmapView();
+        renderActivityHeatmap();
+        renderDashboard();
+        return;
+      }
+
+      const launchExamBtn = e.target.closest('#btn-launch-weekend-exam');
+      if (launchExamBtn) {
+        const topic = launchExamBtn.dataset.topic;
+        startWeekendExam(topic);
+        return;
+      }
+
+      const launchFcBtn = e.target.closest('#btn-launch-weekend-flashcards');
+      if (launchFcBtn) {
+        const topic = launchFcBtn.dataset.topic;
+        document.querySelector('[data-view="flashcards"]')?.click();
+        const fcTopicSelect = document.getElementById('flashcard-filter-topic');
+        if (fcTopicSelect) {
+          fcTopicSelect.value = topic;
+        }
+        flashcardCurrentIndex = 0;
+        renderFlashcards();
+        return;
+      }
+
       const reviewBtn = e.target.closest('.btn-action-review');
       if (reviewBtn) {
         openRatingModal(reviewBtn.dataset.id);

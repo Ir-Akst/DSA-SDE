@@ -41,6 +41,12 @@
           <span>Dashboard & Streak</span>
         </div>
         
+        <div class="nav-item" data-view="roadmap">
+          <i class="fa-solid fa-map-location-dot"></i>
+          <span>Study Roadmap</span>
+          <span class="nav-badge new">Daily</span>
+        </div>
+        
         <div class="nav-item" data-view="problems">
           <i class="fa-solid fa-layer-group"></i>
           <span>Problem Sheets</span>
@@ -511,6 +517,79 @@
           </div>
         </div>
       </section>
+
+      <!-- ================= VIEW 7: STUDY ROADMAP & DAY-WISE PLAN ================= -->
+      <section id="view-roadmap" class="view-section">
+        <!-- Roadmap Hero Header & Active Track Selector -->
+        <div class="roadmap-hero-card">
+          <div class="roadmap-hero-main">
+            <div class="roadmap-hero-badge">
+              <i class="fa-solid fa-map-location-dot"></i>
+              <span>Structured Day-Wise Study Track</span>
+            </div>
+            <h2 id="roadmap-track-title">🚀 12-Week Zero-to-Hero Mastery</h2>
+            <p id="roadmap-track-subtitle">Complete 479 Striver A2Z roadmap from foundations to advanced algorithms with daily revisions</p>
+            
+            <div class="roadmap-stats-row">
+              <div class="roadmap-stat-item">
+                <span class="stat-num" id="roadmap-stat-progress">0%</span>
+                <span class="stat-txt">Track Progress</span>
+              </div>
+              <div class="roadmap-stat-item">
+                <span class="stat-num" id="roadmap-stat-days-done">0 / 84</span>
+                <span class="stat-txt">Days Completed</span>
+              </div>
+              <div class="roadmap-stat-item">
+                <span class="stat-num" id="roadmap-stat-active-focus">Basics & Math</span>
+                <span class="stat-txt">Current Topic</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="roadmap-hero-actions">
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Change Study Track:</label>
+            <select class="filter-select" id="roadmap-track-select" style="width:100%;">
+              <option value="striver_hero">🚀 12-Week Zero-to-Hero (479 Problems)</option>
+              <option value="faang_60">💼 8-Week FAANG Sprint (NeetCode & SDE)</option>
+              <option value="blind_30">⚡ 4-Week Blind 75 Crash Course</option>
+            </select>
+            <div class="roadmap-track-progress-bar">
+              <div class="roadmap-track-progress-fill" id="roadmap-track-progress-fill" style="width:0%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Horizontal Week Timeline Selector -->
+        <div class="section-title-wrap" style="margin-top:24px;">
+          <div>
+            <h2><i class="fa-solid fa-calendar-week" style="color:var(--primary);"></i> Week-by-Week Curriculum</h2>
+            <span style="font-size:12.5px; color:var(--text-dim);">Select a week to explore its daily topics, target problems, and weekend revision</span>
+          </div>
+        </div>
+        <div class="roadmap-weeks-scroll" id="roadmap-weeks-container">
+          <!-- Dynamically populated with Week Cards -->
+        </div>
+
+        <!-- Day Selector Pill Strip -->
+        <div class="roadmap-days-strip-card" style="margin-top:16px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+            <div style="font-size:14px; font-weight:700; color:#f8fafc;" id="roadmap-selected-week-heading">
+              Week 1: Foundations, Basic Math & Sorting
+            </div>
+            <div style="font-size:12px; color:var(--text-dim);" id="roadmap-week-progress-txt">
+              0 / 7 Days Complete
+            </div>
+          </div>
+          <div class="roadmap-days-pills" id="roadmap-days-pills-container">
+            <!-- Dynamically populated Day Pills -->
+          </div>
+        </div>
+
+        <!-- Active Day Planner Container -->
+        <div id="roadmap-active-day-content" style="margin-top:20px;">
+          <!-- Dynamically populated day details, target problems, due revisions, or weekend cards -->
+        </div>
+      </section>
     </main>
   </div>
 
@@ -883,6 +962,7 @@
   <!-- Scripts -->
   <script src="js/data/default-sheets.js"></script>
   <script src="js/srs-engine.js"></script>
+  <script src="js/roadmap-engine.js"></script>
   <script src="js/monthly-test.js"></script>
   <script src="js/charts.js"></script>
   <script src="js/app.js"></script>
