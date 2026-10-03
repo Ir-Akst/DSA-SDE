@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlgoRecall - Spaced Repetition & DSA Mastery Engine</title>
+  <meta name="description" content="Organize DSA roadmap, automated spaced repetition revision based on difficulty, monthly retention tests, and topic mastery analytics.">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">
+          <i class="fa-solid fa-brain"></i>
+        </div>
+        <div class="brand-text">
+          <h1>AlgoRecall</h1>
+          <span>SRS & DSA Engine</span>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <div class="nav-group-title">Core Workspace</div>
+        
+        <div class="nav-item active" data-view="dashboard">
+          <i class="fa-solid fa-gauge-high"></i>
+          <span>Dashboard & Streak</span>
+        </div>
+        
+        <div class="nav-item" data-view="problems">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Problem Sheets</span>
+          <span class="nav-badge" id="sidebar-total-badge">0</span>
+        </div>
+        
+        <div class="nav-item" data-view="revision">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <span>Revision Queue</span>
+          <span class="nav-badge due" id="sidebar-due-badge" style="display:none;">0</span>
+        </div>
+        
+        <div class="nav-item" data-view="flashcards">
+          <i class="fa-solid fa-bolt"></i>
+          <span>Flashcard Quiz</span>
+          <span class="nav-badge new">Quick</span>
+        </div>
+
+        <div class="nav-group-title">Evaluation & Mastery</div>
+        
+        <div class="nav-item" data-view="monthly-assessment">
+          <i class="fa-solid fa-award"></i>
+          <span>Monthly Test</span>
+        </div>
+        
+        <div class="nav-item" data-view="analytics">
+          <i class="fa-solid fa-chart-radar"></i>
+          <span>Topic Mastery</span>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="btn btn-primary" id="btn-open-add-modal" style="width:100%;">
+          <i class="fa-solid fa-plus"></i> Add Problem
+        </button>
+        <div class="sidebar-utility-row">
+          <button class="icon-utility-btn" id="btn-open-bulk-modal" title="Import Sheet / Presets">
+            <i class="fa-solid fa-cloud-arrow-down"></i> Import
+          </button>
+          <button class="icon-utility-btn" id="btn-export-data" title="Export Backup JSON">
+            <i class="fa-solid fa-download"></i> Backup
+          </button>
+          <button class="icon-utility-btn" id="btn-import-trigger" title="Restore JSON">
+            <i class="fa-solid fa-upload"></i> Restore
+          </button>
+          <input type="file" id="import-file-input" accept=".json" style="display:none;">
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Header -->
+      <header class="top-header">
+        <div class="header-search">
+          <i class="fa-solid fa-magnifying-glass search-icon"></i>
+          <input type="text" id="global-search-input" placeholder="Search problems, topics, patterns, companies (Google, Amazon)...">
+          <span class="search-kbd">/</span>
+        </div>
+        <div class="header-actions">
+          <div class="header-streak-pill" id="header-streak-indicator">
+            <i class="fa-solid fa-fire"></i>
+            <span>Active SRS Mode</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- ================= VIEW 1: DASHBOARD ================= -->
+      <section id="view-dashboard" class="view-section active">
+        <!-- Stats Summary Grid -->
+        <div class="stats-grid">
+          <div class="stat-card emerald-top">
+            <div class="stat-label">Total Solved <i class="fa-solid fa-check-double" style="color:var(--primary);"></i></div>
+            <div class="stat-value"><span id="stat-solved-count">0</span> <span class="stat-sub">/ <span id="stat-total-count">0</span></span></div>
+          </div>
+          <div class="stat-card amber-top">
+            <div class="stat-label">Due for Revision <i class="fa-solid fa-bell" style="color:var(--accent-amber);"></i></div>
+            <div class="stat-value" style="color:var(--accent-amber);" id="stat-due-count">0</div>
+          </div>
+          <div class="stat-card violet-top">
+            <div class="stat-label">Mastered (Stage 4+) <i class="fa-solid fa-trophy" style="color:var(--accent-violet);"></i></div>
+            <div class="stat-value" style="color:var(--accent-violet);" id="stat-mastered-count">0</div>
+          </div>
+          <div class="stat-card cyan-top">
+            <div class="stat-label">Overall Retention <i class="fa-solid fa-brain" style="color:var(--accent-cyan);"></i></div>
+            <div class="stat-value" style="color:var(--accent-cyan);" id="stat-retention-score">0%</div>
+          </div>
+        </div>
+
+        <!-- Today's Due Revision Banner -->
+        <div class="revision-banner" id="dashboard-revision-banner">
+          <div class="revision-banner-info">
+            <div class="revision-banner-icon"><i class="fa-solid fa-bell"></i></div>
+            <div>
+              <h3><span id="banner-due-count">0</span> Problems Due for Revision Today</h3>
+              <p>Keep your memory active! Consistent spaced repetition permanently cements patterns in long-term memory.</p>
+            </div>
+          </div>
+          <button class="btn btn-primary" id="btn-banner-start-review">Review Due Now</button>
+        </div>
+
+        <!-- Streak & Daily Activity Heatmap -->
+        <div class="activity-card">
+          <div class="activity-header">
+            <div>
+              <h3 style="font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-fire" style="color:#f59e0b;"></i> Daily Practice Streak & Revision Heatmap
+              </h3>
+              <span style="font-size:12px; color:var(--text-dim);">Spaced repetition and practice consistency logged across the last 52 weeks</span>
+            </div>
+            <div class="streak-badges">
+              <div class="streak-badge active-streak">
+                <i class="fa-solid fa-fire"></i>
+                <span><strong id="streak-current-count">1</strong> Day Active Streak</span>
+              </div>
+              <div class="streak-badge">
+                <i class="fa-solid fa-crown" style="color:#eab308;"></i>
+                <span><strong id="streak-max-count">1</strong> Day Record</span>
+              </div>
+            </div>
+          </div>
+          <div class="heatmap-scroll-wrap">
+            <div class="heatmap-grid" id="dashboard-heatmap-grid">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="heatmap-cell"></div>
+            <div class="heatmap-cell level-1"></div>
+            <div class="heatmap-cell level-2"></div>
+            <div class="heatmap-cell level-3"></div>
+            <div class="heatmap-cell level-4"></div>
+            <span>More</span>
+          </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fa-solid fa-chart-radar" style="color:var(--primary); margin-right:8px;"></i> Topic Mastery Radar</h3>
+              <span class="badge badge-easy">Live SRS Depth</span>
+            </div>
+            <div class="chart-container-box">
+              <canvas id="dashboard-radar-chart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fa-solid fa-chart-simple" style="color:var(--accent-blue); margin-right:8px;"></i> Topic Coverage & Progress</h3>
+              <span class="badge badge-srs-upcoming">Status Split</span>
+            </div>
+            <div class="chart-container-box">
+              <canvas id="dashboard-bar-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Access Priority Table -->
+        <div class="section-title-wrap">
+          <h2><i class="fa-solid fa-fire" style="color:var(--accent-amber);"></i> High Priority Review Queue</h2>
+          <button class="btn btn-secondary btn-sm" id="btn-see-all-revisions">View Full Queue</button>
+        </div>
+
+        <div class="table-container">
+          <table class="problem-table">
+            <thead>
+              <tr>
+                <th style="width: 90px;">Status</th>
+                <th>Problem Title</th>
+                <th>Topic & Pattern</th>
+                <th>Difficulty</th>
+                <th>Last Review</th>
+                <th style="width: 140px;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dashboard-priority-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 2: ALL PROBLEMS & SHEETS ================= -->
+      <section id="view-problems" class="view-section">
+        <div class="section-title-wrap">
+          <div>
+            <h2><i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> Curated Problem Explorer</h2>
+            <span style="font-size:12.5px; color:var(--text-dim);">Browse all 479 curated interview problems across top roadmaps & sheets</span>
+          </div>
+        </div>
+
+        <!-- Segmented Sheet Tabs on Top -->
+        <div class="sheet-pills-bar" id="sheet-pills-container">
+          <button class="sheet-pill active" data-sheet-val="all"><i class="fa-solid fa-border-all"></i> All Curated Sheets</button>
+          <button class="sheet-pill" data-sheet-val="Striver A2Z"><i class="fa-solid fa-rocket"></i> Striver's A2Z DSA</button>
+          <button class="sheet-pill" data-sheet-val="NeetCode 150"><i class="fa-solid fa-bolt"></i> NeetCode 150</button>
+          <button class="sheet-pill" data-sheet-val="Striver SDE"><i class="fa-solid fa-briefcase"></i> Striver's SDE Sheet</button>
+          <button class="sheet-pill" data-sheet-val="Blind 75"><i class="fa-solid fa-gem"></i> Blind 75</button>
+          <button class="sheet-pill" data-sheet-val="Custom"><i class="fa-solid fa-star"></i> Custom Added</button>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+          <div class="filter-group">
+            <select class="filter-select" id="filter-sheet" style="display:none;">
+              <option value="all">All Curated Sheets</option>
+              <option value="Striver A2Z">Striver's A2Z Sheet</option>
+              <option value="NeetCode 150">NeetCode 150</option>
+              <option value="Striver SDE">Striver's SDE Sheet</option>
+              <option value="Blind 75">Blind 75</option>
+              <option value="Custom">Custom Added</option>
+            </select>
+
+            <select class="filter-select" id="filter-company">
+              <option value="all">🏢 All Companies</option>
+              <option value="Google">Google</option>
+              <option value="Amazon">Amazon</option>
+              <option value="Microsoft">Microsoft</option>
+              <option value="Meta">Meta / Facebook</option>
+              <option value="Apple">Apple</option>
+              <option value="Bloomberg">Bloomberg</option>
+              <option value="Goldman Sachs">Goldman Sachs</option>
+              <option value="Uber">Uber</option>
+              <option value="Adobe">Adobe</option>
+              <option value="Flipkart">Flipkart</option>
+              <option value="TCS">TCS / Infosys</option>
+            </select>
+
+            <select class="filter-select" id="filter-topic">
+              <option value="all">All Topics</option>
+              <!-- Populated dynamically -->
+            </select>
+
+            <select class="filter-select" id="filter-difficulty">
+              <option value="all">All Difficulties</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+
+            <select class="filter-select" id="filter-status">
+              <option value="all">All Statuses</option>
+              <option value="due">Due / Overdue</option>
+              <option value="in-progress">In Progress</option>
+              <option value="mastered">Mastered</option>
+              <option value="unsolved">Unsolved</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Problem Table -->
+        <div class="table-container">
+          <table class="problem-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">Solve</th>
+                <th>Problem Title</th>
+                <th>Topic & Pattern</th>
+                <th>Difficulty</th>
+                <th>Sheet</th>
+                <th>Next Revision</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="all-problems-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 3: REVISION QUEUE ================= -->
+      <section id="view-revision" class="view-section">
+        <div class="section-title-wrap">
+          <div>
+            <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-amber);"></i> Spaced Repetition Review Queue</h2>
+            <span style="font-size:12.5px; color:var(--text-dim);">Scientifically timed intervals to prevent forgetting curve decay</span>
+          </div>
+          <div class="filter-group">
+            <button class="filter-chip active" data-revision-filter="due">Due & Overdue</button>
+            <button class="filter-chip" data-revision-filter="upcoming">Upcoming (Next 7 Days)</button>
+            <button class="filter-chip" data-revision-filter="mastered">Mastered Archive</button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="problem-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Problem Title</th>
+                <th>Topic</th>
+                <th>Difficulty</th>
+                <th>Stage & Interval</th>
+                <th>Due Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="revision-queue-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 4: MONTHLY ASSESSMENT ================= -->
+      <section id="view-monthly-assessment" class="view-section">
+        <div class="section-title-wrap">
+          <div>
+            <h2><i class="fa-solid fa-award" style="color:var(--accent-violet);"></i> Monthly Revision Assessment</h2>
+            <span style="font-size:12.5px; color:var(--text-dim);">Comprehensive 60-minute retention exam testing both covered questions and unseen problem patterns</span>
+          </div>
+          <button class="btn btn-monthly" id="btn-start-monthly-test">
+            <i class="fa-solid fa-play"></i> Start New 5-Question Exam
+          </button>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card violet-top">
+            <div class="stat-label">Tests Completed</div>
+            <div class="stat-value" id="test-stat-completed">0</div>
+          </div>
+          <div class="stat-card emerald-top">
+            <div class="stat-label">Average Score</div>
+            <div class="stat-value" id="test-stat-avg">0%</div>
+          </div>
+          <div class="stat-card amber-top">
+            <div class="stat-label">Last Grade</div>
+            <div class="stat-value" id="test-stat-last-grade">-</div>
+          </div>
+        </div>
+
+        <div class="section-title-wrap" style="margin-top:28px;">
+          <h2><i class="fa-solid fa-history" style="color:var(--accent-cyan);"></i> Previous Assessment History</h2>
+        </div>
+
+        <div class="table-container">
+          <table class="problem-table">
+            <thead>
+              <tr>
+                <th>Test Date</th>
+                <th>Score</th>
+                <th>Grade</th>
+                <th>Summary</th>
+              </tr>
+            </thead>
+            <tbody id="monthly-test-history-tbody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ================= VIEW 5: TOPIC MASTERY & ANALYTICS ================= -->
+      <section id="view-analytics" class="view-section">
+        <div class="section-title-wrap">
+          <div>
+            <h2><i class="fa-solid fa-chart-pie" style="color:var(--primary);"></i> In-Depth Topic Mastery Matrix</h2>
+            <span style="font-size:12.5px; color:var(--text-dim);">Detailed strength vs decay breakdown across all 16 core algorithm domains</span>
+          </div>
+        </div>
+
+        <div class="charts-grid">
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fa-solid fa-chart-radar" style="color:var(--primary); margin-right:8px;"></i> Multi-Topic Radar Strength</h3>
+            </div>
+            <div class="chart-container-box">
+              <canvas id="analytics-radar-chart"></canvas>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <div class="chart-header">
+              <h3><i class="fa-solid fa-pie-chart" style="color:var(--accent-amber); margin-right:8px;"></i> Difficulty Solved Ratio</h3>
+            </div>
+            <div class="chart-container-box">
+              <canvas id="analytics-doughnut-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title-wrap">
+          <h2><i class="fa-solid fa-shield-halved" style="color:var(--accent-cyan);"></i> Topic Health & Decay Status</h2>
+        </div>
+        <div class="topic-matrix-grid" id="topic-matrix-container">
+          <!-- Dynamically populated -->
+        </div>
+      </section>
+
+      <!-- ================= VIEW 6: FLASHCARD QUIZ ================= -->
+      <section id="view-flashcards" class="view-section">
+        <div class="section-title-wrap">
+          <div>
+            <h2><i class="fa-solid fa-bolt" style="color:var(--accent-cyan);"></i> Flashcard Intuition Mode</h2>
+            <span style="font-size:12.5px; color:var(--text-dim);">Test your quick algorithmic intuition and recall before flipping the card to check optimal complexity & gotchas</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <select class="filter-select" id="flashcard-filter-topic">
+              <option value="due">Problems Due for Review</option>
+              <option value="all">All Master Problems</option>
+            </select>
+            <button class="btn btn-secondary btn-sm" id="btn-flashcard-prev"><i class="fa-solid fa-arrow-left"></i> Prev</button>
+            <button class="btn btn-secondary btn-sm" id="btn-flashcard-next">Next <i class="fa-solid fa-arrow-right"></i></button>
+          </div>
+        </div>
+
+        <div style="margin-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; max-width:680px; margin:0 auto 12px; font-size:12.5px; color:var(--text-muted);">
+            <span>Card <strong id="flashcard-current-index" style="color:#fff;">1</strong> of <strong id="flashcard-total-count" style="color:#fff;">0</strong></span>
+            <span id="flashcard-deck-name" class="badge badge-srs-due">Due for Review Deck</span>
+          </div>
+
+          <div class="flashcard-wrap" id="flashcard-container">
+            <div class="flashcard-inner" id="flashcard-card">
+              <!-- Front Face -->
+              <div class="flashcard-face flashcard-front">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                  <span class="badge" id="fc-front-diff">Medium</span>
+                  <div class="company-chip-wrap" id="fc-front-companies"></div>
+                </div>
+                <div style="text-align:center; padding: 24px 0;">
+                  <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--accent-violet); font-weight:700;" id="fc-front-topic">Dynamic Programming</span>
+                  <h2 style="font-size:24px; margin-top:8px; font-weight:700; color:#f8fafc;" id="fc-front-title">Problem Title</h2>
+                  <p style="font-size:13.5px; color:var(--text-muted); margin-top:10px;" id="fc-front-pattern">Pattern: 2D Grid DP</p>
+                </div>
+                <div class="flashcard-hint">
+                  <i class="fa-solid fa-hand-pointer"></i> Click anywhere on this card to flip & reveal optimal solution
+                </div>
+              </div>
+
+              <!-- Back Face -->
+              <div class="flashcard-face flashcard-back">
+                <div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:10px;">
+                    <strong style="color:var(--primary); font-size:15px;" id="fc-back-title">Problem Title</strong>
+                    <a id="fc-back-link" href="#" target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;" onclick="event.stopPropagation();"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open Problem</a>
+                  </div>
+                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0;">
+                    <div style="background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                      <div style="font-size:11px; color:var(--text-dim);">Time Complexity</div>
+                      <div style="font-weight:700; color:#38bdf8; font-size:13.5px;" id="fc-back-time">O(N)</div>
+                    </div>
+                    <div style="background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                      <div style="font-size:11px; color:var(--text-dim);">Space Complexity</div>
+                      <div style="font-weight:700; color:#c084fc; font-size:13.5px;" id="fc-back-space">O(1)</div>
+                    </div>
+                  </div>
+                  <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; color:#e2e8f0; max-height:140px; overflow-y:auto;" id="fc-back-notes">
+                    Key intuition and algorithmic approach details...
+                  </div>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;" onclick="event.stopPropagation();">
+                  <div style="font-size:11.5px; color:var(--text-dim); text-align:center;">Rate your recall to update Spaced Repetition:</div>
+                  <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                    <button class="btn btn-sm btn-fc-rate" data-fc-rating="simple" style="background:rgba(16,185,129,0.2); color:#34d399; border:1px solid #10b981;">Easy (+7d)</button>
+                    <button class="btn btn-sm btn-fc-rate" data-fc-rating="medium" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid #f59e0b;">Med (+3d)</button>
+                    <button class="btn btn-sm btn-fc-rate" data-fc-rating="hard" style="background:rgba(244,63,94,0.2); color:#fb7185; border:1px solid #f43f5e;">Hard (+1d)</button>
+                    <button class="btn btn-sm btn-fc-rate" data-fc-rating="failed" style="background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid #ef4444;">Blank (24h)</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ================= MODAL: SRS RATING / LOG REVIEW ================= -->
+  <div class="modal-backdrop" id="srs-rating-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h3 id="modal-rating-title" style="font-size: 16px; font-weight:700;">Rate Problem Recall</h3>
+          <span style="font-size:12px; color:var(--text-dim);" id="modal-rating-subtitle">Two Sum • Easy</span>
+        </div>
+        <button class="modal-close" id="btn-close-rating-modal">&times;</button>
+      </div>
+
+      <p style="font-size:13px; color:var(--text-muted);">
+        Select how challenging this problem felt. The algorithm will dynamically schedule your next revision:
+      </p>
+
+      <div class="rating-grid">
+        <button class="rating-btn simple" data-rating="simple">
+          <span class="rating-btn-title" style="color:#10b981;"><i class="fa-solid fa-face-smile"></i> Simple / Easy</span>
+          <span class="rating-btn-desc">Solved effortlessly, optimal complexity with 0 hints.</span>
+          <span class="rating-btn-interval">+7 Days Interval (Stage +1)</span>
+        </button>
+
+        <button class="rating-btn medium" data-rating="medium">
+          <span class="rating-btn-title" style="color:#f59e0b;"><i class="fa-solid fa-face-meh"></i> Medium / Moderate</span>
+          <span class="rating-btn-desc">Solved with minor struggle / recalled core pattern.</span>
+          <span class="rating-btn-interval">+3 Days Interval (Stage +1)</span>
+        </button>
+
+        <button class="rating-btn hard" data-rating="hard">
+          <span class="rating-btn-title" style="color:#f43f5e;"><i class="fa-solid fa-face-frown"></i> Hard / Challenging</span>
+          <span class="rating-btn-desc">Needed hints or struggled with edge cases & DP transitions.</span>
+          <span class="rating-btn-interval">+1 Day (Tomorrow)</span>
+        </button>
+
+        <button class="rating-btn failed" data-rating="failed">
+          <span class="rating-btn-title" style="color:#ef4444;"><i class="fa-solid fa-face-dizzy"></i> Blank / Failed</span>
+          <span class="rating-btn-desc">Could not solve; had to look up full editorial.</span>
+          <span class="rating-btn-interval">Reset to Stage 1 (Review Tomorrow)</span>
+        </button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Optional Revision Notes / Insights:</label>
+        <input type="text" id="rating-modal-notes" class="filter-select" placeholder="e.g., Remember to handle edge case of empty string..." style="width:100%;">
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: ADD / EDIT PROBLEM ================= -->
+  <div class="modal-backdrop" id="add-problem-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 style="font-size:16px; font-weight:700;">Add Custom DSA Problem</h3>
+        <button class="modal-close" id="btn-close-add-modal">&times;</button>
+      </div>
+
+      <form id="add-problem-form" style="display:flex; flex-direction:column; gap:14px;">
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Problem Title *</label>
+          <input type="text" id="input-prob-title" class="filter-select" placeholder="e.g., Longest Repeating Character Replacement" required style="width:100%;">
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Difficulty *</label>
+            <select id="input-prob-difficulty" class="filter-select" style="width:100%;">
+              <option value="Easy">Easy</option>
+              <option value="Medium" selected>Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Topic *</label>
+            <input type="text" id="input-prob-topic" class="filter-select" placeholder="e.g., Sliding Window & Two Pointers" required style="width:100%;">
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Core Pattern / Category</label>
+            <input type="text" id="input-prob-pattern" class="filter-select" placeholder="e.g., Frequency Map Sliding Window" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Sheet Tags (Comma-separated)</label>
+            <input type="text" id="input-prob-sheet" class="filter-select" placeholder="e.g., Striver A2Z, NeetCode 150" value="Custom" style="width:100%;">
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">LeetCode / Problem URL</label>
+          <input type="url" id="input-prob-url" class="filter-select" placeholder="https://leetcode.com/problems/..." style="width:100%;">
+        </div>
+
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Key Intuition & Gotchas</label>
+          <textarea id="input-prob-notes" class="code-editor-area" style="min-height:80px;" placeholder="Optimal approach intuition, pitfalls, edge cases..."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:6px;">Save Problem</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: BULK ADD / 1-CLICK PRESETS ================= -->
+  <div class="modal-backdrop" id="bulk-add-modal">
+    <div class="modal-box" style="max-width:720px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size:16px; font-weight:700;"><i class="fa-solid fa-cloud-arrow-down" style="color:var(--accent-cyan);"></i> Import Sheet / Fetch from URL</h3>
+          <span style="font-size:12px; color:var(--text-dim);">1-Click load verified sheets or paste multiline problem lists</span>
+        </div>
+        <button class="modal-close" id="btn-close-bulk-modal">&times;</button>
+      </div>
+
+      <!-- Mode Selector Tabs -->
+      <div style="display:flex; gap:10px; border-bottom:1px solid var(--border-color); padding-bottom:10px; flex-wrap:wrap;">
+        <button type="button" class="btn btn-monthly btn-sm active" id="tab-presets-btn" style="border-color:var(--accent-violet);">
+          <i class="fa-solid fa-star"></i> 1-Click Verified Presets
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="tab-sync-device-btn">
+          <i class="fa-solid fa-mobile-screen-button"></i> ⚡ Cross-Device Sync
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="tab-paste-text-btn">
+          <i class="fa-solid fa-paste"></i> Paste Problem List
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" id="tab-fetch-url-btn">
+          <i class="fa-solid fa-globe"></i> Custom URL Fetcher
+        </button>
+      </div>
+
+      <!-- Form: Cross-Device Quick Sync -->
+      <div id="device-sync-container" style="display:none; flex-direction:column; gap:14px;">
+        <div style="background:linear-gradient(135deg, rgba(6, 182, 212, 0.12), rgba(16, 185, 129, 0.12)); border:1px solid rgba(6, 182, 212, 0.3); border-radius:var(--radius-md); padding:14px; font-size:13px; color:#e2e8f0; line-height:1.6;">
+          <div style="font-weight:700; color:#38bdf8; margin-bottom:4px; font-size:14px;">
+            <i class="fa-solid fa-cloud-arrow-up"></i> Seamless Multi-Device Sync (Zero Server / 100% Free)
+          </div>
+          Transfer all your solved problems, spaced repetition intervals, review history, and streaks to your phone or laptop in 1 click!
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <!-- Card 1: Export Sync Code -->
+          <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px; display:flex; flex-direction:column; gap:10px;">
+            <strong style="font-size:14px; color:#f8fafc;"><i class="fa-solid fa-arrow-up-from-bracket" style="color:var(--primary);"></i> Send Progress to Another Device</strong>
+            <span style="font-size:12px; color:var(--text-muted);">Generate an instant sync code or copy a shareable link to open on your phone:</span>
+            
+            <button type="button" class="btn btn-primary btn-sm" id="btn-copy-sync-code" style="width:100%; margin-top:auto;">
+              <i class="fa-solid fa-copy"></i> Copy 1-Click Sync Code
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btn-copy-sync-link" style="width:100%;">
+              <i class="fa-solid fa-link"></i> Copy Direct Sync URL
+            </button>
+          </div>
+
+          <!-- Card 2: Import Sync Code -->
+          <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px; display:flex; flex-direction:column; gap:10px;">
+            <strong style="font-size:14px; color:#f8fafc;"><i class="fa-solid fa-arrow-down-to-bracket" style="color:var(--accent-cyan);"></i> Receive Progress on This Device</strong>
+            <span style="font-size:12px; color:var(--text-muted);">Paste the sync code from your other device below:</span>
+            
+            <input type="text" id="input-sync-code-paste" class="filter-select" placeholder="Paste sync code here..." style="width:100%; font-size:12px; font-family:'JetBrains Mono', monospace;">
+            <button type="button" class="btn btn-monthly btn-sm" id="btn-apply-sync-code" style="width:100%;">
+              <i class="fa-solid fa-bolt"></i> Apply & Sync Progress
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form 0: 1-Click Verified Sheet Presets -->
+      <div id="preset-sheets-container" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="background:linear-gradient(135deg, rgba(139, 92, 246, 0.12), rgba(6, 182, 212, 0.12)); border:1px solid rgba(139, 92, 246, 0.3); border-radius:var(--radius-md); padding:14px; font-size:13px; color:#e2e8f0; line-height:1.6;">
+          <div style="font-weight:700; color:#c084fc; margin-bottom:4px; font-size:14px;">
+            <i class="fa-solid fa-bolt"></i> Instant 1-Click Sheet Loaders
+          </div>
+          Select any curated roadmap below to instantly sync and explore all questions with topics, patterns, company tags, and LeetCode links:
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+          <button type="button" class="btn btn-secondary btn-preset-load" data-preset="striver-a2z" style="padding:16px; text-align:left; display:flex; flex-direction:column; align-items:flex-start; gap:4px; border-color:rgba(139, 92, 246, 0.4); background:rgba(139, 92, 246, 0.08);">
+            <strong style="color:#c084fc; font-size:14px;">🚀 Complete Striver's A2Z Sheet</strong>
+            <span style="font-size:11.5px; color:var(--text-muted);">Full Step 1 to Step 18 roadmap (Arrays, Trees, Graphs, DP, BS, Tries)</span>
+            <span class="badge badge-srs-due" style="margin-top:6px;">478+ Questions</span>
+          </button>
+
+          <button type="button" class="btn btn-secondary btn-preset-load" data-preset="neetcode-150" style="padding:16px; text-align:left; display:flex; flex-direction:column; align-items:flex-start; gap:4px; border-color:rgba(16, 185, 129, 0.4); background:rgba(16, 185, 129, 0.08);">
+            <strong style="color:#34d399; font-size:14px;">⚡ NeetCode 150 & Blind 75</strong>
+            <span style="font-size:11.5px; color:var(--text-muted);">Pattern-based interview essentials across all top data structures</span>
+            <span class="badge badge-easy" style="margin-top:6px;">174+ Questions</span>
+          </button>
+
+          <button type="button" class="btn btn-secondary btn-preset-load" data-preset="striver-sde" style="padding:16px; text-align:left; display:flex; flex-direction:column; align-items:flex-start; gap:4px; border-color:rgba(6, 182, 212, 0.4); background:rgba(6, 182, 212, 0.08);">
+            <strong style="color:#38bdf8; font-size:14px;">💼 Striver's SDE Top 190 Sheet</strong>
+            <span style="font-size:11.5px; color:var(--text-muted);">The most asked coding interview problems by Google, Amazon, Microsoft</span>
+            <span class="badge badge-srs-upcoming" style="margin-top:6px;">166+ Questions</span>
+          </button>
+
+          <button type="button" class="btn btn-secondary btn-preset-load" data-preset="all-combined" style="padding:16px; text-align:left; display:flex; flex-direction:column; align-items:flex-start; gap:4px; border-color:rgba(245, 158, 11, 0.4); background:rgba(245, 158, 11, 0.08);">
+            <strong style="color:#fbbf24; font-size:14px;">🌟 All Curated Sheets Combined</strong>
+            <span style="font-size:11.5px; color:var(--text-muted);">The ultimate master repository with zero duplicates & verified tags</span>
+            <span class="badge badge-medium" style="margin-top:6px;">479 Master Problems</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Form 1: Live Web URL Fetcher -->
+      <form id="fetch-url-form" style="display:none; flex-direction:column; gap:14px;">
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Webpage URL to Extract From *</label>
+          <input type="url" id="input-fetch-url" class="filter-select" placeholder="https://takeuforward.org/dsa/..." required style="width:100%;">
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Target Sheet Label</label>
+            <input type="text" id="fetch-input-sheet" class="filter-select" value="Striver A2Z" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Default Topic</label>
+            <input type="text" id="fetch-input-topic" class="filter-select" placeholder="e.g. Dynamic Programming" style="width:100%;">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-monthly" id="btn-submit-fetch-url" style="width:100%; padding:11px;">
+          <i class="fa-solid fa-bolt"></i> Fetch & Extract Problems Now
+        </button>
+      </form>
+
+      <!-- Form 2: Manual Multi-line Paste -->
+      <form id="bulk-add-form" style="display:none; flex-direction:column; gap:14px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;">
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Default Topic *</label>
+            <input type="text" id="bulk-input-topic" class="filter-select" placeholder="e.g. Graphs" value="General" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Default Difficulty</label>
+            <select id="bulk-input-difficulty" class="filter-select" style="width:100%;">
+              <option value="Medium">Medium</option>
+              <option value="Easy">Easy</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Sheet Tag</label>
+            <input type="text" id="bulk-input-sheet" class="filter-select" value="Striver A2Z" style="width:100%;">
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">
+            Paste Problem Titles or LeetCode URLs (1 per line):
+          </label>
+          <textarea id="bulk-input-text" class="code-editor-area" style="min-height:140px;" placeholder="Two Sum&#10;https://leetcode.com/problems/3sum/&#10;Trapping Rain Water"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%; padding:11px;">
+          <i class="fa-solid fa-plus"></i> Import All Problems
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: PROBLEM DETAILS / NOTES ================= -->
+  <div class="modal-backdrop" id="problem-detail-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div>
+          <h3 id="detail-modal-title" style="font-size: 16px; font-weight:700;">Problem Details</h3>
+          <span style="font-size:12px; color:var(--text-dim);" id="detail-modal-meta">Array • Medium</span>
+        </div>
+        <button class="modal-close" id="btn-close-detail-modal">&times;</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span class="badge" id="detail-modal-status-badge">Unsolved</span>
+          <a id="detail-modal-url" href="#" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open LeetCode</a>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div style="background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+            <div style="font-size:11px; color:var(--text-dim);">Time Complexity</div>
+            <div style="font-weight:700; color:#38bdf8; font-size:13.5px;" id="detail-modal-time">O(N)</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+            <div style="font-size:11px; color:var(--text-dim);">Space Complexity</div>
+            <div style="font-weight:700; color:#c084fc; font-size:13.5px;" id="detail-modal-space">O(1)</div>
+          </div>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.03); padding:12px 14px; border-radius:var(--radius-md); border:1px solid var(--border-color);">
+          <div style="font-size:11px; color:var(--text-dim); margin-bottom:4px;">Companies Tagged:</div>
+          <div class="company-chip-wrap" id="detail-modal-companies">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Key Intuition & Gotchas:</label>
+          <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:var(--radius-md); padding:12px; font-size:13px; line-height:1.5; color:#e2e8f0;" id="detail-modal-notes">
+            No notes logged yet.
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
+        <button class="btn btn-primary" id="btn-detail-trigger-review">Log New Review</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MONTHLY TEST COCKPIT ================= -->
+  <div class="test-cockpit" id="monthly-test-cockpit">
+    <div class="test-top-bar">
+      <div style="display:flex; align-items:center; gap:14px;">
+        <h3 style="font-size:16px; font-weight:700;"><i class="fa-solid fa-award" style="color:var(--accent-violet);"></i> Monthly Revision Assessment</h3>
+        <span class="badge badge-srs-upcoming" id="test-question-counter">Question 1 of 5</span>
+      </div>
+
+      <div class="test-timer" id="test-countdown-display">
+        60:00
+      </div>
+
+      <button class="btn btn-primary" id="btn-finish-test">
+        <i class="fa-solid fa-flag-checkered"></i> Finish & Grade Test
+      </button>
+    </div>
+
+    <div class="test-body">
+      <!-- Left sidebar with question selector -->
+      <div class="test-sidebar" id="test-question-list">
+        <!-- Dynamically populated -->
+      </div>
+
+      <!-- Main workspace for current question -->
+      <div class="test-workspace">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <h2 style="font-size:22px; font-weight:700; margin-bottom:6px;" id="test-active-title">Question Title</h2>
+            <div style="display:flex; gap:8px;" id="test-active-badges"></div>
+          </div>
+          <a id="test-active-link" href="#" target="_blank" class="btn btn-secondary btn-sm">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Open LeetCode Tab
+          </a>
+        </div>
+
+        <div>
+          <label style="font-size:13px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">
+            Scratchpad & Algorithmic Notes (Write your approach, dry-run, and optimal logic):
+          </label>
+          <textarea id="test-scratchpad-area" class="code-editor-area" style="min-height:160px;" placeholder="// 1. Brute Force logic&#10;// 2. Optimal approach & pattern&#10;// 3. Edge cases handled..."></textarea>
+        </div>
+
+        <div>
+          <label style="font-size:13px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">
+            Rate your Recall / Solving Ease for this question:
+          </label>
+          <div class="rating-grid" style="max-width:500px;" id="test-q-rating-options">
+            <button class="rating-btn simple" data-test-rating="simple">🟢 Simple / Full Recall</button>
+            <button class="rating-btn medium" data-test-rating="medium">🟡 Medium / Minor Doubt</button>
+            <button class="rating-btn hard" data-test-rating="hard">🔴 Hard / Needed Hints</button>
+            <button class="rating-btn failed" data-test-rating="failed">⚠️ Failed / Blank</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/data/default-sheets.js"></script>
+  <script src="js/srs-engine.js"></script>
+  <script src="js/monthly-test.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
