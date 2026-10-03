@@ -641,6 +641,85 @@
     </div>
   </div>
 
+  <!-- ================= MODAL: SWITCH TOPIC OR MIX MULTIPLE TOPICS ================= -->
+  <div class="modal-backdrop" id="switch-day-topic-modal">
+    <div class="modal-box" style="max-width: 600px;">
+      <div class="modal-header">
+        <div>
+          <h3 style="font-size: 16px; font-weight:700;"><i class="fa-solid fa-shuffle" style="color:var(--primary); margin-right:6px;"></i> Customize Daily Topic & Mixed Workout</h3>
+          <span style="font-size:12px; color:var(--text-dim);" id="modal-switch-topic-subtitle">Day Topic Customization</span>
+        </div>
+        <button class="modal-close" id="btn-close-switch-topic-modal">&times;</button>
+      </div>
+
+      <!-- Segmented Tab Controls -->
+      <div style="display:flex; gap:8px; margin: 12px 0 16px; border-bottom:1px solid var(--border-color); padding-bottom:10px;">
+        <button class="btn btn-sm btn-secondary active" id="tab-switch-single-topic-btn" style="flex:1;">
+          <i class="fa-solid fa-arrow-right-arrow-left"></i> Switch Single Topic
+        </button>
+        <button class="btn btn-sm btn-secondary" id="tab-mix-multi-topics-btn" style="flex:1;">
+          <i class="fa-solid fa-layer-group"></i> Mix Multiple Topics (Blend)
+        </button>
+      </div>
+
+      <!-- Mode 1: Switch Single Topic Form -->
+      <div id="container-switch-single-topic">
+        <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Choose a specific topic to practice today:</label>
+        <select class="filter-select" id="select-switch-day-topic" style="width:100%; margin-bottom:16px;">
+          <!-- Populated dynamically with all canonical topics -->
+        </select>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+          <button class="btn btn-secondary btn-sm" id="btn-reset-to-default-topic" style="color:#fb7185;">
+            <i class="fa-solid fa-arrow-rotate-left"></i> Reset to Roadmap Default
+          </button>
+          <button class="btn btn-primary" id="btn-apply-single-topic">
+            <i class="fa-solid fa-check"></i> Apply Topic to Today
+          </button>
+        </div>
+      </div>
+
+      <!-- Mode 2: Multi-Topic Problem Mixer Form -->
+      <div id="container-mix-multi-topics" style="display:none;">
+        <p style="font-size:12.5px; color:var(--text-muted); margin-bottom:12px;">
+          Select 2 or more topics below to blend into today's practice set. Questions will be dynamically pulled across your selected topics.
+        </p>
+
+        <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Select Topics to Mix:</label>
+        <div class="topic-mixer-pills" id="topic-mixer-pills-container" style="display:flex; flex-wrap:wrap; gap:6px; max-height:170px; overflow-y:auto; padding:10px; background:rgba(0,0,0,0.25); border-radius:var(--radius-sm); border:1px solid var(--border-color); margin-bottom:14px;">
+          <!-- Populated dynamically with topic checkboxes -->
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;">
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Difficulty Pacing</label>
+            <select class="filter-select" id="select-mixer-difficulty" style="width:100%;">
+              <option value="balanced" selected>🎯 Balanced Mix (1 Easy + 2 Mediums)</option>
+              <option value="Medium">⚡ Medium Focus (2-3 Mediums)</option>
+              <option value="Hard">🔥 Hard Challenge (1-2 Hards)</option>
+              <option value="Easy">🌱 Easy Warmup (3-4 Easies)</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:4px;">Problem Count</label>
+            <select class="filter-select" id="select-mixer-count" style="width:100%;">
+              <option value="auto" selected>Auto (Difficulty Weighted)</option>
+              <option value="2">2 Problems (~40m)</option>
+              <option value="3">3 Problems (~60m)</option>
+              <option value="4">4 Problems (~80m)</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:var(--text-dim);" id="mixer-selection-count-txt">0 topics selected</span>
+          <button class="btn btn-primary" id="btn-generate-mixed-day-workout">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Generate & Apply Mix
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ================= MODAL: ADD / EDIT PROBLEM ================= -->
   <div class="modal-backdrop" id="add-problem-modal">
     <div class="modal-box">

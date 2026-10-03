@@ -28,7 +28,10 @@
         activeTrack: 'striver_hero',
         selectedWeek: 1,
         selectedDay: 1,
-        completedDays: {} // e.g. { 'striver_hero_w1_d1': true }
+        completedDays: {}, // e.g. { 'striver_hero_w1_d1': true }
+        deferredRollovers: {},
+        customDayTopics: {}, // key `${trackId}_w${w}_d${d}` -> string (single topic) or array of strings (mixed topics)
+        customDayWorkouts: {} // key `${trackId}_w${w}_d${d}` -> { topics: [...], problemIds: [...] }
       };
     },
 
@@ -53,6 +56,43 @@
     isDayCompleted(trackId, weekNum, dayNum) {
       const key = `${trackId}_w${weekNum}_d${dayNum}`;
       return !!this.progress.completedDays[key];
+    },
+
+    setDayCustomTopic(trackId, weekNum, dayNum, topicOrTopics) {
+      if (!this.progress) this.initProgress();
+      if (!this.progress.customDayTopics) this.progress.customDayTopics = {};
+      const key = `${trackId}_w${weekNum}_d${dayNum}`;
+      this.progress.customDayTopics[key] = topicOrTopics;
+      if (this.progress.customDayWorkouts) delete this.progress.customDayWorkouts[key];
+      this.saveProgress();
+    },
+
+    getDayCustomTopic(trackId, weekNum, dayNum) {
+      if (!this.progress || !this.progress.customDayTopics) return null;
+      const key = `${trackId}_w${weekNum}_d${dayNum}`;
+      return this.progress.customDayTopics[key] || null;
+    },
+
+    resetDayTopic(trackId, weekNum, dayNum) {
+      if (!this.progress) this.initProgress();
+      const key = `${trackId}_w${weekNum}_d${dayNum}`;
+      if (this.progress.customDayTopics) delete this.progress.customDayTopics[key];
+      if (this.progress.customDayWorkouts) delete this.progress.customDayWorkouts[key];
+      this.saveProgress();
+    },
+
+    saveCustomDayMixedWorkout(trackId, weekNum, dayNum, problemIds, selectedTopics = []) {
+      if (!this.progress) this.initProgress();
+      if (!this.progress.customDayWorkouts) this.progress.customDayWorkouts = {};
+      if (!this.progress.customDayTopics) this.progress.customDayTopics = {};
+      const key = `${trackId}_w${weekNum}_d${dayNum}`;
+      this.progress.customDayTopics[key] = selectedTopics;
+      this.progress.customDayWorkouts[key] = {
+        topics: selectedTopics,
+        problemIds: problemIds,
+        timestamp: Date.now()
+      };
+      this.saveProgress();
     },
 
     // Available Study Tracks
@@ -93,9 +133,12 @@
     },
 
     /**
-     * Helper to find problems by keywords or titles
+     * Helper to find problems by keywords or titles with difficulty-adapted limits
+     * Easy-heavy focus: 3-4 problems
+     * Medium-heavy focus: 2-3 problems
+     * Hard-heavy focus: 1-2 problems
      */
-    findProblems(allProblems, keywords = [], topic = '', limit = 4) {
+    findProblems(allProblems, keywords = [], topic = '', explicitLimit = null) {
       let matched = [];
       const seen = new Set();
 
@@ -114,12 +157,228 @@
         });
       });
 
-      if (matched.length < limit && topic) {
+      if (topic) {
         const topicPool = allProblems.filter(p => p.topic.toLowerCase().includes(topic.toLowerCase()) && !seen.has(p.id));
-        matched.push(...topicPool.slice(0, limit - matched.length));
+        matched.push(...topicPool);
+      }
+
+      // Dynamic difficulty quota calculation
+      let limit = explicitLimit;
+      if (!limit) {
+        const sample = matched.slice(0, 5);
+        let hardCount = 0, medCount = 0;
+        sample.forEach(p => {
+          if (p.difficulty === 'Hard') hardCount++;
+          else if (p.difficulty === 'Medium') medCount++;
+        });
+
+        if (hardCount >= 1 && (sample[0]?.difficulty === 'Hard' || sample[1]?.difficulty === 'Hard')) {
+          limit = 2; // 1-2 Hard problems max
+        } else if (medCount >= 2 || (sample[0]?.difficulty === 'Medium')) {
+          limit = (medCount >= 3) ? 3 : 2; // 2-3 Medium problems
+        } else {
+          limit = 4; // 4 Easy problems
+        }
       }
 
       return matched.slice(0, limit);
+    },
+
+    /**
+     * Generate mixed problem set across multiple selected topics
+     */
+    generateMultiTopicMixedProblems(allProblems, selectedTopics = [], options = {}) {
+      if (!selectedTopics || selectedTopics.length === 0) return [];
+      const diffPref = options.difficulty || 'balanced';
+      const targetCount = options.count && options.count !== 'auto' 
+        ? parseInt(options.count, 10) 
+        : (selectedTopics.length <= 2 ? 3 : Math.min(4, selectedTopics.length));
+
+      const selected = [];
+      const selectedIds = new Set();
+
+      const topicBuckets = {};
+      selectedTopics.forEach(t => {
+        topicBuckets[t] = allProblems.filter(p => p.topic.toLowerCase().includes(t.toLowerCase()) || (p.pattern || '').toLowerCase().includes(t.toLowerCase()));
+      });
+
+      let topicIdx = 0;
+      let iterations = 0;
+      while (selected.length < targetCount && iterations < 30) {
+        iterations++;
+        const currentTopic = selectedTopics[topicIdx % selectedTopics.length];
+        const pool = topicBuckets[currentTopic] || [];
+
+        let candidates = pool.filter(p => !selectedIds.has(p.id));
+        if (diffPref === 'Easy') {
+          candidates = candidates.filter(p => p.difficulty === 'Easy');
+        } else if (diffPref === 'Medium') {
+          candidates = candidates.filter(p => p.difficulty === 'Medium');
+        } else if (diffPref === 'Hard') {
+          candidates = candidates.filter(p => p.difficulty === 'Hard');
+        } else if (diffPref === 'balanced') {
+          const desiredDiff = selected.length === 0 ? 'Easy' : (selected.length === targetCount - 1 && targetCount >= 3 ? 'Hard' : 'Medium');
+          const matchedDiff = candidates.filter(p => p.difficulty === desiredDiff);
+          if (matchedDiff.length > 0) candidates = matchedDiff;
+        }
+
+        if (candidates.length > 0) {
+          const pick = candidates[Math.floor(Math.random() * candidates.length)];
+          selected.push({ ...pick, _sourceTopic: currentTopic });
+          selectedIds.add(pick.id);
+        } else {
+          const anyRem = pool.filter(p => !selectedIds.has(p.id));
+          if (anyRem.length > 0) {
+            const pick = anyRem[Math.floor(Math.random() * anyRem.length)];
+            selected.push({ ...pick, _sourceTopic: currentTopic });
+            selectedIds.add(pick.id);
+          }
+        }
+
+        topicIdx++;
+      }
+
+      return selected;
+    },
+
+    /**
+     * Resolves the actual problems for a given day (considering custom topic override or custom mixed workouts)
+     */
+    getDayProblems(trackId, weekNum, dayNum, defaultDayObj, allProblems) {
+      if (!this.progress) this.initProgress();
+      const key = `${trackId}_w${weekNum}_d${dayNum}`;
+
+      // 1. Check if user has an active saved custom mixed workout
+      const savedWorkout = this.progress?.customDayWorkouts?.[key];
+      if (savedWorkout && Array.isArray(savedWorkout.problemIds) && savedWorkout.problemIds.length > 0) {
+        const idMap = new Map(allProblems.map(p => [p.id, p]));
+        const probs = savedWorkout.problemIds.map(id => idMap.get(id)).filter(Boolean);
+        if (probs.length > 0) return probs;
+      }
+
+      // 2. Check if user switched to a single custom topic or array of topics
+      const customTopic = this.progress?.customDayTopics?.[key];
+      if (customTopic) {
+        if (Array.isArray(customTopic)) {
+          return this.generateMultiTopicMixedProblems(allProblems, customTopic, { difficulty: 'balanced' });
+        } else if (typeof customTopic === 'string') {
+          return this.findProblems(allProblems, [], customTopic);
+        }
+      }
+
+      // 3. Fallback to default roadmap curriculum for this day
+      return this.findProblems(allProblems, defaultDayObj.problemKeywords || [], defaultDayObj.topic);
+    },
+
+    /**
+     * Calculate Workload Metrics (difficulty split, total estimated time, label)
+     */
+    calculateWorkload(problems = []) {
+      let easy = 0, med = 0, hard = 0;
+      problems.forEach(p => {
+        if (p.difficulty === 'Hard') hard++;
+        else if (p.difficulty === 'Medium') med++;
+        else easy++;
+      });
+
+      const totalMins = (easy * 12) + (med * 28) + (hard * 50);
+
+      let label = '';
+      let typeClass = 'medium';
+
+      if (hard > 0 && med > 0) {
+        label = `${hard} Hard + ${med} Med • ~${totalMins}m`;
+        typeClass = 'hard';
+      } else if (hard > 0) {
+        label = `${hard} Hard • ~${totalMins}m`;
+        typeClass = 'hard';
+      } else if (med > 0 && easy > 0) {
+        label = `${med} Med + ${easy} Easy • ~${totalMins}m`;
+        typeClass = 'mixed';
+      } else if (med > 0) {
+        label = `${med} Medium${med > 1 ? 's' : ''} • ~${totalMins}m`;
+        typeClass = 'medium';
+      } else if (easy > 0) {
+        label = `${easy} Easy • ~${totalMins}m`;
+        typeClass = 'easy';
+      } else {
+        label = 'Standard Practice';
+        typeClass = 'medium';
+      }
+
+      return {
+        easy,
+        med,
+        hard,
+        totalCount: problems.length,
+        estimatedMinutes: totalMins,
+        label,
+        typeClass
+      };
+    },
+
+    /**
+     * Get carried-over (rollover) unsolved target problems from all previous days in the track
+     */
+    getRolloverProblems(trackId, currentWeekNum, currentDayNum, allProblems, userStates) {
+      const schedule = this.getSchedule(trackId, allProblems);
+      const rolloverList = [];
+      const seenIds = new Set();
+
+      const deferredMap = (this.progress && this.progress.deferredRollovers) || {};
+
+      for (const week of schedule) {
+        if (week.weekNumber > currentWeekNum) break;
+
+        for (const day of week.days) {
+          if (week.weekNumber === currentWeekNum && day.dayNumber >= currentDayNum) {
+            break;
+          }
+
+          if (day.isWeekend) continue;
+
+          // Target problems assigned to this prior day (using getDayProblems)
+          const targetProbs = this.getDayProblems(trackId, week.weekNumber, day.dayNumber, day, allProblems);
+
+          targetProbs.forEach(p => {
+            const state = userStates[p.id];
+            const isSolved = state && state.lastReviewed;
+
+            if (!isSolved && !seenIds.has(p.id) && !deferredMap[p.id]) {
+              seenIds.add(p.id);
+              rolloverList.push({
+                ...p,
+                fromWeek: week.weekNumber,
+                fromDay: day.dayNumber,
+                fromDayTitle: day.title
+              });
+            }
+          });
+        }
+      }
+
+      return rolloverList;
+    },
+
+    /**
+     * Defer or dismiss a rollover problem to keep schedule clean
+     */
+    deferRolloverProblem(problemId) {
+      if (!this.progress) this.initProgress();
+      if (!this.progress.deferredRollovers) {
+        this.progress.deferredRollovers = {};
+      }
+      this.progress.deferredRollovers[problemId] = true;
+      this.saveProgress();
+    },
+
+    /**
+     * Undefer all rollover problems if user wants them back
+     */
+    undeferAllRollovers() {
+      if (!this.progress) this.initProgress();
+      this.progress.deferredRollovers = {};
+      this.saveProgress();
     },
 
     /**

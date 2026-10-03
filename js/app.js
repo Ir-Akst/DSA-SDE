@@ -204,6 +204,35 @@
       }
     }
 
+    // Update Day Switch Topic Dropdown
+    const daySwitchSelect = document.getElementById('select-switch-day-topic');
+    if (daySwitchSelect) {
+      const curSwitch = daySwitchSelect.value;
+      daySwitchSelect.innerHTML = '';
+      topics.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = `📂 ${t} (${topicCounts[t]} Problems)`;
+        daySwitchSelect.appendChild(opt);
+      });
+      if (curSwitch && topics.includes(curSwitch)) {
+        daySwitchSelect.value = curSwitch;
+      }
+    }
+
+    // Update Topic Mixer Pills
+    const mixerPillsContainer = document.getElementById('topic-mixer-pills-container');
+    if (mixerPillsContainer) {
+      mixerPillsContainer.innerHTML = '';
+      topics.forEach(t => {
+        const pill = document.createElement('div');
+        pill.className = 'mixer-topic-pill';
+        pill.dataset.topic = t;
+        pill.innerHTML = `<i class="fa-regular fa-square"></i> <span>${t}</span> <span style="font-size:10px; opacity:0.7;">(${topicCounts[t]})</span>`;
+        mixerPillsContainer.appendChild(pill);
+      });
+    }
+
     // Update Difficulty Dropdown with counts
     const diffSelect = document.getElementById('filter-difficulty');
     if (diffSelect) {
@@ -228,7 +257,7 @@
     if (compSelect) {
       const currentComp = compSelect.value || 'all';
       const topCompanies = [
-        'Google', 'Amazon', 'Microsoft', 'Meta', 'Apple', 
+        'Google', 'Amazon', 'Microsoft', 'Meta', 'Apple',
         'Bloomberg', 'Goldman Sachs', 'Uber', 'Adobe', 'Flipkart', 'TCS'
       ];
       compSelect.innerHTML = `<option value="all">🏢 All Companies (${allProblems.length})</option>`;
@@ -304,11 +333,11 @@
     });
 
     const topicMasteryMap = SRSEngine.calculateTopicMastery(allProblems, userStates);
-    
+
     // Average Topic Retention Score (0% when no problems are solved)
     const masteryValues = Object.values(topicMasteryMap).map(t => t.score);
-    const avgMastery = (solvedCount === 0 || masteryValues.length === 0) 
-      ? 0 
+    const avgMastery = (solvedCount === 0 || masteryValues.length === 0)
+      ? 0
       : Math.round(masteryValues.reduce((a, b) => a + b, 0) / masteryValues.length);
 
     // Update DOM Stats
@@ -340,8 +369,8 @@
     priorityTbody.innerHTML = '';
 
     const dueProblems = allProblems.filter(p => SRSEngine.isDue(userStates[p.id]));
-    const displayList = dueProblems.length > 0 
-      ? dueProblems.slice(0, 6) 
+    const displayList = dueProblems.length > 0
+      ? dueProblems.slice(0, 6)
       : allProblems.slice(0, 5);
 
     if (displayList.length === 0) {
@@ -574,7 +603,7 @@
   // --- VIEW 5: TOPIC MASTERY & ANALYTICS ---
   function renderAnalytics() {
     const topicMasteryMap = SRSEngine.calculateTopicMastery(allProblems, userStates);
-    
+
     let easySolved = 0, mediumSolved = 0, hardSolved = 0;
     allProblems.forEach(p => {
       const state = userStates[p.id];
@@ -596,7 +625,7 @@
     Object.values(topicMasteryMap).forEach(t => {
       const card = document.createElement('div');
       card.className = 'topic-health-card';
-      
+
       const healthBadge = t.solved === 0 ? 'badge-srs-unsolved' : (t.score >= 70 ? 'badge-easy' : t.score >= 40 ? 'badge-medium' : 'badge-hard');
       const healthLabel = t.solved === 0 ? 'Not Started ⚪' : (t.score >= 70 ? 'High Retention 🟢' : t.score >= 40 ? 'Moderate 🟡' : 'Decaying 🔴');
 
@@ -719,7 +748,7 @@
     } else if (filterMode === 'all') {
       flashcardDeck = [...allProblems];
     } else {
-      // Topic specific filter (e.g. Weekend Flashcard Drill)
+      // Topic specific filter
       flashcardDeck = allProblems.filter(p => p.topic.toLowerCase() === filterMode.toLowerCase());
       if (flashcardDeck.length === 0) {
         flashcardDeck = allProblems.filter(p => p.topic.toLowerCase().includes(filterMode.toLowerCase()));
@@ -767,7 +796,7 @@
     if (fcFrontTopic) fcFrontTopic.textContent = p.topic || 'General';
     if (fcFrontTitle) fcFrontTitle.textContent = p.title;
     if (fcFrontPattern) fcFrontPattern.textContent = `Pattern: ${p.pattern || 'Optimal Algorithmic Approach'}`;
-    
+
     if (fcFrontCompanies) {
       fcFrontCompanies.innerHTML = (p.companies || []).slice(0, 3).map(c => `
         <span class="company-badge ${c.toLowerCase().replace(/[^a-z]/g, '')}">🏢 ${c}</span>
@@ -800,7 +829,7 @@
     document.getElementById('modal-rating-title').textContent = `Rate Recall: ${p.title}`;
     document.getElementById('modal-rating-subtitle').textContent = `${p.topic} • ${p.difficulty} • ${p.pattern || ''}`;
     document.getElementById('rating-modal-notes').value = '';
-    
+
     document.getElementById('srs-rating-modal').classList.add('open');
   }
 
@@ -814,10 +843,10 @@
 
     const notes = document.getElementById('rating-modal-notes').value.trim();
     const currentState = userStates[activeRatingProblemId] || {};
-    
+
     userStates[activeRatingProblemId] = SRSEngine.processReview(currentState, rating, 15, notes);
     saveUserStates();
-    
+
     closeRatingModal();
     renderAll();
   }
@@ -890,13 +919,13 @@
     };
     try {
       localStorage.setItem(STORAGE_KEYS.ACTIVE_EXAM_SESSION, JSON.stringify(payload));
-    } catch (_) {}
+    } catch (_) { }
   }
 
   function clearActiveExamState() {
     try {
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_EXAM_SESSION);
-    } catch (_) {}
+    } catch (_) { }
   }
 
   function checkAndRestoreActiveExamSession() {
@@ -1045,7 +1074,7 @@
     if (!activeTestSession || !activeTestSession.problems[activeTestQuestionIndex]) return;
     const currentProb = activeTestSession.problems[activeTestQuestionIndex];
     const scratchpad = document.getElementById('test-scratchpad-area')?.value || '';
-    
+
     if (!testAnswers[currentProb.id]) {
       testAnswers[currentProb.id] = { rating: 'medium', scratchpad: '' };
     }
@@ -1059,7 +1088,7 @@
 
     document.getElementById('test-progress-indicator').textContent = `Question ${activeTestQuestionIndex + 1} of ${activeTestSession.problems.length}`;
     document.getElementById('test-active-title').textContent = p.title;
-    
+
     document.getElementById('test-active-badges').innerHTML = `
       <span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span>
       <span class="badge badge-srs-upcoming">${p.topic}</span>
@@ -1261,8 +1290,11 @@
     }
     const currentDay = currentWeek.days.find(d => d.dayNumber === RoadmapEngine.progress.selectedDay) || currentWeek.days[0];
 
+    const customDayTopic = RoadmapEngine.getDayCustomTopic(activeTrack, currentWeek.weekNumber, currentDay.dayNumber);
+    const activeFocusTopic = customDayTopic ? (Array.isArray(customDayTopic) ? `Mixed (${customDayTopic.length} Topics)` : customDayTopic) : (currentDay.topic || currentWeek.topic);
+
     const statActiveFocusEl = document.getElementById('roadmap-stat-active-focus');
-    if (statActiveFocusEl) statActiveFocusEl.textContent = currentDay.topic || currentWeek.topic;
+    if (statActiveFocusEl) statActiveFocusEl.textContent = activeFocusTopic;
 
     // 4. Render Week Cards in Horizontal Scroll Container
     const weeksContainer = document.getElementById('roadmap-weeks-container');
@@ -1330,12 +1362,13 @@
       currentWeek.days.forEach(day => {
         const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, currentWeek.weekNumber, day.dayNumber);
         const isDayActive = day.dayNumber === RoadmapEngine.progress.selectedDay;
+        const hasCustomTopic = !!RoadmapEngine.getDayCustomTopic(activeTrack, currentWeek.weekNumber, day.dayNumber);
 
         const pill = document.createElement('button');
         pill.className = `roadmap-day-pill ${isDayActive ? 'active' : ''} ${isDayDone ? 'completed' : ''} ${day.isWeekend ? 'weekend' : ''}`;
         pill.dataset.dayNum = day.dayNumber;
 
-        let icon = isDayDone ? '<i class="fa-solid fa-check"></i>' : (day.isExamDay ? '<i class="fa-solid fa-trophy"></i>' : day.isReviewDay ? '<i class="fa-solid fa-bolt"></i>' : `<i class="fa-solid fa-code"></i>`);
+        let icon = isDayDone ? '<i class="fa-solid fa-check"></i>' : (day.isExamDay ? '<i class="fa-solid fa-trophy"></i>' : day.isReviewDay ? '<i class="fa-solid fa-bolt"></i>' : (hasCustomTopic ? '<i class="fa-solid fa-shuffle"></i>' : `<i class="fa-solid fa-code"></i>`));
         let label = day.isExamDay ? `Day ${day.dayNumber} (Exam)` : day.isReviewDay ? `Day ${day.dayNumber} (Super Rev)` : `Day ${day.dayNumber}`;
 
         pill.innerHTML = `${icon} <span>${label}</span>`;
@@ -1357,23 +1390,51 @@
     if (!container) return;
 
     const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, currentWeek.weekNumber, currentDay.dayNumber);
+    const customDayTopic = RoadmapEngine.getDayCustomTopic(activeTrack, currentWeek.weekNumber, currentDay.dayNumber);
+
+    // Fetch dynamic target problems (incorporating any custom single topic or multi-topic mixed workout)
+    const targetProblems = RoadmapEngine.getDayProblems(activeTrack, currentWeek.weekNumber, currentDay.dayNumber, currentDay, allProblems);
+    const workload = RoadmapEngine.calculateWorkload(targetProblems);
+
+    // Fetch carried-over unsolved target problems from previous days
+    const rolloverProblems = currentDay.isWeekend ? [] : RoadmapEngine.getRolloverProblems(activeTrack, currentWeek.weekNumber, currentDay.dayNumber, allProblems, userStates);
 
     // Day Header Card
     let headerHtml = `
       <div class="roadmap-day-focus-card">
         <div class="day-focus-header">
-          <div class="day-focus-meta">
+          <div class="day-focus-meta" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span class="day-badge"><i class="fa-solid fa-bookmark"></i> Week ${currentWeek.weekNumber} • Day ${currentDay.dayNumber}</span>
-            <span class="badge badge-srs-upcoming">${currentDay.topic}</span>
+            
+            ${customDayTopic ? (
+              Array.isArray(customDayTopic)
+                ? `<span class="custom-topic-badge"><i class="fa-solid fa-layer-group"></i> Mixed: ${customDayTopic.join(', ')}</span>`
+                : `<span class="custom-topic-badge"><i class="fa-solid fa-shuffle"></i> Custom: ${customDayTopic}</span>`
+            ) : `<span class="badge badge-srs-upcoming">${currentDay.topic}</span>`}
+
+            <span class="workload-badge ${workload.typeClass}"><i class="fa-solid fa-gauge-high"></i> ${workload.label}</span>
             ${currentDay.isWeekend ? `<span class="badge" style="background:rgba(234,179,8,0.15); color:#fbbf24; border:1px solid rgba(234,179,8,0.3);"><i class="fa-solid fa-star"></i> Weekend Special</span>` : ''}
           </div>
           <h3 class="day-focus-title">${currentDay.title}</h3>
-          <p class="day-focus-desc"><i class="fa-solid fa-bullseye" style="color:var(--primary); margin-right:6px;"></i> ${currentDay.focus}</p>
+          <p class="day-focus-desc">
+            <i class="fa-solid fa-bullseye" style="color:var(--primary); margin-right:6px;"></i> 
+            ${customDayTopic ? (Array.isArray(customDayTopic) ? `Multi-Topic Mixed Workout across ${customDayTopic.join(', ')}` : `Custom Focused Session on ${customDayTopic}`) : currentDay.focus}
+          </p>
         </div>
-        <div class="day-focus-actions">
+        <div class="day-focus-actions" style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+          ${!currentDay.isWeekend ? `
+            <button id="btn-open-switch-topic-modal" class="btn btn-secondary btn-sm" style="font-weight:700; border-color:var(--accent-cyan); color:var(--accent-cyan);">
+              <i class="fa-solid fa-shuffle"></i> <span>${customDayTopic ? 'Change / Mix Topics' : 'Switch Topic / Mix'}</span>
+            </button>
+            ${customDayTopic ? `
+              <button class="btn btn-secondary btn-sm btn-reset-day-topic" title="Reset to default topic" style="color:#fb7185; padding:6px 10px;">
+                <i class="fa-solid fa-arrow-rotate-left"></i> Reset
+              </button>
+            ` : ''}
+          ` : ''}
           <button id="btn-toggle-day-complete" class="btn ${isDayDone ? 'btn-secondary' : 'btn-primary'}" data-track="${activeTrack}" data-week="${currentWeek.weekNumber}" data-day="${currentDay.dayNumber}">
             <i class="fa-solid ${isDayDone ? 'fa-arrow-rotate-left' : 'fa-circle-check'}"></i>
-            <span>${isDayDone ? 'Completed (Click to Undo)' : 'Mark Day as Completed'}</span>
+            <span>${isDayDone ? 'Completed (Undo)' : 'Mark Day as Completed'}</span>
           </button>
         </div>
       </div>
@@ -1499,26 +1560,92 @@
     }
 
     // Case 3: Normal Study Day (Days 1 to 5)
-    // Part A: Daily Target Problems
-    const targetProblems = RoadmapEngine.findProblems(allProblems, currentDay.problemKeywords || [], currentDay.topic, 4);
+    // Part A: Carried Over / Rollover Problems Section (if any)
+    if (rolloverProblems.length > 0) {
+      headerHtml += `
+        <div class="roadmap-rollover-banner" style="margin-top:20px;">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
+            <div>
+              <h3 style="font-size:15px; font-weight:800; color:#fbbf24; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-arrow-right-arrow-left"></i> Carried Over from Previous Days (${rolloverProblems.length} Unsolved)
+              </h3>
+              <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
+                These target problems from earlier in your track were not marked solved and automatically moved to today's schedule.
+              </p>
+            </div>
+            <span class="badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); font-size:11px;">
+              ⚡ Auto-Rollover Active
+            </span>
+          </div>
 
-    // Part B: Today's Due Spaced Revisions
-    const topicDueProblems = allProblems.filter(p => {
-      const state = userStates[p.id];
-      const isDue = SRSEngine.isDue(state);
-      const isTopicMatch = p.topic.toLowerCase().includes((currentDay.topic || '').toLowerCase());
-      return isDue && isTopicMatch;
-    });
+          <div class="table-container" style="background:rgba(15,23,42,0.6); margin-top:8px;">
+            <table class="problem-table">
+              <thead>
+                <tr>
+                  <th style="width: 50px;">Done</th>
+                  <th>Problem Title</th>
+                  <th>Originated From</th>
+                  <th>Difficulty</th>
+                  <th>SRS Status</th>
+                  <th style="width: 160px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rolloverProblems.map(p => {
+                  const state = userStates[p.id];
+                  const dueInfo = SRSEngine.getDueStatus(state);
+                  const isSolved = state && state.lastReviewed;
 
-    const generalDueProblems = allProblems.filter(p => SRSEngine.isDue(userStates[p.id]) && !topicDueProblems.includes(p)).slice(0, 3);
-    const combinedDueRevisions = [...topicDueProblems, ...generalDueProblems];
+                  return `
+                    <tr class="due-row">
+                      <td>
+                        <input type="checkbox" class="prob-checkbox" data-id="${p.id}" ${isSolved ? 'checked' : ''} style="cursor:pointer; width:16px; height:16px; accent-color:var(--primary);">
+                      </td>
+                      <td>
+                        <div class="problem-title-cell">
+                          <a href="${p.url || '#'}" target="_blank" class="problem-title">${p.title} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px; color:var(--text-dim);"></i></a>
+                          ${p.companies && p.companies.length ? `
+                            <div class="company-chip-wrap" style="margin-top:4px;">
+                              ${p.companies.slice(0, 2).map(c => `<span class="company-badge ${c.toLowerCase().replace(/[^a-z]/g, '')}">🏢 ${c}</span>`).join('')}
+                            </div>
+                          ` : ''}
+                        </div>
+                      </td>
+                      <td><span class="rollover-tag"><i class="fa-solid fa-clock-rotate-left"></i> W${p.fromWeek} • D${p.fromDay}</span><br><span style="font-size:10.5px; color:var(--text-dim);">${p.fromDayTitle || ''}</span></td>
+                      <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
+                      <td><span class="badge ${dueInfo.badgeClass}">${dueInfo.label}</span></td>
+                      <td>
+                        <div style="display:flex; gap:6px;">
+                          <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}" title="Solve & Log SRS Rating">
+                            <i class="fa-solid fa-rotate"></i> Rate
+                          </button>
+                          <button class="btn btn-secondary btn-sm btn-defer-rollover" data-id="${p.id}" title="Postpone / Defer" style="font-size:11px; padding:4px 8px; color:var(--text-dim);">
+                            <i class="fa-solid fa-clock"></i> Defer
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
 
+    // Part B: Today's Curated Target Problems
     headerHtml += `
       <!-- Section 1: Today's Curated Target Problems -->
       <div class="section-title-wrap" style="margin-top:20px;">
-        <div>
-          <h3><i class="fa-solid fa-crosshairs" style="color:var(--primary);"></i> 1. Today's Target Core Problems (${targetProblems.length})</h3>
-          <span style="font-size:12px; color:var(--text-dim);">Focus on implementing and understanding these curated pattern algorithms today</span>
+        <div style="display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:10px;">
+          <div>
+            <h3><i class="fa-solid fa-crosshairs" style="color:var(--primary);"></i> 1. Today's Target Core Problems (${targetProblems.length} assigned)</h3>
+            <span style="font-size:12px; color:var(--text-dim);">
+              ${customDayTopic ? (Array.isArray(customDayTopic) ? `Multi-Topic Mix across ${customDayTopic.join(' & ')}` : `Custom Topic Focus: ${customDayTopic}`) : `Difficulty-adapted pacing: ${currentDay.focus}`}
+            </span>
+          </div>
+          <span class="workload-badge ${workload.typeClass}"><i class="fa-solid fa-clock"></i> Target Workload: ${workload.label}</span>
         </div>
       </div>
 
@@ -1528,7 +1655,7 @@
             <tr>
               <th style="width: 50px;">Done</th>
               <th>Problem Title</th>
-              <th>Pattern Focus</th>
+              <th>Pattern / Topic</th>
               <th>Difficulty</th>
               <th>Sheets</th>
               <th>SRS Interval</th>
@@ -1537,7 +1664,7 @@
           </thead>
           <tbody>
             ${targetProblems.length === 0 ? `
-              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No specific problems matched. Explore all problems in the Explorer tab.</td></tr>
+              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No specific problems matched. Click "Switch Topic / Mix" above to pick topics or problems.</td></tr>
             ` : targetProblems.map(p => {
               const state = userStates[p.id];
               const dueInfo = SRSEngine.getDueStatus(state);
@@ -1559,7 +1686,7 @@
                       ` : ''}
                     </div>
                   </td>
-                  <td><span style="font-size:12px; font-weight:600; color:#e2e8f0;">${p.pattern || 'Pattern Focus'}</span><br><span style="font-size:11px; color:var(--text-dim);">${p.topic}</span></td>
+                  <td><span style="font-size:12px; font-weight:600; color:#e2e8f0;">${p.pattern || 'Pattern Focus'}</span><br><span style="font-size:11px; color:var(--text-dim);">${p._sourceTopic || p.topic}</span></td>
                   <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
                   <td>
                     <div style="display:flex; flex-wrap:wrap; gap:4px;">
@@ -1583,7 +1710,20 @@
           </tbody>
         </table>
       </div>
+    `;
 
+    // Part C: Today's Due Spaced Revisions
+    const topicDueProblems = allProblems.filter(p => {
+      const state = userStates[p.id];
+      const isDue = SRSEngine.isDue(state);
+      const isTopicMatch = p.topic.toLowerCase().includes((currentDay.topic || '').toLowerCase());
+      return isDue && isTopicMatch;
+    });
+
+    const generalDueProblems = allProblems.filter(p => SRSEngine.isDue(userStates[p.id]) && !topicDueProblems.includes(p)).slice(0, 3);
+    const combinedDueRevisions = [...topicDueProblems, ...generalDueProblems];
+
+    headerHtml += `
       <!-- Section 2: Today's Due Spaced Revisions -->
       <div class="section-title-wrap" style="margin-top:28px;">
         <div>
@@ -1811,7 +1951,7 @@
     // Global Search & Filters
     const searchInput = document.getElementById('global-search-input');
     searchInput?.addEventListener('input', renderProblemsTable);
-    
+
     // Quick focus shortcut '/'
     window.addEventListener('keydown', (e) => {
       if (e.key === '/' && document.activeElement !== searchInput && !['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) {
@@ -1902,50 +2042,8 @@
       });
     });
 
-    // Roadmap Track Switcher
-    document.getElementById('roadmap-track-select')?.addEventListener('change', (e) => {
-      if (!window.RoadmapEngine) return;
-      RoadmapEngine.progress.activeTrack = e.target.value;
-      RoadmapEngine.progress.selectedWeek = 1;
-      RoadmapEngine.progress.selectedDay = 1;
-      RoadmapEngine.saveProgress();
-      renderRoadmapView();
-    });
-
-    // Delegate table and roadmap actions (Solve checkbox, Rate, Details, Day Complete, Weekend Exam/Flashcards)
+    // Delegate table actions (Solve checkbox, Rate, Details)
     document.body.addEventListener('click', (e) => {
-      const toggleDayBtn = e.target.closest('#btn-toggle-day-complete');
-      if (toggleDayBtn && window.RoadmapEngine) {
-        const track = toggleDayBtn.dataset.track;
-        const week = parseInt(toggleDayBtn.dataset.week, 10);
-        const day = parseInt(toggleDayBtn.dataset.day, 10);
-        RoadmapEngine.toggleDayCompleted(track, week, day);
-        renderRoadmapView();
-        renderActivityHeatmap();
-        renderDashboard();
-        return;
-      }
-
-      const launchExamBtn = e.target.closest('#btn-launch-weekend-exam');
-      if (launchExamBtn) {
-        const topic = launchExamBtn.dataset.topic;
-        startWeekendExam(topic);
-        return;
-      }
-
-      const launchFcBtn = e.target.closest('#btn-launch-weekend-flashcards');
-      if (launchFcBtn) {
-        const topic = launchFcBtn.dataset.topic;
-        document.querySelector('[data-view="flashcards"]')?.click();
-        const fcTopicSelect = document.getElementById('flashcard-filter-topic');
-        if (fcTopicSelect) {
-          fcTopicSelect.value = topic;
-        }
-        flashcardCurrentIndex = 0;
-        renderFlashcards();
-        return;
-      }
-
       const reviewBtn = e.target.closest('.btn-action-review');
       if (reviewBtn) {
         openRatingModal(reviewBtn.dataset.id);
@@ -2130,7 +2228,7 @@
       btn.addEventListener('click', () => {
         const presetType = btn.dataset.preset;
         const defaultList = window.DEFAULT_DSA_SHEETS ? [...window.DEFAULT_DSA_SHEETS] : [];
-        
+
         // Smart deduplicate
         allProblems = smartDeduplicateAndSync(allProblems, defaultList, userStates);
         saveProblems();
@@ -2149,7 +2247,7 @@
 
         renderAll();
         bulkModal.classList.remove('open');
-        
+
         let targetCount = allProblems.filter(p => {
           if (presetType === 'striver-a2z') return (p.sheets || []).includes('Striver A2Z');
           if (presetType === 'neetcode-150') return (p.sheets || []).includes('NeetCode 150');
@@ -2344,6 +2442,239 @@
       document.getElementById('import-file-input')?.click();
     });
     document.getElementById('import-file-input')?.addEventListener('change', importDataJSON);
+
+    // --- ROADMAP & DAY-WISE PLAN CONTROLS ---
+    // 1. Track selector
+    document.getElementById('roadmap-track-select')?.addEventListener('change', (e) => {
+      if (!window.RoadmapEngine) return;
+      RoadmapEngine.progress.activeTrack = e.target.value;
+      RoadmapEngine.progress.selectedWeek = 1;
+      RoadmapEngine.progress.selectedDay = 1;
+      RoadmapEngine.saveProgress();
+      renderRoadmapView();
+    });
+
+    // 2. Switch Topic Modal Controls & Tabs
+    const switchTopicModal = document.getElementById('switch-day-topic-modal');
+    const btnCloseSwitchTopic = document.getElementById('btn-close-switch-topic-modal');
+    const tabSwitchSingleBtn = document.getElementById('tab-switch-single-topic-btn');
+    const tabMixMultiBtn = document.getElementById('tab-mix-multi-topics-btn');
+    const containerSwitchSingle = document.getElementById('container-switch-single-topic');
+    const containerMixMulti = document.getElementById('container-mix-multi-topics');
+    const mixerPillsContainer = document.getElementById('topic-mixer-pills-container');
+
+    function resetSwitchTopicTabs() {
+      tabSwitchSingleBtn?.classList.remove('active');
+      tabMixMultiBtn?.classList.remove('active');
+      if (containerSwitchSingle) containerSwitchSingle.style.display = 'none';
+      if (containerMixMulti) containerMixMulti.style.display = 'none';
+    }
+
+    tabSwitchSingleBtn?.addEventListener('click', () => {
+      resetSwitchTopicTabs();
+      tabSwitchSingleBtn.classList.add('active');
+      if (containerSwitchSingle) containerSwitchSingle.style.display = 'block';
+    });
+
+    tabMixMultiBtn?.addEventListener('click', () => {
+      resetSwitchTopicTabs();
+      tabMixMultiBtn.classList.add('active');
+      if (containerMixMulti) containerMixMulti.style.display = 'block';
+    });
+
+    btnCloseSwitchTopic?.addEventListener('click', () => {
+      switchTopicModal?.classList.remove('open');
+    });
+
+    // Topic Mixer Pill Selection Handler
+    mixerPillsContainer?.addEventListener('click', (e) => {
+      const pill = e.target.closest('.mixer-topic-pill');
+      if (!pill) return;
+
+      pill.classList.toggle('selected');
+      const isSelected = pill.classList.contains('selected');
+      const icon = pill.querySelector('i');
+      if (icon) {
+        icon.className = isSelected ? 'fa-solid fa-square-check' : 'fa-regular fa-square';
+      }
+
+      const selectedCount = document.querySelectorAll('.mixer-topic-pill.selected').length;
+      const countTxt = document.getElementById('mixer-selection-count-txt');
+      if (countTxt) {
+        countTxt.textContent = selectedCount === 1 ? '1 topic selected' : `${selectedCount} topics selected`;
+      }
+    });
+
+    // Apply Single Topic to Day
+    document.getElementById('btn-apply-single-topic')?.addEventListener('click', () => {
+      if (!window.RoadmapEngine) return;
+      const selTopic = document.getElementById('select-switch-day-topic')?.value;
+      if (!selTopic) return;
+
+      const track = RoadmapEngine.progress.activeTrack;
+      const week = RoadmapEngine.progress.selectedWeek;
+      const day = RoadmapEngine.progress.selectedDay;
+
+      RoadmapEngine.setDayCustomTopic(track, week, day, selTopic);
+      switchTopicModal?.classList.remove('open');
+      renderRoadmapView();
+    });
+
+    // Reset Day to Roadmap Default
+    document.getElementById('btn-reset-to-default-topic')?.addEventListener('click', () => {
+      if (!window.RoadmapEngine) return;
+      const track = RoadmapEngine.progress.activeTrack;
+      const week = RoadmapEngine.progress.selectedWeek;
+      const day = RoadmapEngine.progress.selectedDay;
+
+      RoadmapEngine.resetDayTopic(track, week, day);
+      switchTopicModal?.classList.remove('open');
+      renderRoadmapView();
+    });
+
+    // Generate & Apply Multi-Topic Mixed Workout
+    document.getElementById('btn-generate-mixed-day-workout')?.addEventListener('click', () => {
+      if (!window.RoadmapEngine) return;
+      const selectedPills = document.querySelectorAll('.mixer-topic-pill.selected');
+      const selectedTopics = Array.from(selectedPills).map(p => p.dataset.topic).filter(Boolean);
+
+      if (selectedTopics.length === 0) {
+        alert('Please select at least 1 topic from the list to mix into today\'s session.');
+        return;
+      }
+
+      const diff = document.getElementById('select-mixer-difficulty')?.value || 'balanced';
+      const count = document.getElementById('select-mixer-count')?.value || 'auto';
+
+      const mixed = RoadmapEngine.generateMultiTopicMixedProblems(allProblems, selectedTopics, { difficulty: diff, count: count });
+      if (!mixed || mixed.length === 0) {
+        alert('Could not find problems matching the selected topics and difficulty. Please try selecting more topics.');
+        return;
+      }
+
+      const track = RoadmapEngine.progress.activeTrack;
+      const week = RoadmapEngine.progress.selectedWeek;
+      const day = RoadmapEngine.progress.selectedDay;
+      const problemIds = mixed.map(p => p.id);
+
+      RoadmapEngine.saveCustomDayMixedWorkout(track, week, day, problemIds, selectedTopics);
+      switchTopicModal?.classList.remove('open');
+      renderRoadmapView();
+    });
+
+    // 3. Delegate Dynamic Roadmap Actions (Open Modal, Toggle Done, Defer Rollover, Weekend Exam/Flashcards)
+    document.getElementById('roadmap-active-day-content')?.addEventListener('click', (e) => {
+      // A. Open Switch Topic / Mixer Modal
+      const openModalBtn = e.target.closest('#btn-open-switch-topic-modal');
+      if (openModalBtn) {
+        if (!window.RoadmapEngine) return;
+        const track = RoadmapEngine.progress.activeTrack;
+        const week = RoadmapEngine.progress.selectedWeek;
+        const day = RoadmapEngine.progress.selectedDay;
+        const schedule = RoadmapEngine.getSchedule(track, allProblems);
+        const curWeek = schedule.find(w => w.weekNumber === week) || schedule[0];
+        const curDay = curWeek.days.find(d => d.dayNumber === day) || curWeek.days[0];
+        const customTopic = RoadmapEngine.getDayCustomTopic(track, week, day);
+
+        const subTitle = document.getElementById('modal-switch-topic-subtitle');
+        if (subTitle) {
+          subTitle.textContent = `Week ${week} • Day ${day}: ${curDay.title}`;
+        }
+
+        // Prepopulate single topic select
+        const singleSelect = document.getElementById('select-switch-day-topic');
+        if (singleSelect) {
+          if (typeof customTopic === 'string') {
+            singleSelect.value = customTopic;
+          } else if (curDay.topic) {
+            singleSelect.value = curDay.topic;
+          }
+        }
+
+        // Prepopulate mixer pills
+        const existingMixed = Array.isArray(customTopic) ? customTopic : [];
+        document.querySelectorAll('.mixer-topic-pill').forEach(pill => {
+          const t = pill.dataset.topic;
+          const isSelected = existingMixed.includes(t);
+          if (isSelected) {
+            pill.classList.add('selected');
+            const ic = pill.querySelector('i');
+            if (ic) ic.className = 'fa-solid fa-square-check';
+          } else {
+            pill.classList.remove('selected');
+            const ic = pill.querySelector('i');
+            if (ic) ic.className = 'fa-regular fa-square';
+          }
+        });
+
+        const selCount = document.querySelectorAll('.mixer-topic-pill.selected').length;
+        const countTxt = document.getElementById('mixer-selection-count-txt');
+        if (countTxt) {
+          countTxt.textContent = selCount === 1 ? '1 topic selected' : `${selCount} topics selected`;
+        }
+
+        if (Array.isArray(customTopic) && customTopic.length > 0) {
+          tabMixMultiBtn?.click();
+        } else {
+          tabSwitchSingleBtn?.click();
+        }
+
+        switchTopicModal?.classList.add('open');
+        return;
+      }
+
+      // B. Inline Reset Day Topic
+      const resetDayBtn = e.target.closest('.btn-reset-day-topic');
+      if (resetDayBtn) {
+        if (!window.RoadmapEngine) return;
+        RoadmapEngine.resetDayTopic(RoadmapEngine.progress.activeTrack, RoadmapEngine.progress.selectedWeek, RoadmapEngine.progress.selectedDay);
+        renderRoadmapView();
+        return;
+      }
+
+      // C. Toggle Day Completed
+      const toggleDoneBtn = e.target.closest('#btn-toggle-day-complete');
+      if (toggleDoneBtn) {
+        const track = toggleDoneBtn.dataset.track;
+        const week = parseInt(toggleDoneBtn.dataset.week, 10);
+        const day = parseInt(toggleDoneBtn.dataset.day, 10);
+        RoadmapEngine.toggleDayCompleted(track, week, day);
+        renderRoadmapView();
+        renderDashboard();
+        return;
+      }
+
+      // D. Defer Rollover Problem
+      const deferBtn = e.target.closest('.btn-defer-rollover');
+      if (deferBtn) {
+        const probId = deferBtn.dataset.id;
+        RoadmapEngine.deferRolloverProblem(probId);
+        renderRoadmapView();
+        return;
+      }
+
+      // E. Launch Weekend Exam
+      const examBtn = e.target.closest('#btn-launch-weekend-exam');
+      if (examBtn) {
+        const topic = examBtn.dataset.topic;
+        startWeekendExam(topic);
+        return;
+      }
+
+      // F. Launch Weekend Flashcards
+      const fcBtn = e.target.closest('#btn-launch-weekend-flashcards');
+      if (fcBtn) {
+        const topic = fcBtn.dataset.topic;
+        document.querySelector('[data-view="flashcards"]')?.click();
+        const fcTopicSelect = document.getElementById('flashcard-filter-topic');
+        if (fcTopicSelect) {
+          fcTopicSelect.value = topic;
+        }
+        flashcardCurrentIndex = 0;
+        renderFlashcards();
+        return;
+      }
+    });
   }
 
   function capitalize(str) {
