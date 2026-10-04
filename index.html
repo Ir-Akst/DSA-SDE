@@ -42,8 +42,8 @@
         </div>
         
         <div class="nav-item" data-view="roadmap">
-          <i class="fa-solid fa-map-location-dot"></i>
-          <span>Study Roadmap</span>
+          <i class="fa-solid fa-calendar-check"></i>
+          <span>Daily Plan & Test</span>
           <span class="nav-badge new">Daily</span>
         </div>
         
@@ -107,6 +107,11 @@
           <span class="search-kbd">/</span>
         </div>
         <div class="header-actions">
+          <div class="header-stat-pill" id="header-solved-unsolved-pill" style="display:inline-flex; align-items:center; gap:10px; background:rgba(255,255,255,0.04); border:1px solid var(--border-color); border-radius:var(--radius-full); padding:6px 14px; font-size:12px; font-weight:600;">
+            <span style="color:#34d399;"><i class="fa-solid fa-circle-check" style="margin-right:4px;"></i><strong id="header-solved-count">0</strong> Solved</span>
+            <span style="color:var(--text-dim);">•</span>
+            <span style="color:#94a3b8;"><i class="fa-regular fa-circle" style="margin-right:4px;"></i><strong id="header-unsolved-count">0</strong> Unsolved</span>
+          </div>
           <div class="header-streak-pill" id="header-streak-indicator">
             <i class="fa-solid fa-fire"></i>
             <span>Active SRS Mode</span>
@@ -121,6 +126,10 @@
           <div class="stat-card emerald-top">
             <div class="stat-label">Total Solved <i class="fa-solid fa-check-double" style="color:var(--primary);"></i></div>
             <div class="stat-value"><span id="stat-solved-count">0</span> <span class="stat-sub">/ <span id="stat-total-count">0</span></span></div>
+          </div>
+          <div class="stat-card slate-top">
+            <div class="stat-label">Unsolved Remaining <i class="fa-regular fa-circle" style="color:#94a3b8;"></i></div>
+            <div class="stat-value" style="color:#cbd5e1;"><span id="stat-unsolved-count">0</span> <span class="stat-sub">to go</span></div>
           </div>
           <div class="stat-card amber-top">
             <div class="stat-label">Due for Revision <i class="fa-solid fa-bell" style="color:var(--accent-amber);"></i></div>
@@ -297,6 +306,18 @@
               <option value="mastered">Mastered</option>
               <option value="unsolved">Unsolved</option>
             </select>
+          </div>
+        </div>
+
+        <!-- Live Count Summary Bar -->
+        <div class="problem-count-summary-bar" id="problem-count-summary-bar" style="display:flex; justify-content:space-between; align-items:center; margin: 14px 0 16px; padding: 10px 16px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:var(--radius-md); font-size:12.5px; color:var(--text-muted); flex-wrap:wrap; gap:8px;">
+          <div>
+            <span>Showing <strong id="explorer-filtered-total" style="color:#f8fafc;">0</strong> problems</span>
+          </div>
+          <div style="display:flex; gap:16px; align-items:center; font-weight:600;">
+            <span style="color:#34d399;"><i class="fa-solid fa-circle-check"></i> <strong id="explorer-filtered-solved">0</strong> Solved</span>
+            <span style="color:#94a3b8;"><i class="fa-regular fa-circle"></i> <strong id="explorer-filtered-unsolved">0</strong> Unsolved</span>
+            <span style="color:var(--accent-amber);"><i class="fa-solid fa-bell"></i> <strong id="explorer-filtered-due">0</strong> Due</span>
           </div>
         </div>
 
@@ -520,40 +541,48 @@
         </div>
       </section>
 
-      <!-- ================= VIEW 7: STUDY ROADMAP & DAY-WISE PLAN ================= -->
+      <!-- ================= VIEW 7: DAILY PROBLEMS & WEEKEND TEST ================= -->
       <section id="view-roadmap" class="view-section">
-        <!-- Roadmap Hero Header & Active Track Selector -->
+        <!-- Daily Plan Hero Header -->
         <div class="roadmap-hero-card">
           <div class="roadmap-hero-main">
             <div class="roadmap-hero-badge">
-              <i class="fa-solid fa-map-location-dot"></i>
-              <span>Structured Day-Wise Study Track</span>
+              <i class="fa-solid fa-calendar-check"></i>
+              <span>Daily Problem Pacing & Weekend Test Hub</span>
             </div>
-            <h2 id="roadmap-track-title">🚀 12-Week Zero-to-Hero Mastery</h2>
-            <p id="roadmap-track-subtitle">Complete 479 Striver A2Z roadmap from foundations to advanced algorithms with daily revisions</p>
+            <h2 id="roadmap-track-title">🎯 Daily Practice & Weekend Test</h2>
+            <p id="roadmap-track-subtitle">Adaptive confidence-powered daily DSA target problems, automated spaced revisions, and weekly diagnostic retention exams.</p>
             
             <div class="roadmap-stats-row">
               <div class="roadmap-stat-item">
                 <span class="stat-num" id="roadmap-stat-progress">0%</span>
-                <span class="stat-txt">Track Progress</span>
+                <span class="stat-txt">Cycle Progress</span>
               </div>
               <div class="roadmap-stat-item">
-                <span class="stat-num" id="roadmap-stat-days-done">0 / 84</span>
-                <span class="stat-txt">Days Completed</span>
+                <span class="stat-num" id="roadmap-stat-days-done">0 / 7</span>
+                <span class="stat-txt">Days Complete</span>
+              </div>
+              <div class="roadmap-stat-item">
+                <span class="stat-num" id="roadmap-stat-solved-count" style="color:#34d399;">0</span>
+                <span class="stat-txt">Solved Problems</span>
+              </div>
+              <div class="roadmap-stat-item">
+                <span class="stat-num" id="roadmap-stat-unsolved-count" style="color:#cbd5e1;">0</span>
+                <span class="stat-txt">Unsolved Remaining</span>
               </div>
               <div class="roadmap-stat-item">
                 <span class="stat-num" id="roadmap-stat-active-focus">Basics & Math</span>
-                <span class="stat-txt">Current Topic</span>
+                <span class="stat-txt">Active Focus</span>
               </div>
             </div>
           </div>
 
           <div class="roadmap-hero-actions">
-            <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Change Study Track:</label>
+            <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Quick Focus Pacing:</label>
             <select class="filter-select" id="roadmap-track-select" style="width:100%;">
-              <option value="striver_hero">🚀 12-Week Zero-to-Hero (479 Problems)</option>
-              <option value="faang_60">💼 8-Week FAANG Sprint (NeetCode & SDE)</option>
-              <option value="blind_30">⚡ 4-Week Blind 75 Crash Course</option>
+              <option value="striver_hero">🚀 Full Coverage Track (479 Master Problems)</option>
+              <option value="faang_60">💼 FAANG High-Frequency Sprint</option>
+              <option value="blind_30">⚡ Blind 75 Essentials</option>
             </select>
             <div class="roadmap-track-progress-bar">
               <div class="roadmap-track-progress-fill" id="roadmap-track-progress-fill" style="width:0%;"></div>
@@ -561,35 +590,24 @@
           </div>
         </div>
 
-        <!-- Horizontal Week Timeline Selector -->
-        <div class="section-title-wrap" style="margin-top:24px;">
-          <div>
-            <h2><i class="fa-solid fa-calendar-week" style="color:var(--primary);"></i> Week-by-Week Curriculum</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">Select a week to explore its daily topics, target problems, and weekend revision</span>
-          </div>
-        </div>
-        <div class="roadmap-weeks-scroll" id="roadmap-weeks-container">
-          <!-- Dynamically populated with Week Cards -->
-        </div>
-
-        <!-- Day Selector Pill Strip -->
-        <div class="roadmap-days-strip-card" style="margin-top:16px;">
+        <!-- 7-Day Cycle Selector Strip -->
+        <div class="roadmap-days-strip-card" style="margin-top:18px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
             <div style="font-size:14px; font-weight:700; color:#f8fafc;" id="roadmap-selected-week-heading">
-              Week 1: Foundations, Basic Math & Sorting
+              <i class="fa-solid fa-calendar-day" style="color:var(--primary); margin-right:6px;"></i> Weekly Practice & Assessment Schedule
             </div>
             <div style="font-size:12px; color:var(--text-dim);" id="roadmap-week-progress-txt">
               0 / 7 Days Complete
             </div>
           </div>
           <div class="roadmap-days-pills" id="roadmap-days-pills-container">
-            <!-- Dynamically populated Day Pills -->
+            <!-- Dynamically populated 7-Day Pills (Days 1-5 Practice, Day 6 Super Rev, Day 7 Exam) -->
           </div>
         </div>
 
-        <!-- Active Day Planner Container -->
+        <!-- Active Day Practice & Weekend Test Container -->
         <div id="roadmap-active-day-content" style="margin-top:20px;">
-          <!-- Dynamically populated day details, target problems, due revisions, or weekend cards -->
+          <!-- Dynamically populated daily target problems, due revisions, or weekend test cards -->
         </div>
       </section>
     </main>

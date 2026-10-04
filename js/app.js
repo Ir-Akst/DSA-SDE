@@ -298,10 +298,22 @@
 
     if (totalCountEl) totalCountEl.textContent = allProblems.length;
 
+    let solvedCount = 0;
     let dueCount = 0;
     allProblems.forEach(p => {
-      if (SRSEngine.isDue(userStates[p.id])) dueCount++;
+      const state = userStates[p.id];
+      if (state && state.lastReviewed) {
+        solvedCount++;
+      }
+      if (SRSEngine.isDue(state)) dueCount++;
     });
+    const unsolvedCount = allProblems.length - solvedCount;
+
+    // Header Solved & Unsolved Pill
+    const headerSolvedEl = document.getElementById('header-solved-count');
+    const headerUnsolvedEl = document.getElementById('header-unsolved-count');
+    if (headerSolvedEl) headerSolvedEl.textContent = solvedCount;
+    if (headerUnsolvedEl) headerUnsolvedEl.textContent = unsolvedCount;
 
     if (dueCountEl) {
       if (dueCount > 0) {
@@ -332,6 +344,7 @@
       }
       if (SRSEngine.isDue(state)) dueCount++;
     });
+    const unsolvedCount = allProblems.length - solvedCount;
 
     const topicMasteryMap = SRSEngine.calculateTopicMastery(allProblems, userStates);
 
@@ -342,11 +355,19 @@
       : Math.round(masteryValues.reduce((a, b) => a + b, 0) / masteryValues.length);
 
     // Update DOM Stats
-    document.getElementById('stat-solved-count').textContent = solvedCount;
-    document.getElementById('stat-total-count').textContent = allProblems.length;
-    document.getElementById('stat-due-count').textContent = dueCount;
-    document.getElementById('stat-mastered-count').textContent = masteredCount;
-    document.getElementById('stat-retention-score').textContent = `${avgMastery}%`;
+    const statSolvedEl = document.getElementById('stat-solved-count');
+    const statUnsolvedEl = document.getElementById('stat-unsolved-count');
+    const statTotalEl = document.getElementById('stat-total-count');
+    const statDueEl = document.getElementById('stat-due-count');
+    const statMasteredEl = document.getElementById('stat-mastered-count');
+    const statRetentionEl = document.getElementById('stat-retention-score');
+
+    if (statSolvedEl) statSolvedEl.textContent = solvedCount;
+    if (statUnsolvedEl) statUnsolvedEl.textContent = unsolvedCount;
+    if (statTotalEl) statTotalEl.textContent = allProblems.length;
+    if (statDueEl) statDueEl.textContent = dueCount;
+    if (statMasteredEl) statMasteredEl.textContent = masteredCount;
+    if (statRetentionEl) statRetentionEl.textContent = `${avgMastery}%`;
 
     // Revision Banner
     const banner = document.getElementById('dashboard-revision-banner');
@@ -484,6 +505,26 @@
 
       return true;
     });
+
+    // Update Problem Explorer live count metrics
+    let filteredSolved = 0;
+    let filteredDue = 0;
+    filtered.forEach(p => {
+      const s = userStates[p.id];
+      if (s && s.lastReviewed) filteredSolved++;
+      if (SRSEngine.isDue(s)) filteredDue++;
+    });
+    const filteredUnsolved = filtered.length - filteredSolved;
+
+    const expTotalEl = document.getElementById('explorer-filtered-total');
+    const expSolvedEl = document.getElementById('explorer-filtered-solved');
+    const expUnsolvedEl = document.getElementById('explorer-filtered-unsolved');
+    const expDueEl = document.getElementById('explorer-filtered-due');
+
+    if (expTotalEl) expTotalEl.textContent = filtered.length;
+    if (expSolvedEl) expSolvedEl.textContent = filteredSolved;
+    if (expUnsolvedEl) expUnsolvedEl.textContent = filteredUnsolved;
+    if (expDueEl) expDueEl.textContent = filteredDue;
 
     tbody.innerHTML = '';
     if (filtered.length === 0) {
@@ -1372,7 +1413,7 @@
     }
   }
 
-  // --- VIEW 7: STUDY ROADMAP & DAY-WISE PLAN ---
+  // --- VIEW 7: DAILY PROBLEMS & WEEKEND TEST ---
   function renderRoadmapView() {
     if (!window.RoadmapEngine) return;
     if (!RoadmapEngine.progress) {
@@ -1380,135 +1421,76 @@
     }
 
     const activeTrack = RoadmapEngine.progress.activeTrack || 'striver_hero';
-    const trackMeta = RoadmapEngine.TRACKS[activeTrack] || RoadmapEngine.TRACKS.striver_hero;
     const schedule = RoadmapEngine.getSchedule(activeTrack, allProblems);
+    const currentWeek = schedule[0] || { weekNumber: 1, title: 'Core Practice', topic: 'Arrays & Hashing', days: [] };
 
-    // 1. Update Hero Card
-    const trackTitleEl = document.getElementById('roadmap-track-title');
-    const trackSubEl = document.getElementById('roadmap-track-subtitle');
-    const trackSelectEl = document.getElementById('roadmap-track-select');
-
-    if (trackTitleEl) trackTitleEl.textContent = trackMeta.title;
-    if (trackSubEl) trackSubEl.textContent = trackMeta.subtitle;
-    if (trackSelectEl && trackSelectEl.value !== activeTrack) {
-      trackSelectEl.value = activeTrack;
-    }
-
-    // 2. Calculate Overall Track Progress
-    let totalDaysInTrack = 0;
-    let completedDaysInTrack = 0;
-    schedule.forEach(week => {
-      week.days.forEach(day => {
-        totalDaysInTrack++;
-        if (RoadmapEngine.isDayCompleted(activeTrack, week.weekNumber, day.dayNumber)) {
-          completedDaysInTrack++;
-        }
-      });
+    // 1. Calculate 7-Day Cycle Progress
+    let completedDaysInCycle = 0;
+    currentWeek.days.forEach(day => {
+      if (RoadmapEngine.isDayCompleted(activeTrack, 1, day.dayNumber)) {
+        completedDaysInCycle++;
+      }
     });
 
-    const progressPercent = totalDaysInTrack > 0 ? Math.round((completedDaysInTrack / totalDaysInTrack) * 100) : 0;
+    const cyclePercent = Math.round((completedDaysInCycle / 7) * 100);
     const statProgressEl = document.getElementById('roadmap-stat-progress');
     const statDaysDoneEl = document.getElementById('roadmap-stat-days-done');
     const trackProgressFill = document.getElementById('roadmap-track-progress-fill');
 
-    if (statProgressEl) statProgressEl.textContent = `${progressPercent}%`;
-    if (statDaysDoneEl) statDaysDoneEl.textContent = `${completedDaysInTrack} / ${totalDaysInTrack}`;
-    if (trackProgressFill) trackProgressFill.style.width = `${progressPercent}%`;
+    if (statProgressEl) statProgressEl.textContent = `${cyclePercent}%`;
+    if (statDaysDoneEl) statDaysDoneEl.textContent = `${completedDaysInCycle} / 7`;
+    if (trackProgressFill) trackProgressFill.style.width = `${cyclePercent}%`;
 
-    // 3. Ensure valid selectedWeek & selectedDay
-    if (!RoadmapEngine.progress.selectedWeek || RoadmapEngine.progress.selectedWeek > schedule.length || RoadmapEngine.progress.selectedWeek < 1) {
-      RoadmapEngine.progress.selectedWeek = 1;
-    }
-    const currentWeek = schedule.find(w => w.weekNumber === RoadmapEngine.progress.selectedWeek) || schedule[0];
-
-    if (!RoadmapEngine.progress.selectedDay || RoadmapEngine.progress.selectedDay > currentWeek.days.length || RoadmapEngine.progress.selectedDay < 1) {
+    // 2. Ensure valid selectedDay (1 to 7)
+    if (!RoadmapEngine.progress.selectedDay || RoadmapEngine.progress.selectedDay > 7 || RoadmapEngine.progress.selectedDay < 1) {
       RoadmapEngine.progress.selectedDay = 1;
     }
     const currentDay = currentWeek.days.find(d => d.dayNumber === RoadmapEngine.progress.selectedDay) || currentWeek.days[0];
 
-    const customDayTopic = RoadmapEngine.getDayCustomTopic(activeTrack, currentWeek.weekNumber, currentDay.dayNumber);
-    const activeFocusTopic = customDayTopic ? (Array.isArray(customDayTopic) ? `Mixed (${customDayTopic.length} Topics)` : customDayTopic) : (currentDay.topic || currentWeek.topic);
+    const customDayTopic = RoadmapEngine.getDayCustomTopic(activeTrack, 1, currentDay.dayNumber);
+    const activeFocusTopic = customDayTopic ? (Array.isArray(customDayTopic) ? `Mixed (${customDayTopic.length} Topics)` : customDayTopic) : (currentDay.topic || 'General DSA');
 
     const statActiveFocusEl = document.getElementById('roadmap-stat-active-focus');
     if (statActiveFocusEl) statActiveFocusEl.textContent = activeFocusTopic;
 
-    // 4. Render Week Cards in Horizontal Scroll Container
-    const weeksContainer = document.getElementById('roadmap-weeks-container');
-    if (weeksContainer) {
-      weeksContainer.innerHTML = '';
-      schedule.forEach(week => {
-        let weekDoneCount = 0;
-        week.days.forEach(d => {
-          if (RoadmapEngine.isDayCompleted(activeTrack, week.weekNumber, d.dayNumber)) {
-            weekDoneCount++;
-          }
-        });
-        const isWeekComplete = weekDoneCount === week.days.length;
-        const isWeekSelected = week.weekNumber === RoadmapEngine.progress.selectedWeek;
-
-        const card = document.createElement('div');
-        card.className = `roadmap-week-card ${isWeekSelected ? 'active' : ''} ${isWeekComplete ? 'completed' : ''}`;
-        card.dataset.weekNum = week.weekNumber;
-        card.innerHTML = `
-          <div class="week-card-header">
-            <span class="week-num-badge">Week ${week.weekNumber}</span>
-            <span class="week-topic-badge">${week.topic}</span>
-          </div>
-          <h4 class="week-card-title">${week.title}</h4>
-          <p class="week-card-desc">${week.description || ''}</p>
-          <div class="week-card-footer">
-            <div class="week-mini-progress">
-              <div class="week-mini-fill" style="width:${Math.round((weekDoneCount / week.days.length) * 100)}%;"></div>
-            </div>
-            <span class="week-status-badge ${isWeekComplete ? 'done' : ''}">
-              ${isWeekComplete ? '<i class="fa-solid fa-circle-check"></i> Complete' : `${weekDoneCount}/${week.days.length} Days`}
-            </span>
-          </div>
-        `;
-        card.addEventListener('click', () => {
-          RoadmapEngine.progress.selectedWeek = week.weekNumber;
-          RoadmapEngine.progress.selectedDay = 1;
-          RoadmapEngine.saveProgress();
-          renderRoadmapView();
-        });
-        weeksContainer.appendChild(card);
-      });
-    }
-
-    // 5. Render Day Selector Pills Strip
-    const headingEl = document.getElementById('roadmap-selected-week-heading');
-    const progressTxtEl = document.getElementById('roadmap-week-progress-txt');
-    let currentWeekDoneCount = 0;
-    currentWeek.days.forEach(d => {
-      if (RoadmapEngine.isDayCompleted(activeTrack, currentWeek.weekNumber, d.dayNumber)) {
-        currentWeekDoneCount++;
-      }
+    // Track Solved & Unsolved Counts
+    let trackSolvedCount = 0;
+    allProblems.forEach(p => {
+      if (userStates[p.id]?.lastReviewed) trackSolvedCount++;
     });
+    const trackUnsolvedCount = allProblems.length - trackSolvedCount;
 
-    if (headingEl) {
-      headingEl.innerHTML = `<i class="fa-solid fa-calendar-check" style="color:var(--primary); margin-right:6px;"></i> Week ${currentWeek.weekNumber}: ${currentWeek.title} <span class="badge badge-srs-upcoming" style="margin-left:8px; vertical-align:middle;">${currentWeek.topic}</span>`;
-    }
+    const statTrackSolvedEl = document.getElementById('roadmap-stat-solved-count');
+    const statTrackUnsolvedEl = document.getElementById('roadmap-stat-unsolved-count');
+    if (statTrackSolvedEl) statTrackSolvedEl.textContent = `${trackSolvedCount} / ${allProblems.length}`;
+    if (statTrackUnsolvedEl) statTrackUnsolvedEl.textContent = `${trackUnsolvedCount}`;
+
+    // 3. Render 7-Day Selector Pills Strip (Mon - Sun)
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat (Review)', 'Sun (Exam)'];
+    const progressTxtEl = document.getElementById('roadmap-week-progress-txt');
     if (progressTxtEl) {
-      progressTxtEl.textContent = `${currentWeekDoneCount} / ${currentWeek.days.length} Days Completed`;
+      progressTxtEl.textContent = `${completedDaysInCycle} / 7 Days Complete (${cyclePercent}%)`;
     }
 
     const daysPillsContainer = document.getElementById('roadmap-days-pills-container');
     if (daysPillsContainer) {
       daysPillsContainer.innerHTML = '';
-      currentWeek.days.forEach(day => {
-        const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, currentWeek.weekNumber, day.dayNumber);
+      currentWeek.days.forEach((day, idx) => {
+        const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, 1, day.dayNumber);
         const isDayActive = day.dayNumber === RoadmapEngine.progress.selectedDay;
-        const hasCustomTopic = !!RoadmapEngine.getDayCustomTopic(activeTrack, currentWeek.weekNumber, day.dayNumber);
+        const hasCustomTopic = !!RoadmapEngine.getDayCustomTopic(activeTrack, 1, day.dayNumber);
 
         const pill = document.createElement('button');
         pill.className = `roadmap-day-pill ${isDayActive ? 'active' : ''} ${isDayDone ? 'completed' : ''} ${day.isWeekend ? 'weekend' : ''}`;
         pill.dataset.dayNum = day.dayNumber;
 
         let icon = isDayDone ? '<i class="fa-solid fa-check"></i>' : (day.isExamDay ? '<i class="fa-solid fa-trophy"></i>' : day.isReviewDay ? '<i class="fa-solid fa-bolt"></i>' : (hasCustomTopic ? '<i class="fa-solid fa-shuffle"></i>' : `<i class="fa-solid fa-code"></i>`));
-        let label = day.isExamDay ? `Day ${day.dayNumber} (Exam)` : day.isReviewDay ? `Day ${day.dayNumber} (Super Rev)` : `Day ${day.dayNumber}`;
+        let dayName = dayNames[idx] || `Day ${day.dayNumber}`;
+        let label = day.isExamDay ? `Day 7: Weekend Test 🏆` : day.isReviewDay ? `Day 6: Flashcards ⚡` : `Day ${day.dayNumber} (${dayName})`;
 
         pill.innerHTML = `${icon} <span>${label}</span>`;
         pill.addEventListener('click', () => {
+          RoadmapEngine.progress.selectedWeek = 1;
           RoadmapEngine.progress.selectedDay = day.dayNumber;
           RoadmapEngine.saveProgress();
           renderRoadmapView();
@@ -1517,7 +1499,7 @@
       });
     }
 
-    // 6. Render Active Day Workspace
+    // 4. Render Active Day Practice & Weekend Test Workspace
     renderActiveDayContent(activeTrack, currentWeek, currentDay);
   }
 
@@ -1540,7 +1522,7 @@
       <div class="roadmap-day-focus-card">
         <div class="day-focus-header">
           <div class="day-focus-meta" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-            <span class="day-badge"><i class="fa-solid fa-bookmark"></i> Week ${currentWeek.weekNumber} • Day ${currentDay.dayNumber}</span>
+            <span class="day-badge"><i class="fa-solid fa-calendar-day"></i> Day ${currentDay.dayNumber} of 7</span>
             
             ${customDayTopic ? (
               Array.isArray(customDayTopic)
@@ -1549,7 +1531,7 @@
             ) : `<span class="badge badge-srs-upcoming">${currentDay.topic}</span>`}
 
             <span class="workload-badge ${workload.typeClass}"><i class="fa-solid fa-gauge-high"></i> ${workload.label}</span>
-            ${currentDay.isWeekend ? `<span class="badge" style="background:rgba(234,179,8,0.15); color:#fbbf24; border:1px solid rgba(234,179,8,0.3);"><i class="fa-solid fa-star"></i> Weekend Special</span>` : ''}
+            ${currentDay.isWeekend ? `<span class="badge" style="background:rgba(234,179,8,0.15); color:#fbbf24; border:1px solid rgba(234,179,8,0.3);"><i class="fa-solid fa-star"></i> Weekend Test & Review</span>` : ''}
           </div>
           <h3 class="day-focus-title">${currentDay.title}</h3>
           <p class="day-focus-desc">
@@ -1568,7 +1550,7 @@
               </button>
             ` : ''}
           ` : ''}
-          <button id="btn-toggle-day-complete" class="btn ${isDayDone ? 'btn-secondary' : 'btn-primary'}" data-track="${activeTrack}" data-week="${currentWeek.weekNumber}" data-day="${currentDay.dayNumber}">
+          <button id="btn-toggle-day-complete" class="btn ${isDayDone ? 'btn-secondary' : 'btn-primary'}" data-track="${activeTrack}" data-week="1" data-day="${currentDay.dayNumber}">
             <i class="fa-solid ${isDayDone ? 'fa-arrow-rotate-left' : 'fa-circle-check'}"></i>
             <span>${isDayDone ? 'Completed (Undo)' : 'Mark Day as Completed'}</span>
           </button>
@@ -1588,17 +1570,17 @@
               <div class="weekend-pill exam"><i class="fa-solid fa-stopwatch"></i> 30-Minute Timed Checkpoint</div>
               <h3 style="font-size:20px; font-weight:800; color:#f8fafc; margin-top:4px;">Weekend Diagnostic Mock Assessment</h3>
               <p style="font-size:13px; color:var(--text-muted); margin-top:6px; max-width:650px; line-height:1.5;">
-                Evaluate your true problem-solving speed and algorithm recall for <strong style="color:#fbbf24;">${currentWeek.topic}</strong>. Test covers 3 curated problems (1 Easy, 2 Medium) under interview conditions with live scratchpad and countdown timer.
+                Evaluate your true problem-solving speed and algorithm recall under timed interview conditions with scratchpad, pattern validation, and instant grading sandbox.
               </p>
               <div style="display:flex; gap:10px; margin-top:14px; flex-wrap:wrap;">
                 <span class="badge badge-easy">1 Easy Warmup</span>
                 <span class="badge badge-medium">2 Medium Core Challenges</span>
-                <span class="badge badge-srs-upcoming">Topic: ${currentWeek.topic}</span>
+                <span class="badge badge-srs-upcoming">Topic: ${currentDay.topic || 'General DSA'}</span>
               </div>
             </div>
           </div>
           <div class="weekend-banner-actions">
-            <button class="btn btn-primary" id="btn-launch-weekend-exam" data-topic="${currentWeek.topic}" style="background:linear-gradient(135deg, #eab308 0%, #f59e0b 100%); color:#0f172a; font-weight:800; padding:12px 24px; font-size:14px; box-shadow:0 6px 20px rgba(234,179,8,0.3);">
+            <button class="btn btn-primary" id="btn-launch-weekend-exam" data-topic="${currentDay.topic || 'General'}" style="background:linear-gradient(135deg, #eab308 0%, #f59e0b 100%); color:#0f172a; font-weight:800; padding:12px 24px; font-size:14px; box-shadow:0 6px 20px rgba(234,179,8,0.3);">
               <i class="fa-solid fa-play"></i> Start 30-Min Diagnostic Exam
             </button>
           </div>
@@ -1614,7 +1596,7 @@
       currentWeek.days.filter(d => !d.isWeekend && d.problemKeywords).forEach(d => {
         weekKeywords.push(...d.problemKeywords);
       });
-      const weekProblems = RoadmapEngine.findProblems(allProblems, weekKeywords, currentWeek.topic, 10);
+      const weekProblems = RoadmapEngine.findProblems(allProblems, weekKeywords, currentDay.topic || currentWeek.topic, 10, userStates);
 
       headerHtml += `
         <div class="roadmap-weekend-banner flashcards" style="margin-top:20px;">
@@ -1624,23 +1606,23 @@
             </div>
             <div>
               <div class="weekend-pill flashcard"><i class="fa-solid fa-brain"></i> Active Recall Speed Drill</div>
-              <h3 style="font-size:20px; font-weight:800; color:#f8fafc; margin-top:4px;">Weekend Super Revision: ${currentWeek.topic}</h3>
+              <h3 style="font-size:20px; font-weight:800; color:#f8fafc; margin-top:4px;">Weekend Flashcard Recall Drill: ${currentDay.topic || 'General DSA'}</h3>
               <p style="font-size:13px; color:var(--text-muted); margin-top:6px; max-width:650px; line-height:1.5;">
                 Reinforce algorithmic intuition, time/space tradeoffs, and common edge cases for all techniques covered throughout this week. Flip through flashcards and self-rate before tomorrow's assessment.
               </p>
             </div>
           </div>
           <div class="weekend-banner-actions">
-            <button class="btn btn-primary" id="btn-launch-weekend-flashcards" data-topic="${currentWeek.topic}" style="background:linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); font-weight:800; padding:12px 24px; font-size:14px; box-shadow:0 6px 20px rgba(6,182,212,0.3);">
-              <i class="fa-solid fa-bolt"></i> Launch Weekly Flashcard Drill
+            <button class="btn btn-primary" id="btn-launch-weekend-flashcards" data-topic="${currentDay.topic || currentWeek.topic}" style="background:linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%); font-weight:800; padding:12px 24px; font-size:14px; box-shadow:0 6px 20px rgba(6,182,212,0.3);">
+              <i class="fa-solid fa-bolt"></i> Launch Flashcard Speed Drill
             </button>
           </div>
         </div>
 
         <div class="section-title-wrap" style="margin-top:24px;">
           <div>
-            <h3><i class="fa-solid fa-list-check" style="color:var(--primary);"></i> Week ${currentWeek.weekNumber} Mastered & In-Progress Problems (${weekProblems.length})</h3>
-            <span style="font-size:12px; color:var(--text-dim);">Review your mastery status across all problems introduced this week</span>
+            <h3><i class="fa-solid fa-list-check" style="color:var(--primary);"></i> Covered Practice Problems & Mastery Status (${weekProblems.length})</h3>
+            <span style="font-size:12px; color:var(--text-dim);">Review your mastery status across recent practiced problems</span>
           </div>
         </div>
 
@@ -1695,93 +1677,36 @@
       return;
     }
 
-    // Case 3: Normal Study Day (Days 1 to 5)
-    // Part A: Carried Over / Rollover Problems Section (if any)
-    if (rolloverProblems.length > 0) {
-      headerHtml += `
-        <div class="roadmap-rollover-banner" style="margin-top:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:10px; margin-bottom:12px;">
-            <div>
-              <h3 style="font-size:15px; font-weight:800; color:#fbbf24; display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-arrow-right-arrow-left"></i> Carried Over from Previous Days (${rolloverProblems.length} Unsolved)
-              </h3>
-              <p style="font-size:12px; color:var(--text-muted); margin-top:2px;">
-                These target problems from earlier in your track were not marked solved and automatically moved to today's schedule.
-              </p>
-            </div>
-            <span class="badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid rgba(245,158,11,0.4); font-size:11px;">
-              ⚡ Auto-Rollover Active
-            </span>
-          </div>
+    // Case 3: Normal Study Day (Days 1 to 5) - Unified Combined Daily Problem Queue (Capped at 2–4 total)
+    const unifiedProblems = RoadmapEngine.getUnifiedDailyProblems(
+      activeTrack,
+      currentWeek.weekNumber,
+      currentDay.dayNumber,
+      currentDay,
+      allProblems,
+      userStates
+    );
+    const unifiedWorkload = RoadmapEngine.calculateWorkload(unifiedProblems);
 
-          <div class="table-container" style="background:rgba(15,23,42,0.6); margin-top:8px;">
-            <table class="problem-table">
-              <thead>
-                <tr>
-                  <th style="width: 50px;">Done</th>
-                  <th>Problem Title</th>
-                  <th>Originated From</th>
-                  <th>Difficulty</th>
-                  <th>SRS Status</th>
-                  <th style="width: 160px;">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rolloverProblems.map(p => {
-                  const state = userStates[p.id];
-                  const dueInfo = SRSEngine.getDueStatus(state);
-                  const isSolved = state && state.lastReviewed;
+    const revisionCount = unifiedProblems.filter(p => p.scheduleRole === 'revision').length;
+    const rolloverCount = unifiedProblems.filter(p => p.scheduleRole === 'rollover').length;
+    const targetCount = unifiedProblems.filter(p => p.scheduleRole === 'target').length;
 
-                  return `
-                    <tr class="due-row">
-                      <td>
-                        <input type="checkbox" class="prob-checkbox" data-id="${p.id}" ${isSolved ? 'checked' : ''} style="cursor:pointer; width:16px; height:16px; accent-color:var(--primary);">
-                      </td>
-                      <td>
-                        <div class="problem-title-cell">
-                          <a href="${p.url || '#'}" target="_blank" class="problem-title">${p.title} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px; color:var(--text-dim);"></i></a>
-                          ${p.companies && p.companies.length ? `
-                            <div class="company-chip-wrap" style="margin-top:4px;">
-                              ${p.companies.slice(0, 2).map(c => `<span class="company-badge ${c.toLowerCase().replace(/[^a-z]/g, '')}">🏢 ${c}</span>`).join('')}
-                            </div>
-                          ` : ''}
-                        </div>
-                      </td>
-                      <td><span class="rollover-tag"><i class="fa-solid fa-clock-rotate-left"></i> W${p.fromWeek} • D${p.fromDay}</span><br><span style="font-size:10.5px; color:var(--text-dim);">${p.fromDayTitle || ''}</span></td>
-                      <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
-                      <td><span class="badge ${dueInfo.badgeClass}">${dueInfo.label}</span></td>
-                      <td>
-                        <div style="display:flex; gap:6px;">
-                          <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}" title="Solve & Log SRS Rating">
-                            <i class="fa-solid fa-rotate"></i> Rate
-                          </button>
-                          <button class="btn btn-secondary btn-sm btn-defer-rollover" data-id="${p.id}" title="Postpone / Defer" style="font-size:11px; padding:4px 8px; color:var(--text-dim);">
-                            <i class="fa-solid fa-clock"></i> Defer
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      `;
-    }
-
-    // Part B: Today's Curated Target Problems
     headerHtml += `
-      <!-- Section 1: Today's Curated Target Problems -->
       <div class="section-title-wrap" style="margin-top:20px;">
         <div style="display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:10px;">
           <div>
-            <h3><i class="fa-solid fa-crosshairs" style="color:var(--primary);"></i> 1. Today's Target Core Problems (${targetProblems.length} assigned)</h3>
-            <span style="font-size:12px; color:var(--text-dim);">
-              ${customDayTopic ? (Array.isArray(customDayTopic) ? `Multi-Topic Mix across ${customDayTopic.join(' & ')}` : `Custom Topic Focus: ${customDayTopic}`) : `Difficulty-adapted pacing: ${currentDay.focus}`}
-            </span>
+            <h3><i class="fa-solid fa-list-check" style="color:var(--primary);"></i> Today's Daily Practice & Revisions (${unifiedProblems.length} Assigned)</h3>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:4px; flex-wrap:wrap;">
+              ${revisionCount > 0 ? `<span class="schedule-role-pill badge-revision"><i class="fa-solid fa-rotate"></i> ${revisionCount} Due Revision${revisionCount > 1 ? 's' : ''}</span>` : ''}
+              ${rolloverCount > 0 ? `<span class="schedule-role-pill badge-rollover"><i class="fa-solid fa-clock-rotate-left"></i> ${rolloverCount} Carried Over</span>` : ''}
+              ${targetCount > 0 ? `<span class="schedule-role-pill badge-target"><i class="fa-solid fa-crosshairs"></i> ${targetCount} New Target${targetCount > 1 ? 's' : ''}</span>` : ''}
+              <span style="font-size:12px; color:var(--text-dim); margin-left:4px;">
+                ${customDayTopic ? (Array.isArray(customDayTopic) ? `Mixed: ${customDayTopic.join(', ')}` : `Focus: ${customDayTopic}`) : currentDay.focus}
+              </span>
+            </div>
           </div>
-          <span class="workload-badge ${workload.typeClass}"><i class="fa-solid fa-clock"></i> Target Workload: ${workload.label}</span>
+          <span class="workload-badge ${unifiedWorkload.typeClass}"><i class="fa-solid fa-clock"></i> Total Workload: ${unifiedWorkload.label}</span>
         </div>
       </div>
 
@@ -1791,21 +1716,22 @@
             <tr>
               <th style="width: 50px;">Done</th>
               <th>Problem Title</th>
-              <th>Pattern / Topic</th>
+              <th>Type / Origin</th>
+              <th>Topic & Pattern</th>
               <th>Difficulty</th>
-              <th>Sheets</th>
-              <th>SRS Interval</th>
-              <th style="width: 140px;">Actions</th>
+              <th>Confidence / SRS</th>
+              <th style="width: 150px;">Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${targetProblems.length === 0 ? `
-              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No specific problems matched. Click "Switch Topic / Mix" above to pick topics or problems.</td></tr>
-            ` : targetProblems.map(p => {
+            ${unifiedProblems.length === 0 ? `
+              <tr><td colspan="7" style="text-align:center; padding:24px; color:var(--text-dim);">No problems scheduled for today. Click "Switch Topic / Mix" above to add problems.</td></tr>
+            ` : unifiedProblems.map(p => {
               const state = userStates[p.id];
               const dueInfo = SRSEngine.getDueStatus(state);
               const isSolved = state && state.lastReviewed;
-              const sheetsList = p.sheets || (p.sheet ? [p.sheet] : ['Custom']);
+              const conf = SRSEngine.getConfidence(state);
+              const isRollover = p.scheduleRole === 'rollover';
 
               return `
                 <tr class="${dueInfo.code === 'due' ? 'due-row' : dueInfo.code === 'mastered' ? 'mastered-row' : ''}">
@@ -1822,22 +1748,35 @@
                       ` : ''}
                     </div>
                   </td>
-                  <td><span style="font-size:12px; font-weight:600; color:#e2e8f0;">${p.pattern || 'Pattern Focus'}</span><br><span style="font-size:11px; color:var(--text-dim);">${p._sourceTopic || p.topic}</span></td>
+                  <td>
+                    <span class="schedule-role-pill ${p.badgeClass}">
+                      <i class="fa-solid ${p.roleIcon || 'fa-crosshairs'}"></i> ${p.roleLabel}
+                    </span>
+                  </td>
+                  <td>
+                    <span style="font-size:12px; font-weight:600; color:#e2e8f0;">${p.pattern || 'Core Pattern'}</span><br>
+                    <span style="font-size:11px; color:var(--text-dim);">${p._sourceTopic || p.topic}</span>
+                  </td>
                   <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
                   <td>
-                    <div style="display:flex; flex-wrap:wrap; gap:4px;">
-                      ${sheetsList.slice(0, 2).map(s => `<span class="badge badge-srs-upcoming" style="font-size:10px;">${s}</span>`).join('')}
+                    <div style="display:flex; flex-direction:column; gap:3px;">
+                      <span class="badge ${dueInfo.badgeClass}" style="width:fit-content;">${dueInfo.label}</span>
+                      ${conf ? `<span class="conf-badge conf-${conf}" style="font-size:10px; width:fit-content;">⭐ ${conf}/5</span>` : ''}
                     </div>
                   </td>
-                  <td><span class="badge ${dueInfo.badgeClass}">${dueInfo.label}</span></td>
                   <td>
                     <div style="display:flex; gap:6px;">
-                      <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}" title="Solve & Log SRS Rating">
+                      <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}" title="Solve & Log Rating">
                         <i class="fa-solid fa-rotate"></i> Rate
                       </button>
-                      <button class="btn btn-secondary btn-sm btn-action-detail" data-id="${p.id}" title="View Notes & History">
+                      <button class="btn btn-secondary btn-sm btn-action-detail" data-id="${p.id}" title="View Stepping-Stone Progression">
                         <i class="fa-solid fa-file-lines"></i>
                       </button>
+                      ${isRollover ? `
+                        <button class="btn btn-secondary btn-sm btn-defer-rollover" data-id="${p.id}" title="Defer Rollover" style="font-size:11px; padding:4px 6px; color:var(--text-dim);">
+                          <i class="fa-solid fa-clock"></i>
+                        </button>
+                      ` : ''}
                     </div>
                   </td>
                 </tr>
@@ -1846,78 +1785,6 @@
           </tbody>
         </table>
       </div>
-    `;
-
-    // Part C: Today's Due Spaced Revisions
-    const topicDueProblems = allProblems.filter(p => {
-      const state = userStates[p.id];
-      const isDue = SRSEngine.isDue(state);
-      const isTopicMatch = p.topic.toLowerCase().includes((currentDay.topic || '').toLowerCase());
-      return isDue && isTopicMatch;
-    });
-
-    const generalDueProblems = allProblems.filter(p => SRSEngine.isDue(userStates[p.id]) && !topicDueProblems.includes(p)).slice(0, 3);
-    const combinedDueRevisions = [...topicDueProblems, ...generalDueProblems];
-
-    headerHtml += `
-      <!-- Section 2: Today's Due Spaced Revisions -->
-      <div class="section-title-wrap" style="margin-top:28px;">
-        <div>
-          <h3><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-amber);"></i> 2. Today's Due Spaced Revisions (${combinedDueRevisions.length})</h3>
-          <span style="font-size:12px; color:var(--text-dim);">Prevent memory decay by clearing your due Spaced Repetition queue before moving on</span>
-        </div>
-      </div>
-
-      ${combinedDueRevisions.length === 0 ? `
-        <div style="background:rgba(16, 185, 129, 0.08); border:1px solid rgba(16, 185, 129, 0.25); border-radius:var(--radius-md); padding:18px 22px; display:flex; align-items:center; gap:16px;">
-          <div style="width:40px; height:40px; border-radius:50%; background:rgba(16,185,129,0.2); display:flex; align-items:center; justify-content:center; color:#34d399; font-size:18px;">
-            <i class="fa-solid fa-circle-check"></i>
-          </div>
-          <div>
-            <strong style="color:#34d399; font-size:14px;">All Caught Up on Revisions!</strong>
-            <p style="font-size:12.5px; color:var(--text-muted); margin-top:2px;">You have 0 overdue spaced repetition items right now. Full focus on today's target problems above!</p>
-          </div>
-        </div>
-      ` : `
-        <div class="table-container">
-          <table class="problem-table">
-            <thead>
-              <tr>
-                <th style="width: 50px;">Done</th>
-                <th>Problem Title</th>
-                <th>Topic</th>
-                <th>Difficulty</th>
-                <th>SRS Status</th>
-                <th style="width: 130px;">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${combinedDueRevisions.map(p => {
-                const state = userStates[p.id];
-                const dueInfo = SRSEngine.getDueStatus(state);
-                return `
-                  <tr class="due-row">
-                    <td>
-                      <input type="checkbox" class="prob-checkbox" data-id="${p.id}" checked style="cursor:pointer; width:16px; height:16px; accent-color:var(--primary);">
-                    </td>
-                    <td>
-                      <a href="${p.url || '#'}" target="_blank" class="problem-title">${p.title} <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px; color:var(--text-dim);"></i></a>
-                    </td>
-                    <td><strong>${p.topic}</strong></td>
-                    <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
-                    <td><span class="badge ${dueInfo.badgeClass}">${dueInfo.label}</span></td>
-                    <td>
-                      <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}">
-                        <i class="fa-solid fa-rotate"></i> Revise
-                      </button>
-                    </td>
-                  </tr>
-                `;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>
-      `}
     `;
 
     container.innerHTML = headerHtml;
@@ -2724,7 +2591,7 @@
 
         const subTitle = document.getElementById('modal-switch-topic-subtitle');
         if (subTitle) {
-          subTitle.textContent = `Week ${week} • Day ${day}: ${curDay.title}`;
+          subTitle.textContent = `Day ${day}: ${curDay.title}`;
         }
 
         // Prepopulate single topic select

@@ -121,7 +121,11 @@
      * @param {Object} userStates 
      * @param {Object} options - { excludeIds: [], difficultyPreference: 'easier'|'similar'|'harder'|'all' }
      */
-    findSimilarProblems(targetProblem, allProblems = [], userStates = {}, options = {}) {
+    findSimilarProblems(problemOrId, allProblems = [], userStates = {}, options = {}) {
+      let targetProblem = problemOrId;
+      if (typeof problemOrId === 'string') {
+        targetProblem = allProblems.find(p => p.id === problemOrId);
+      }
       if (!targetProblem) return [];
       const excludeIds = new Set(options.excludeIds || []);
       excludeIds.add(targetProblem.id);
@@ -137,7 +141,7 @@
       // 3. Topic fallback matches
       let topicMatches = [];
 
-      const targetWords = targetProblem.title.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+      const targetWords = (targetProblem.title || '').toLowerCase().split(/\s+/).filter(w => w.length > 3);
 
       allProblems.forEach(p => {
         if (excludeIds.has(p.id)) return;
@@ -206,7 +210,11 @@
      * @param {Array} allProblems 
      * @param {Object} userStates 
      */
-    getSimilarProblemProgression(problem, allProblems = [], userStates = {}) {
+    getSimilarProblemProgression(problemOrId, allProblems = [], userStates = {}) {
+      let problem = problemOrId;
+      if (typeof problemOrId === 'string') {
+        problem = allProblems.find(p => p.id === problemOrId);
+      }
       if (!problem) return null;
       const state = userStates[problem.id];
       const conf = SRSEngine.getConfidence(state) || 3;

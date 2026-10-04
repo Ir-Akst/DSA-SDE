@@ -284,6 +284,145 @@
     },
 
     /**
+     * Get unified, combined daily problem schedule for today (strictly capped at 2, 3, or 4 problems total)
+     * Combines due spaced revisions, carried-over uncompleted problems, and new target topics together in one list.
+     * @param {string} trackId
+     * @param {number} weekNum
+     * @param {number} dayNum
+     * @param {Object} defaultDayObj
+     * @param {Array} allProblems
+     * @param {Object} userStates
+     * @param {number|null} maxDailyCap - optional explicit cap (2, 3, or 4). Defaults to 3.
+     */
+    getUnifiedDailyProblems(trackId, weekNum, dayNum, defaultDayObj, allProblems = [], userStates = {}, maxDailyCap = null) {
+      if (!this.progress) this.initProgress();
+      const key = `${trackId}_w${weekNum}_d${dayNum}`;
+
+      // 1. Check if user configured an explicit custom mixed workout
+      const savedWorkout = this.progress?.customDayWorkouts?.[key];
+      if (savedWorkout && Array.isArray(savedWorkout.problemIds) && savedWorkout.problemIds.length > 0) {
+        const idMap = new Map(allProblems.map(p => [p.id, p]));
+        const probs = savedWorkout.problemIds.map(id => idMap.get(id)).filter(Boolean);
+        if (probs.length > 0) {
+          return probs.map(p => ({
+            ...p,
+            scheduleRole: 'target',
+            roleLabel: 'Mixed Target',
+            badgeClass: 'badge-target',
+            roleIcon: 'fa-crosshairs'
+          }));
+        }
+      }
+
+      // 2. Determine Daily Quota (strictly 2, 3, or 4 problems total)
+      let targetDailyCount = maxDailyCap;
+      if (!targetDailyCount || targetDailyCount < 2 || targetDailyCount > 4) {
+        targetDailyCount = 3; // Default 3 problems (~50-65 mins balanced)
+      }
+
+      const unifiedList = [];
+      const seenIds = new Set();
+
+      // SOURCE 1: Due Spaced Repetition Revisions (Priority 1: max 1-2 slots)
+      const topicLower = (defaultDayObj.topic || '').toLowerCase();
+      const allDue = allProblems.filter(p => {
+        const state = userStates[p.id];
+        return SRSEngine.isDue(state);
+      });
+
+      // Sort due revisions: lowest confidence first, then matching today's topic
+      allDue.sort((a, b) => {
+        const stateA = userStates[a.id];
+        const stateB = userStates[b.id];
+        const confA = SRSEngine.getConfidence(stateA) || 3;
+        const confB = SRSEngine.getConfidence(stateB) || 3;
+        if (confA !== confB) return confA - confB;
+        const matchA = a.topic.toLowerCase().includes(topicLower) ? 1 : 0;
+        const matchB = b.topic.toLowerCase().includes(topicLower) ? 1 : 0;
+        return matchB - matchA;
+      });
+
+      const maxRevisionSlots = Math.min(2, allDue.length, Math.floor(targetDailyCount / 2));
+      for (let i = 0; i < allDue.length && unifiedList.length < maxRevisionSlots; i++) {
+        const p = allDue[i];
+        if (!seenIds.has(p.id)) {
+          seenIds.add(p.id);
+          unifiedList.push({
+            ...p,
+            scheduleRole: 'revision',
+            roleLabel: 'Due Revision',
+            badgeClass: 'badge-revision',
+            roleIcon: 'fa-rotate'
+          });
+        }
+      }
+
+      // SOURCE 2: Carried-over Unsolved Problems from previous days (Priority 2: max 1 slot)
+      if (!defaultDayObj.isWeekend && unifiedList.length < targetDailyCount) {
+        const rollovers = this.getRolloverProblems(trackId, weekNum, dayNum, allProblems, userStates);
+        for (let i = 0; i < rollovers.length && unifiedList.length < (targetDailyCount - 1); i++) {
+          const p = rollovers[i];
+          if (!seenIds.has(p.id)) {
+            seenIds.add(p.id);
+            unifiedList.push({
+              ...p,
+              scheduleRole: 'rollover',
+              roleLabel: `Carried Over (Day ${p.fromDay})`,
+              badgeClass: 'badge-rollover',
+              roleIcon: 'fa-clock-rotate-left'
+            });
+            break; // Max 1 rollover slot to preserve quota for new topics
+          }
+        }
+      }
+
+      // SOURCE 3: Today's New Target Problems (Fill all remaining slots up to targetDailyCount)
+      const remainingSlots = targetDailyCount - unifiedList.length;
+      if (remainingSlots > 0) {
+        const rawTargets = this.getDayProblems(trackId, weekNum, dayNum, defaultDayObj, allProblems, userStates);
+        for (const p of rawTargets) {
+          if (unifiedList.length >= targetDailyCount) break;
+          if (!seenIds.has(p.id)) {
+            seenIds.add(p.id);
+            unifiedList.push({
+              ...p,
+              scheduleRole: 'target',
+              roleLabel: 'New Target',
+              badgeClass: 'badge-target',
+              roleIcon: 'fa-crosshairs'
+            });
+          }
+        }
+
+        // If raw targets had overlap with seenIds and we still need slots, fetch adaptive candidate
+        if (unifiedList.length < targetDailyCount && window.RecommendationEngine) {
+          const adaptive = RecommendationEngine.findAdaptiveProblems(
+            allProblems.filter(p => !seenIds.has(p.id)),
+            defaultDayObj.problemKeywords || [],
+            defaultDayObj.topic || '',
+            targetDailyCount - unifiedList.length,
+            userStates
+          );
+          for (const p of adaptive) {
+            if (unifiedList.length >= targetDailyCount) break;
+            if (!seenIds.has(p.id)) {
+              seenIds.add(p.id);
+              unifiedList.push({
+                ...p,
+                scheduleRole: 'target',
+                roleLabel: 'New Target',
+                badgeClass: 'badge-target',
+                roleIcon: 'fa-crosshairs'
+              });
+            }
+          }
+        }
+      }
+
+      return unifiedList;
+    },
+
+    /**
      * Calculate Workload Metrics (difficulty split, total estimated time, label)
      */
     calculateWorkload(problems = []) {

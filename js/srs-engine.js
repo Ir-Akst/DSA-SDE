@@ -88,7 +88,8 @@ window.SRSEngine = {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    let currentStage = problemState.stage || 0;
+    const safeState = problemState || {};
+    let currentStage = safeState.stage || 0;
     let nextStage = currentStage;
     let daysToAdd = 1;
     let isMastered = false;
@@ -133,7 +134,7 @@ window.SRSEngine = {
       note: reviewNotes
     };
 
-    const prevHistory = Array.isArray(problemState.history) ? problemState.history : [];
+    const prevHistory = Array.isArray(safeState.history) ? safeState.history : [];
     const history = [...prevHistory, historyEntry];
 
     // Compute streak of consecutive low confidence attempts (<= 2)
@@ -158,8 +159,8 @@ window.SRSEngine = {
       lastReviewed: new Date().toISOString(),
       nextReviewDate: this.getLocalDateString(nextDate),
       isMastered: isMastered,
-      reviewCount: (problemState.reviewCount || 0) + 1,
-      totalTimeSpent: (problemState.totalTimeSpent || 0) + Number(timeSpentMinutes || 0),
+      reviewCount: (safeState.reviewCount || 0) + 1,
+      totalTimeSpent: (safeState.totalTimeSpent || 0) + Number(timeSpentMinutes || 0),
       history: history
     };
   },
