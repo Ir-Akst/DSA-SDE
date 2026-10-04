@@ -133,12 +133,17 @@
     },
 
     /**
-     * Helper to find problems by keywords or titles with difficulty-adapted limits
+     * Helper to find problems by keywords or titles with difficulty-adapted limits & confidence scoring
      * Easy-heavy focus: 3-4 problems
      * Medium-heavy focus: 2-3 problems
      * Hard-heavy focus: 1-2 problems
      */
-    findProblems(allProblems, keywords = [], topic = '', explicitLimit = null) {
+    findProblems(allProblems, keywords = [], topic = '', explicitLimit = null, userStates = null) {
+      // If RecommendationEngine and userStates are available, use adaptive confidence-aware scoring
+      if (window.RecommendationEngine && userStates) {
+        return window.RecommendationEngine.findAdaptiveProblems(allProblems, keywords, topic, explicitLimit, userStates);
+      }
+
       let matched = [];
       const seen = new Set();
 
@@ -185,9 +190,9 @@
     },
 
     /**
-     * Generate mixed problem set across multiple selected topics
+     * Generate mixed problem set across multiple selected topics with confidence pacing
      */
-    generateMultiTopicMixedProblems(allProblems, selectedTopics = [], options = {}) {
+    generateMultiTopicMixedProblems(allProblems, selectedTopics = [], options = {}, userStates = null) {
       if (!selectedTopics || selectedTopics.length === 0) return [];
       const diffPref = options.difficulty || 'balanced';
       const targetCount = options.count && options.count !== 'auto' 
@@ -223,13 +228,21 @@
         }
 
         if (candidates.length > 0) {
-          const pick = candidates[Math.floor(Math.random() * candidates.length)];
+          // If RecommendationEngine is available, rank candidate picks by confidence score
+          if (window.RecommendationEngine && userStates) {
+            candidates.sort((a, b) => {
+              const scoreA = window.RecommendationEngine.scoreProblem(a, userStates).finalScore;
+              const scoreB = window.RecommendationEngine.scoreProblem(b, userStates).finalScore;
+              return scoreB - scoreA;
+            });
+          }
+          const pick = candidates[0];
           selected.push({ ...pick, _sourceTopic: currentTopic });
           selectedIds.add(pick.id);
         } else {
           const anyRem = pool.filter(p => !selectedIds.has(p.id));
           if (anyRem.length > 0) {
-            const pick = anyRem[Math.floor(Math.random() * anyRem.length)];
+            const pick = anyRem[0];
             selected.push({ ...pick, _sourceTopic: currentTopic });
             selectedIds.add(pick.id);
           }
@@ -244,7 +257,7 @@
     /**
      * Resolves the actual problems for a given day (considering custom topic override or custom mixed workouts)
      */
-    getDayProblems(trackId, weekNum, dayNum, defaultDayObj, allProblems) {
+    getDayProblems(trackId, weekNum, dayNum, defaultDayObj, allProblems, userStates = null) {
       if (!this.progress) this.initProgress();
       const key = `${trackId}_w${weekNum}_d${dayNum}`;
 
@@ -260,14 +273,14 @@
       const customTopic = this.progress?.customDayTopics?.[key];
       if (customTopic) {
         if (Array.isArray(customTopic)) {
-          return this.generateMultiTopicMixedProblems(allProblems, customTopic, { difficulty: 'balanced' });
+          return this.generateMultiTopicMixedProblems(allProblems, customTopic, { difficulty: 'balanced' }, userStates);
         } else if (typeof customTopic === 'string') {
-          return this.findProblems(allProblems, [], customTopic);
+          return this.findProblems(allProblems, [], customTopic, null, userStates);
         }
       }
 
       // 3. Fallback to default roadmap curriculum for this day
-      return this.findProblems(allProblems, defaultDayObj.problemKeywords || [], defaultDayObj.topic);
+      return this.findProblems(allProblems, defaultDayObj.problemKeywords || [], defaultDayObj.topic, null, userStates);
     },
 
     /**

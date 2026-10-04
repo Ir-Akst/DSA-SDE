@@ -1764,6 +1764,164 @@ pre,
   border-radius: var(--radius-full);
 }
 
+/* ================= Confidence System Styles ================= */
+.confidence-selector-container {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 6px;
+}
+
+.confidence-pill-group {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.confidence-pill-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 4px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transition: var(--transition-fast);
+  color: var(--text-muted);
+}
+
+.confidence-pill-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.confidence-pill-btn .conf-pill-score {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-dim);
+}
+
+.confidence-pill-btn .conf-pill-label {
+  font-size: 9.5px;
+  text-align: center;
+  line-height: 1.15;
+  font-weight: 600;
+}
+
+/* Confidence pill active states */
+.confidence-pill-btn[data-confidence="1"].active {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+  color: #fca5a5;
+  box-shadow: 0 0 12px rgba(239, 68, 68, 0.25);
+}
+.confidence-pill-btn[data-confidence="1"].active .conf-pill-score {
+  color: #ef4444;
+}
+
+.confidence-pill-btn[data-confidence="2"].active {
+  background: rgba(244, 63, 94, 0.18);
+  border-color: #f43f5e;
+  color: #fb7185;
+  box-shadow: 0 0 12px rgba(244, 63, 94, 0.25);
+}
+.confidence-pill-btn[data-confidence="2"].active .conf-pill-score {
+  color: #f43f5e;
+}
+
+.confidence-pill-btn[data-confidence="3"].active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: #f59e0b;
+  color: #fde68a;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.25);
+}
+.confidence-pill-btn[data-confidence="3"].active .conf-pill-score {
+  color: #f59e0b;
+}
+
+.confidence-pill-btn[data-confidence="4"].active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  color: #a7f3d0;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+}
+.confidence-pill-btn[data-confidence="4"].active .conf-pill-score {
+  color: #10b981;
+}
+
+.confidence-pill-btn[data-confidence="5"].active {
+  background: rgba(6, 182, 212, 0.18);
+  border-color: #06b6d4;
+  color: #a5f3fc;
+  box-shadow: 0 0 12px rgba(6, 182, 212, 0.25);
+}
+.confidence-pill-btn[data-confidence="5"].active .conf-pill-score {
+  color: #06b6d4;
+}
+
+/* Confidence Badges & Chips */
+.conf-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.conf-badge.conf-1 {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+}
+.conf-badge.conf-2 {
+  background: rgba(244, 63, 94, 0.15);
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  color: #fb7185;
+}
+.conf-badge.conf-3 {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+}
+.conf-badge.conf-4 {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+.conf-badge.conf-5 {
+  background: rgba(6, 182, 212, 0.15);
+  border: 1px solid rgba(6, 182, 212, 0.35);
+  color: #38bdf8;
+}
+
+/* Progression Stepping Stone Card */
+.progression-step-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  transition: var(--transition-fast);
+}
+.progression-step-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(56, 189, 248, 0.4);
+}
+.progression-step-card.reattempt {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.05);
+}
+
 /* ================= Responsive Breakpoints ================= */
 @media (max-width: 1024px) {
   .charts-grid {

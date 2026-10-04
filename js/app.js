@@ -20,6 +20,7 @@
   let monthlyTestHistory = [];
 
   let activeRatingProblemId = null;
+  let activeRatingConfidence = 4;
   let activeDetailProblemId = null;
 
   // Monthly Exam State
@@ -363,12 +364,20 @@
     DSACharts.renderMasteryRadar('dashboard-radar-chart', topicMasteryMap);
     DSACharts.renderTopicBarChart('dashboard-bar-chart', topicMasteryMap);
 
-    // Populate High Priority Review Queue (Due & Overdue first)
+    // Populate High Priority Review Queue (Due & Overdue first, confidence weighted)
     const priorityTbody = document.getElementById('dashboard-priority-tbody');
     if (!priorityTbody) return;
     priorityTbody.innerHTML = '';
 
     const dueProblems = allProblems.filter(p => SRSEngine.isDue(userStates[p.id]));
+    
+    // Sort due problems: lower confidence / overdue gets highest priority
+    dueProblems.sort((a, b) => {
+      const aConf = SRSEngine.getConfidence(userStates[a.id]) || 3;
+      const bConf = SRSEngine.getConfidence(userStates[b.id]) || 3;
+      return aConf - bConf;
+    });
+
     const displayList = dueProblems.length > 0
       ? dueProblems.slice(0, 6)
       : allProblems.slice(0, 5);
@@ -381,10 +390,15 @@
     displayList.forEach(p => {
       const state = userStates[p.id];
       const dueInfo = SRSEngine.getDueStatus(state);
+      const conf = SRSEngine.getConfidence(state);
       const tr = document.createElement('tr');
       if (dueInfo.code === 'due' || dueInfo.code === 'overdue') {
         tr.classList.add('due-row');
       }
+
+      const confBadgeHtml = conf 
+        ? `<span class="conf-badge conf-${conf}" style="font-size:10.5px;" title="${SRSEngine.getConfidenceMeta(conf).label}">⭐ ${conf}/5</span> `
+        : '';
 
       tr.innerHTML = `
         <td><span class="badge badge-srs-${dueInfo.code}">${dueInfo.label}</span></td>
@@ -396,11 +410,19 @@
         </td>
         <td><strong>${p.topic}</strong><br><span style="font-size:11px; color:var(--text-dim);">${p.pattern || ''}</span></td>
         <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
-        <td><span style="font-size:12px; color:var(--text-muted);">${state?.lastRating ? `Last: ${capitalize(state.lastRating)} (Stg ${state.stage})` : 'Not solved yet'}</span></td>
         <td>
-          <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}">
-            <i class="fa-solid fa-rotate"></i> Revise
-          </button>
+          ${confBadgeHtml}
+          <span style="font-size:12px; color:var(--text-muted);">${state?.lastRating ? `Last: ${capitalize(state.lastRating)} (Stg ${state.stage})` : 'Not solved yet'}</span>
+        </td>
+        <td>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}" title="Log Recall Rating & Confidence">
+              <i class="fa-solid fa-rotate"></i> Revise
+            </button>
+            <button class="btn btn-secondary btn-sm btn-action-detail" data-id="${p.id}" title="View Details & Progression">
+              <i class="fa-solid fa-file-lines"></i>
+            </button>
+          </div>
         </td>
       `;
       priorityTbody.appendChild(tr);
@@ -465,7 +487,7 @@
 
     tbody.innerHTML = '';
     if (filtered.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-dim);">No problems match the selected filters.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-dim);">No problems match the selected filters.</td></tr>`;
       return;
     }
 
@@ -473,7 +495,12 @@
       const state = userStates[p.id];
       const dueInfo = SRSEngine.getDueStatus(state);
       const isSolved = state && state.lastReviewed;
+      const conf = SRSEngine.getConfidence(state);
       const sheetsList = p.sheets || (p.sheet ? [p.sheet] : ['Custom']);
+
+      const confBadgeHtml = conf 
+        ? `<span class="conf-badge conf-${conf}" title="${SRSEngine.getConfidenceMeta(conf).label}">⭐ ${conf}/5</span>`
+        : `<span style="color:var(--text-dim); font-size:12px;">—</span>`;
 
       const tr = document.createElement('tr');
       if (dueInfo.code === 'due' || dueInfo.code === 'overdue') tr.classList.add('due-row');
@@ -495,6 +522,7 @@
         </td>
         <td><strong>${p.topic}</strong><br><span style="font-size:11px; color:var(--text-dim);">${p.pattern || ''}</span></td>
         <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
+        <td>${confBadgeHtml}</td>
         <td>
           <div style="display:flex; flex-wrap:wrap; gap:4px;">
             ${sheetsList.map(s => `<span class="badge badge-srs-upcoming" style="font-size:10px;">${s}</span>`).join('')}
@@ -502,9 +530,14 @@
         </td>
         <td><span class="badge badge-srs-${dueInfo.code}">${dueInfo.label}</span></td>
         <td>
-          <button class="btn btn-secondary btn-sm btn-action-review" data-id="${p.id}" title="Log Recall Rating">
-            <i class="fa-solid fa-rotate"></i> Rate
-          </button>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-secondary btn-sm btn-action-review" data-id="${p.id}" title="Log Recall Rating & Confidence">
+              <i class="fa-solid fa-rotate"></i> Rate
+            </button>
+            <button class="btn btn-secondary btn-sm btn-action-detail" data-id="${p.id}" title="View Details, History & Progression">
+              <i class="fa-solid fa-file-lines"></i>
+            </button>
+          </div>
         </td>
       `;
       tbody.appendChild(tr);
@@ -535,13 +568,17 @@
 
     tbody.innerHTML = '';
     if (list.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-dim);">No revision items found for '${filterMode}' mode.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:30px; color:var(--text-dim);">No revision items found for '${filterMode}' mode.</td></tr>`;
       return;
     }
 
     list.forEach(p => {
       const state = userStates[p.id];
       const dueInfo = SRSEngine.getDueStatus(state);
+      const conf = SRSEngine.getConfidence(state);
+      const confBadgeHtml = conf 
+        ? `<span class="conf-badge conf-${conf}" title="${SRSEngine.getConfidenceMeta(conf).label}">⭐ ${conf}/5</span>`
+        : `<span style="color:var(--text-dim); font-size:12px;">—</span>`;
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -551,13 +588,19 @@
           <div style="font-size:11.5px; color:var(--text-dim);">${p.pattern || ''}</div>
         </td>
         <td>${p.topic}</td>
-        <td><span class="badge badge-srs-upcoming">Stage ${state.stage || 1}</span></td>
-        <td><span class="badge badge-${state.lastRating === 'simple' ? 'easy' : state.lastRating === 'hard' ? 'hard' : 'medium'}">${capitalize(state.lastRating || 'medium')}</span></td>
-        <td><span style="font-family:'Fira Code', monospace; font-size:12px;">${state.nextReviewDate || 'N/A'}</span></td>
+        <td><span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span></td>
+        <td>${confBadgeHtml}</td>
+        <td><span class="badge badge-srs-upcoming">Stage ${state.stage || 1}</span> <span style="font-size:11px; color:var(--text-dim);">(${state.lastRating || 'medium'})</span></td>
+        <td><span style="font-family:'JetBrains Mono', monospace; font-size:12px;">${state.nextReviewDate || 'N/A'}</span></td>
         <td>
-          <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}">
-            <i class="fa-solid fa-rotate"></i> Revise
-          </button>
+          <div style="display:flex; gap:6px;">
+            <button class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}" title="Log Recall Rating & Confidence">
+              <i class="fa-solid fa-rotate"></i> Revise
+            </button>
+            <button class="btn btn-secondary btn-sm btn-action-detail" data-id="${p.id}" title="View Details, History & Progression">
+              <i class="fa-solid fa-file-lines"></i>
+            </button>
+          </div>
         </td>
       `;
       tbody.appendChild(tr);
@@ -641,9 +684,9 @@
         <div class="mastery-progress-bar">
           <div class="mastery-fill" style="width: ${t.score}%;"></div>
         </div>
-        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-top:2px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-dim); margin-top:4px;">
           <span>🏆 ${t.mastered} Mastered</span>
-          <span>🔔 ${t.due + t.overdue} Due for review</span>
+          ${t.avgConfidence > 0 ? `<span class="conf-badge conf-${Math.round(t.avgConfidence)}" style="font-size:10px;">⭐ ${t.avgConfidence}/5 Conf</span>` : `<span>🔔 ${t.due + t.overdue} Due</span>`}
         </div>
       `;
       container.appendChild(card);
@@ -821,14 +864,36 @@
   }
 
   // --- MODAL HANDLERS ---
+  function updateRatingModalConfidenceUI(conf) {
+    const meta = SRSEngine.getConfidenceMeta(conf);
+    const labelEl = document.getElementById('rating-modal-confidence-label');
+    if (labelEl) {
+      labelEl.textContent = `${meta.label} (${conf}/5)`;
+      labelEl.className = `badge ${meta.badgeClass}`;
+    }
+
+    document.querySelectorAll('.confidence-pill-btn').forEach(btn => {
+      if (parseInt(btn.dataset.confidence, 10) === conf) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
   function openRatingModal(problemId) {
     const p = allProblems.find(item => item.id === problemId);
     if (!p) return;
 
     activeRatingProblemId = problemId;
+    const state = userStates[problemId];
+    activeRatingConfidence = SRSEngine.getConfidence(state) || 4;
+
     document.getElementById('modal-rating-title').textContent = `Rate Recall: ${p.title}`;
     document.getElementById('modal-rating-subtitle').textContent = `${p.topic} • ${p.difficulty} • ${p.pattern || ''}`;
     document.getElementById('rating-modal-notes').value = '';
+
+    updateRatingModalConfidenceUI(activeRatingConfidence);
 
     document.getElementById('srs-rating-modal').classList.add('open');
   }
@@ -844,7 +909,7 @@
     const notes = document.getElementById('rating-modal-notes').value.trim();
     const currentState = userStates[activeRatingProblemId] || {};
 
-    userStates[activeRatingProblemId] = SRSEngine.processReview(currentState, rating, 15, notes);
+    userStates[activeRatingProblemId] = SRSEngine.processReview(currentState, rating, 15, notes, activeRatingConfidence);
     saveUserStates();
 
     closeRatingModal();
@@ -858,44 +923,115 @@
     activeDetailProblemId = problemId;
     const state = userStates[problemId];
 
-    document.getElementById('detail-prob-title').textContent = p.title;
-    document.getElementById('detail-prob-meta').innerHTML = `
-      <span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span>
-      <span class="badge badge-srs-upcoming">${p.topic}</span>
-      ${p.pattern ? `<span class="badge badge-srs-unsolved">${p.pattern}</span>` : ''}
-    `;
+    document.getElementById('detail-modal-title').textContent = p.title;
+    document.getElementById('detail-modal-meta').textContent = `${p.topic} • ${p.difficulty}${p.pattern ? ` • ${p.pattern}` : ''}`;
 
-    const linkEl = document.getElementById('detail-prob-link');
-    if (p.url) {
-      linkEl.href = p.url;
-      linkEl.style.display = 'inline-flex';
-    } else {
-      linkEl.style.display = 'none';
+    const statusBadge = document.getElementById('detail-modal-status-badge');
+    const dueInfo = SRSEngine.getDueStatus(state);
+    if (statusBadge) {
+      statusBadge.textContent = dueInfo.label;
+      statusBadge.className = `badge ${dueInfo.badgeClass}`;
     }
 
-    document.getElementById('detail-prob-notes-view').textContent = p.notes || 'No notes added yet.';
-    document.getElementById('detail-prob-time').textContent = p.timeComplexity || 'O(N)';
-    document.getElementById('detail-prob-space').textContent = p.spaceComplexity || 'O(1)';
+    const confBadge = document.getElementById('detail-modal-confidence-badge');
+    const conf = SRSEngine.getConfidence(state);
+    if (confBadge) {
+      if (conf) {
+        const meta = SRSEngine.getConfidenceMeta(conf);
+        confBadge.style.display = 'inline-flex';
+        confBadge.className = `conf-badge conf-${conf}`;
+        confBadge.innerHTML = `<i class="fa-solid ${meta.icon}"></i> Confidence: ${meta.label} (${conf}/5)`;
+      } else {
+        confBadge.style.display = 'none';
+      }
+    }
 
-    const historyList = document.getElementById('detail-prob-history-list');
-    historyList.innerHTML = '';
-    if (state && Array.isArray(state.history) && state.history.length > 0) {
-      state.history.slice().reverse().forEach(h => {
-        const item = document.createElement('div');
-        item.style.padding = '6px 10px';
-        item.style.background = 'rgba(255,255,255,0.04)';
-        item.style.borderRadius = '4px';
-        item.innerHTML = `
-          <div style="display:flex; justify-content:space-between;">
-            <strong>${new Date(h.date).toLocaleDateString()}</strong>
-            <span class="badge badge-${h.rating === 'simple' ? 'easy' : h.rating === 'hard' ? 'hard' : 'medium'}">${capitalize(h.rating)} (Stage ${h.stage})</span>
-          </div>
-          ${h.note ? `<div style="color:var(--text-dim); margin-top:2px;">"${h.note}"</div>` : ''}
-        `;
-        historyList.appendChild(item);
-      });
-    } else {
-      historyList.innerHTML = '<span style="color:var(--text-dim);">No review history logged yet.</span>';
+    const linkEl = document.getElementById('detail-modal-url');
+    if (linkEl) {
+      if (p.url) {
+        linkEl.href = p.url;
+        linkEl.style.display = 'inline-flex';
+      } else {
+        linkEl.style.display = 'none';
+      }
+    }
+
+    const notesEl = document.getElementById('detail-modal-notes');
+    if (notesEl) notesEl.textContent = p.notes || 'No notes added yet.';
+
+    const timeEl = document.getElementById('detail-modal-time');
+    if (timeEl) timeEl.textContent = p.timeComplexity || 'O(N)';
+
+    const spaceEl = document.getElementById('detail-modal-space');
+    if (spaceEl) spaceEl.textContent = p.spaceComplexity || 'O(1)';
+
+    const compEl = document.getElementById('detail-modal-companies');
+    if (compEl) {
+      compEl.innerHTML = (p.companies && p.companies.length)
+        ? p.companies.map(c => `<span class="company-badge ${c.toLowerCase().replace(/[^a-z]/g, '')}">🏢 ${c}</span>`).join('')
+        : '<span style="color:var(--text-dim); font-size:12px;">General DSA</span>';
+    }
+
+    // Similar-Problem Progression
+    const progContainer = document.getElementById('detail-modal-progression-container');
+    const progList = document.getElementById('detail-modal-progression-list');
+    if (progContainer && progList && window.RecommendationEngine) {
+      const progression = RecommendationEngine.getSimilarProblemProgression(p, allProblems, userStates);
+      if (progression && progression.steps && progression.steps.length > 0) {
+        progContainer.style.display = 'block';
+        progList.innerHTML = progression.steps.map(step => {
+          const sProb = step.problem;
+          const sState = userStates[sProb.id];
+          const sSolved = sState && sState.lastReviewed;
+          const sConf = SRSEngine.getConfidence(sState);
+          return `
+            <div class="progression-step-card ${step.isReattempt ? 'reattempt' : ''}">
+              <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <span class="badge ${step.isReattempt ? 'badge-hard' : 'badge-srs-upcoming'}" style="font-size:10px;">${step.label}</span>
+                <a href="${sProb.url || '#'}" target="_blank" style="color:var(--text-main); font-weight:600; text-decoration:none; font-size:12.5px;">${sProb.title}</a>
+                <span class="badge badge-${sProb.difficulty.toLowerCase()}" style="font-size:10px;">${sProb.difficulty}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                ${sConf ? `<span class="conf-badge conf-${sConf}" style="font-size:10px;">⭐ ${sConf}/5</span>` : (sSolved ? `<span class="badge badge-easy" style="font-size:10px;">Solved</span>` : `<span class="badge badge-srs-unsolved" style="font-size:10px;">Next</span>`)}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } else {
+        progContainer.style.display = 'none';
+      }
+    }
+
+    // Review History List
+    const historyList = document.getElementById('detail-modal-history');
+    if (historyList) {
+      historyList.innerHTML = '';
+      if (state && Array.isArray(state.history) && state.history.length > 0) {
+        state.history.slice().reverse().forEach(h => {
+          const item = document.createElement('div');
+          item.style.padding = '8px 12px';
+          item.style.background = 'rgba(255,255,255,0.03)';
+          item.style.borderRadius = '6px';
+          item.style.border = '1px solid rgba(255,255,255,0.05)';
+
+          const hConf = h.confidence || SRSEngine.mapRatingToDefaultConfidence(h.rating);
+          const hMeta = SRSEngine.getConfidenceMeta(hConf);
+
+          item.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <strong style="font-size:12px;">${new Date(h.date).toLocaleDateString()}</strong>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <span class="conf-badge conf-${hConf}" style="font-size:10.5px;"><i class="fa-solid ${hMeta.icon}"></i> ${hMeta.label} (${hConf}/5)</span>
+                <span class="badge badge-${h.rating === 'simple' ? 'easy' : h.rating === 'hard' ? 'hard' : 'medium'}" style="font-size:10px;">${capitalize(h.rating)} (Stg ${h.stage})</span>
+              </div>
+            </div>
+            ${h.note ? `<div style="color:var(--text-dim); font-size:11.5px; margin-top:4px;">"${h.note}"</div>` : ''}
+          `;
+          historyList.appendChild(item);
+        });
+      } else {
+        historyList.innerHTML = '<span style="color:var(--text-dim); font-size:12px;">No review history logged yet.</span>';
+      }
     }
 
     document.getElementById('problem-detail-modal').classList.add('open');
@@ -1392,8 +1528,8 @@
     const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, currentWeek.weekNumber, currentDay.dayNumber);
     const customDayTopic = RoadmapEngine.getDayCustomTopic(activeTrack, currentWeek.weekNumber, currentDay.dayNumber);
 
-    // Fetch dynamic target problems (incorporating any custom single topic or multi-topic mixed workout)
-    const targetProblems = RoadmapEngine.getDayProblems(activeTrack, currentWeek.weekNumber, currentDay.dayNumber, currentDay, allProblems);
+    // Fetch dynamic target problems (incorporating any custom single topic or multi-topic mixed workout with confidence scoring)
+    const targetProblems = RoadmapEngine.getDayProblems(activeTrack, currentWeek.weekNumber, currentDay.dayNumber, currentDay, allProblems, userStates);
     const workload = RoadmapEngine.calculateWorkload(targetProblems);
 
     // Fetch carried-over unsolved target problems from previous days
@@ -2078,8 +2214,18 @@
       });
     });
 
+    // Confidence selector pills in Rating Modal
+    document.querySelectorAll('.confidence-pill-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const conf = parseInt(btn.dataset.confidence, 10);
+        activeRatingConfidence = conf;
+        updateRatingModalConfidenceUI(conf);
+      });
+    });
+
     document.getElementById('btn-close-rating-modal')?.addEventListener('click', closeRatingModal);
     document.getElementById('btn-close-detail-modal')?.addEventListener('click', closeDetailModal);
+    document.getElementById('btn-detail-close-bottom')?.addEventListener('click', closeDetailModal);
     document.getElementById('btn-detail-trigger-review')?.addEventListener('click', () => {
       if (activeDetailProblemId) {
         closeDetailModal();

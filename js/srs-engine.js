@@ -19,6 +19,51 @@ window.SRSEngine = {
     hard: 5
   },
 
+  // Confidence Scale Definition (1 - 5)
+  CONFIDENCE_LEVELS: {
+    1: { level: 1, label: "Couldn't solve", shortLabel: "Couldn't solve", badgeClass: "badge-hard", icon: "fa-circle-xmark", color: "#ef4444" },
+    2: { level: 2, label: "Needed hint", shortLabel: "Needed hint", badgeClass: "badge-hard", icon: "fa-lightbulb", color: "#f43f5e" },
+    3: { level: 3, label: "Solved with difficulty", shortLabel: "Solved w/ difficulty", badgeClass: "badge-medium", icon: "fa-triangle-exclamation", color: "#f59e0b" },
+    4: { level: 4, label: "Solved independently", shortLabel: "Solved independently", badgeClass: "badge-easy", icon: "fa-circle-check", color: "#10b981" },
+    5: { level: 5, label: "Can explain it", shortLabel: "Can explain it", badgeClass: "badge-easy", icon: "fa-star", color: "#06b6d4" }
+  },
+
+  /**
+   * Infer fallback confidence (1-5) from traditional SRS rating
+   */
+  mapRatingToDefaultConfidence(rating) {
+    if (rating === 'failed') return 1;
+    if (rating === 'hard') return 2;
+    if (rating === 'medium') return 3;
+    if (rating === 'simple') return 4;
+    return 3;
+  },
+
+  /**
+   * Get normalized confidence number (1-5) from problem state with backward-compatibility
+   */
+  getConfidence(problemState) {
+    if (!problemState) return null;
+    if (typeof problemState.confidence === 'number' && problemState.confidence >= 1 && problemState.confidence <= 5) {
+      return problemState.confidence;
+    }
+    if (typeof problemState.lastConfidence === 'number' && problemState.lastConfidence >= 1 && problemState.lastConfidence <= 5) {
+      return problemState.lastConfidence;
+    }
+    if (problemState.lastRating) {
+      return this.mapRatingToDefaultConfidence(problemState.lastRating);
+    }
+    return null;
+  },
+
+  /**
+   * Get metadata object for a confidence level
+   */
+  getConfidenceMeta(confidenceVal) {
+    const num = Number(confidenceVal);
+    return this.CONFIDENCE_LEVELS[num] || this.CONFIDENCE_LEVELS[3];
+  },
+
   /**
    * Helper to format a Date as YYYY-MM-DD in the user's LOCAL timezone
    * @param {Date} d 
@@ -32,13 +77,14 @@ window.SRSEngine = {
   },
 
   /**
-   * Calculate next review parameters based on user rating and current problem state
+   * Calculate next review parameters based on user rating, confidence and current problem state
    * @param {Object} problemState - current user state for problem
    * @param {string} rating - 'simple' | 'medium' | 'hard' | 'failed'
    * @param {number} timeSpentMinutes - optional time spent
    * @param {string} reviewNotes - optional notes added during review
+   * @param {number|null} confidence - optional 1-5 confidence score
    */
-  processReview(problemState = {}, rating, timeSpentMinutes = 0, reviewNotes = "") {
+  processReview(problemState = {}, rating, timeSpentMinutes = 0, reviewNotes = "", confidence = null) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -46,6 +92,12 @@ window.SRSEngine = {
     let nextStage = currentStage;
     let daysToAdd = 1;
     let isMastered = false;
+
+    // Resolve confidence (1-5)
+    const confVal = (typeof confidence === 'number' && confidence >= 1 && confidence <= 5)
+      ? Math.round(confidence)
+      : (confidence ? parseInt(confidence, 10) : this.mapRatingToDefaultConfidence(rating));
+    const confMeta = this.getConfidenceMeta(confVal);
 
     if (rating === 'failed') {
       // Reset to stage 1 and review tomorrow
@@ -73,18 +125,36 @@ window.SRSEngine = {
     const historyEntry = {
       date: new Date().toISOString(),
       rating: rating,
+      confidence: confVal,
+      confidenceLabel: confMeta.label,
       stage: nextStage,
       intervalDays: daysToAdd,
       timeSpentMinutes: timeSpentMinutes,
       note: reviewNotes
     };
 
-    const history = Array.isArray(problemState.history) ? [...problemState.history, historyEntry] : [historyEntry];
+    const prevHistory = Array.isArray(problemState.history) ? problemState.history : [];
+    const history = [...prevHistory, historyEntry];
+
+    // Compute streak of consecutive low confidence attempts (<= 2)
+    let lowConfidenceStreak = 0;
+    for (let i = history.length - 1; i >= 0; i--) {
+      const c = history[i].confidence || this.mapRatingToDefaultConfidence(history[i].rating);
+      if (c <= 2) {
+        lowConfidenceStreak++;
+      } else {
+        break;
+      }
+    }
 
     return {
       status: isMastered ? 'mastered' : 'scheduled',
       stage: nextStage,
       lastRating: rating,
+      confidence: confVal,
+      lastConfidence: confVal,
+      confidenceLabel: confMeta.label,
+      lowConfidenceStreak: lowConfidenceStreak,
       lastReviewed: new Date().toISOString(),
       nextReviewDate: this.getLocalDateString(nextDate),
       isMastered: isMastered,
@@ -117,8 +187,8 @@ window.SRSEngine = {
    * Get formatted days remaining until next review
    */
   getDueStatus(problemState) {
-    if (!problemState || !problemState.nextReviewDate) return { label: 'Unsolved', code: 'unsolved', days: null };
-    if (problemState.isMastered) return { label: 'Mastered 🏆', code: 'mastered', days: null };
+    if (!problemState || !problemState.nextReviewDate) return { label: 'Unsolved', code: 'unsolved', badgeClass: 'badge-srs-unsolved', days: null };
+    if (problemState.isMastered) return { label: 'Mastered 🏆', code: 'mastered', badgeClass: 'badge-srs-mastered', days: null };
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -129,11 +199,11 @@ window.SRSEngine = {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < 0) {
-      return { label: `Overdue by ${Math.abs(diffDays)}d ⚠️`, code: 'overdue', days: diffDays };
+      return { label: `Overdue by ${Math.abs(diffDays)}d ⚠️`, code: 'overdue', badgeClass: 'badge-srs-due', days: diffDays };
     } else if (diffDays === 0) {
-      return { label: 'Due Today 🔔', code: 'due', days: 0 };
+      return { label: 'Due Today 🔔', code: 'due', badgeClass: 'badge-srs-due', days: 0 };
     } else {
-      return { label: `In ${diffDays} day${diffDays > 1 ? 's' : ''}`, code: 'upcoming', days: diffDays };
+      return { label: `In ${diffDays} day${diffDays > 1 ? 's' : ''}`, code: 'upcoming', badgeClass: 'badge-srs-upcoming', days: diffDays };
     }
   },
 
@@ -163,7 +233,7 @@ window.SRSEngine = {
   },
 
   /**
-   * Calculate Topic Mastery Scores across topics
+   * Calculate Topic Mastery Scores across topics including confidence aggregation
    * @param {Array} problems - All problem definitions
    * @param {Object} userStates - Map of problemId -> userState
    */
@@ -187,6 +257,11 @@ window.SRSEngine = {
           stageSum: 0,
           maxStageSum: 0,
           score: 0,
+          confidenceSum: 0,
+          confidenceCount: 0,
+          avgConfidence: 0,
+          lowConfidenceCount: 0,
+          highConfidenceCount: 0,
           recentReviewCount: 0,
           healthScore: 100 // 0-100 retention decay
         };
@@ -208,6 +283,15 @@ window.SRSEngine = {
         t.solved++;
         t.stageSum += Math.min(state.stage || 1, maxPossibleStage);
 
+        // Confidence tracking
+        const conf = this.getConfidence(state);
+        if (conf) {
+          t.confidenceSum += conf;
+          t.confidenceCount++;
+          if (conf <= 2) t.lowConfidenceCount++;
+          else if (conf >= 4) t.highConfidenceCount++;
+        }
+
         if (state.isMastered) t.mastered++;
         if (this.isOverdue(state)) t.overdue++;
         else if (this.isDue(state)) t.due++;
@@ -220,8 +304,10 @@ window.SRSEngine = {
       }
     });
 
-    // Compute composite mastery percentage for each topic
+    // Compute composite mastery percentage & confidence for each topic
     Object.values(topicsMap).forEach(t => {
+      t.avgConfidence = t.confidenceCount > 0 ? Number((t.confidenceSum / t.confidenceCount).toFixed(1)) : 0;
+
       if (t.total === 0 || t.solved === 0) {
         t.score = 0;
         t.healthScore = 0;

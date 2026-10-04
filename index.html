@@ -309,6 +309,7 @@
                 <th>Problem Title</th>
                 <th>Topic & Pattern</th>
                 <th>Difficulty</th>
+                <th>Confidence</th>
                 <th>Sheet</th>
                 <th>Next Revision</th>
                 <th>Actions</th>
@@ -343,6 +344,7 @@
                 <th>Problem Title</th>
                 <th>Topic</th>
                 <th>Difficulty</th>
+                <th>Confidence</th>
                 <th>Stage & Interval</th>
                 <th>Due Date</th>
                 <th>Actions</th>
@@ -595,7 +597,7 @@
 
   <!-- ================= MODAL: SRS RATING / LOG REVIEW ================= -->
   <div class="modal-backdrop" id="srs-rating-modal">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width: 560px;">
       <div class="modal-header">
         <div>
           <h3 id="modal-rating-title" style="font-size: 16px; font-weight:700;">Rate Problem Recall</h3>
@@ -604,8 +606,41 @@
         <button class="modal-close" id="btn-close-rating-modal">&times;</button>
       </div>
 
-      <p style="font-size:13px; color:var(--text-muted);">
-        Select how challenging this problem felt. The algorithm will dynamically schedule your next revision:
+      <!-- Confidence Level Selector (1 - 5) -->
+      <div class="confidence-selector-container">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <label style="font-size:12.5px; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-gauge-high" style="color:var(--accent-cyan);"></i> How confident were you?
+          </label>
+          <span id="rating-modal-confidence-label" class="badge badge-easy" style="font-size:11px;">Solved independently (4/5)</span>
+        </div>
+        
+        <div class="confidence-pill-group" id="modal-confidence-options">
+          <button type="button" class="confidence-pill-btn" data-confidence="1" title="Couldn't solve (Need to review concept and practice similar problems)">
+            <span class="conf-pill-score">1</span>
+            <span class="conf-pill-label">Couldn't solve</span>
+          </button>
+          <button type="button" class="confidence-pill-btn" data-confidence="2" title="Needed hint (Recalled idea but required hints / struggled with implementation)">
+            <span class="conf-pill-score">2</span>
+            <span class="conf-pill-label">Needed hint</span>
+          </button>
+          <button type="button" class="confidence-pill-btn" data-confidence="3" title="Solved with difficulty (Solved after considerable effort or minor doubts)">
+            <span class="conf-pill-score">3</span>
+            <span class="conf-pill-label">Solved w/ difficulty</span>
+          </button>
+          <button type="button" class="confidence-pill-btn active" data-confidence="4" title="Solved independently (Smooth solution with 0 hints)">
+            <span class="conf-pill-score">4</span>
+            <span class="conf-pill-label">Solved independently</span>
+          </button>
+          <button type="button" class="confidence-pill-btn" data-confidence="5" title="Can explain it (Crystal clear intuition, tradeoffs & optimal dry run)">
+            <span class="conf-pill-score">5</span>
+            <span class="conf-pill-label">Can explain it</span>
+          </button>
+        </div>
+      </div>
+
+      <p style="font-size:12.5px; color:var(--text-muted); margin: 14px 0 8px;">
+        Choose your review rating to schedule your next revision interval:
       </p>
 
       <div class="rating-grid">
@@ -634,7 +669,7 @@
         </button>
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:14px;">
         <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Optional Revision Notes / Insights:</label>
         <input type="text" id="rating-modal-notes" class="filter-select" placeholder="e.g., Remember to handle edge case of empty string..." style="width:100%;">
       </div>
@@ -934,7 +969,7 @@
 
   <!-- ================= MODAL: PROBLEM DETAILS / NOTES ================= -->
   <div class="modal-backdrop" id="problem-detail-modal">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:640px; max-height:90vh; overflow-y:auto;">
       <div class="modal-header">
         <div>
           <h3 id="detail-modal-title" style="font-size: 16px; font-weight:700;">Problem Details</h3>
@@ -943,9 +978,12 @@
         <button class="modal-close" id="btn-close-detail-modal">&times;</button>
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:12px;">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <span class="badge" id="detail-modal-status-badge">Unsolved</span>
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div style="display:flex; align-items:center; gap:8px;" id="detail-modal-badges-row">
+            <span class="badge" id="detail-modal-status-badge">Unsolved</span>
+            <span class="badge badge-srs-upcoming" id="detail-modal-confidence-badge" style="display:none;">Confidence: -</span>
+          </div>
           <a id="detail-modal-url" href="#" target="_blank" class="btn btn-secondary btn-sm"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open LeetCode</a>
         </div>
 
@@ -973,10 +1011,29 @@
             No notes logged yet.
           </div>
         </div>
+
+        <!-- Similar-Problem Progression Section -->
+        <div id="detail-modal-progression-container" style="display:none;">
+          <label style="font-size:12px; font-weight:700; color:#38bdf8; display:flex; align-items:center; gap:6px; margin-bottom:6px;">
+            <i class="fa-solid fa-stairs"></i> Adaptive Stepping-Stone Progression
+          </label>
+          <div id="detail-modal-progression-list" style="display:flex; flex-direction:column; gap:6px;">
+            <!-- Dynamically populated progression steps -->
+          </div>
+        </div>
+
+        <!-- Problem Review & Confidence History -->
+        <div>
+          <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Review & Confidence Attempt History:</label>
+          <div id="detail-modal-history" style="display:flex; flex-direction:column; gap:6px; max-height:160px; overflow-y:auto;">
+            <span style="color:var(--text-dim); font-size:12px;">No review history logged yet.</span>
+          </div>
+        </div>
       </div>
 
-      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:8px;">
-        <button class="btn btn-primary" id="btn-detail-trigger-review">Log New Review</button>
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px; border-top:1px solid var(--border-color); padding-top:12px;">
+        <button class="btn btn-secondary btn-sm" id="btn-detail-close-bottom">Close</button>
+        <button class="btn btn-primary btn-sm" id="btn-detail-trigger-review"><i class="fa-solid fa-rotate"></i> Log New Review / Confidence</button>
       </div>
     </div>
   </div>
@@ -1041,6 +1098,7 @@
   <!-- Scripts -->
   <script src="js/data/default-sheets.js"></script>
   <script src="js/srs-engine.js"></script>
+  <script src="js/recommendation-engine.js"></script>
   <script src="js/roadmap-engine.js"></script>
   <script src="js/monthly-test.js"></script>
   <script src="js/charts.js"></script>
