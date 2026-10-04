@@ -67,6 +67,12 @@
 
         <div class="nav-group-title">Evaluation & Mastery</div>
         
+        <div class="nav-item" data-view="patterns">
+          <i class="fa-solid fa-code-fork"></i>
+          <span>Patterns Handbook</span>
+          <span class="nav-badge new">20+ Templates</span>
+        </div>
+
         <div class="nav-item" data-view="monthly-assessment">
           <i class="fa-solid fa-award"></i>
           <span>Monthly Test</span>
@@ -610,6 +616,46 @@
           <!-- Dynamically populated daily target problems, due revisions, or weekend test cards -->
         </div>
       </section>
+
+      <!-- ================= VIEW 8: PATTERNS HANDBOOK & CHEAT SHEETS ================= -->
+      <section id="view-patterns" class="view-section">
+        <div class="section-title-wrap">
+          <div>
+            <h2><i class="fa-solid fa-code-fork" style="color:var(--accent-cyan);"></i> Algorithmic Patterns Handbook</h2>
+            <span style="font-size:12.5px; color:var(--text-dim);">
+              Essential mental models, decision triggers, and boilerplate code templates for 20+ canonical interview patterns.
+            </span>
+          </div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <span class="badge" style="background:rgba(6,182,212,0.15); color:#38bdf8; border:1px solid rgba(6,182,212,0.3); font-size:12px; padding:6px 12px;">
+              <i class="fa-solid fa-layer-group"></i> 20+ Master Templates
+            </span>
+          </div>
+        </div>
+
+        <!-- Pattern Search & Category Filter Pills -->
+        <div class="filter-bar" style="margin-bottom:16px;">
+          <div style="flex:1; position:relative; min-width:240px;">
+            <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-dim); font-size:12px;"></i>
+            <input type="text" id="pattern-search-input" placeholder="Search pattern name, triggers, or problems (e.g. Sliding Window, Knapsack, Dijkstra)..." style="width:100%; padding:8px 12px 8px 34px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); color:#fff; font-size:13px;">
+          </div>
+        </div>
+
+        <div class="sheet-pills-bar" id="pattern-category-pills" style="margin-bottom:20px;">
+          <button class="sheet-pill active" data-cat="all"><i class="fa-solid fa-border-all"></i> All Patterns</button>
+          <button class="sheet-pill" data-cat="Pointers & Sliding Window"><i class="fa-solid fa-arrows-left-right"></i> Pointers & Window</button>
+          <button class="sheet-pill" data-cat="Stacks & Heaps"><i class="fa-solid fa-layer-group"></i> Stacks & Heaps</button>
+          <button class="sheet-pill" data-cat="Trees & Graphs"><i class="fa-solid fa-network-wired"></i> Trees & Graphs</button>
+          <button class="sheet-pill" data-cat="Dynamic Programming"><i class="fa-solid fa-table-cells"></i> Dynamic Programming</button>
+          <button class="sheet-pill" data-cat="Arrays & Strings"><i class="fa-solid fa-cubes"></i> Arrays & Strings</button>
+          <button class="sheet-pill" data-cat="Advanced Data Structures"><i class="fa-solid fa-microchip"></i> Advanced DS</button>
+        </div>
+
+        <!-- Patterns Cards Grid -->
+        <div class="patterns-grid" id="patterns-cards-container">
+          <!-- Populated dynamically by js/app.js -->
+        </div>
+      </section>
     </main>
   </div>
 
@@ -1115,6 +1161,7 @@
 
   <!-- Scripts -->
   <script src="js/data/default-sheets.js"></script>
+  <script src="js/data/patterns-data.js"></script>
   <script src="js/srs-engine.js"></script>
   <script src="js/recommendation-engine.js"></script>
   <script src="js/roadmap-engine.js"></script>

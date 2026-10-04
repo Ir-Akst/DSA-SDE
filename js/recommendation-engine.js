@@ -210,11 +210,7 @@
      * @param {Array} allProblems 
      * @param {Object} userStates 
      */
-    getSimilarProblemProgression(problemOrId, allProblems = [], userStates = {}) {
-      let problem = problemOrId;
-      if (typeof problemOrId === 'string') {
-        problem = allProblems.find(p => p.id === problemOrId);
-      }
+    getSimilarProblemProgression(problem, allProblems = [], userStates = {}) {
       if (!problem) return null;
       const state = userStates[problem.id];
       const conf = SRSEngine.getConfidence(state) || 3;

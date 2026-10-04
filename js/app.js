@@ -288,6 +288,7 @@
     renderFlashcards();
     renderActivityHeatmap();
     renderRoadmapView();
+    renderPatternsHandbook();
     updateSidebarBadges();
   }
 
@@ -1790,6 +1791,121 @@
     container.innerHTML = headerHtml;
   }
 
+  // --- ESCAPE HTML HELPER ---
+  function escapeHtml(str) {
+    if (!str) return '';
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  // --- VIEW 8: PATTERNS HANDBOOK CONTROLLER ---
+  let activePatternCategory = 'all';
+
+  function renderPatternsHandbook() {
+    const container = document.getElementById('patterns-cards-container');
+    if (!container || !window.DSA_PATTERNS) return;
+
+    const searchVal = document.getElementById('pattern-search-input')?.value.toLowerCase().trim() || '';
+
+    const filtered = DSA_PATTERNS.filter(p => {
+      if (activePatternCategory !== 'all' && p.category !== activePatternCategory) {
+        return false;
+      }
+      if (searchVal) {
+        const titleMatch = p.title.toLowerCase().includes(searchVal);
+        const catMatch = p.category.toLowerCase().includes(searchVal);
+        const summaryMatch = (p.summary || '').toLowerCase().includes(searchVal);
+        const triggersMatch = (p.whenToUse || []).some(t => t.toLowerCase().includes(searchVal));
+        const probsMatch = (p.canonicalProblems || []).some(prob => prob.toLowerCase().includes(searchVal));
+        if (!titleMatch && !catMatch && !summaryMatch && !triggersMatch && !probsMatch) return false;
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div style="grid-column: 1 / -1; text-align:center; padding:40px; color:var(--text-dim); background:var(--bg-card); border-radius:var(--radius-lg); border:1px solid var(--border-color);">
+          <i class="fa-solid fa-magnifying-glass" style="font-size:32px; color:var(--text-muted); margin-bottom:12px;"></i>
+          <h3 style="font-size:16px; color:#fff; margin-bottom:6px;">No Patterns Found</h3>
+          <p style="font-size:13px; color:var(--text-muted);">Try a different search keyword or category tab above.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = filtered.map(p => {
+      const iconColor = p.color || 'var(--primary)';
+      return `
+        <div class="pattern-card" id="pattern-${p.id}">
+          <div class="pattern-card-header">
+            <div class="pattern-title-wrap">
+              <div class="pattern-icon-box" style="background:${iconColor}20; color:${iconColor}; border:1px solid ${iconColor}40;">
+                <i class="fa-solid ${p.icon || 'fa-code-branch'}"></i>
+              </div>
+              <div>
+                <h3 class="pattern-name">${p.title}</h3>
+                <span class="pattern-category-tag">${p.category}</span>
+              </div>
+            </div>
+            <div class="pattern-complexities">
+              <span class="pattern-complexity-pill" title="Time Complexity"><i class="fa-solid fa-clock" style="color:${iconColor}; margin-right:4px;"></i>${p.timeComplexity}</span>
+              <span class="pattern-complexity-pill" title="Space Complexity"><i class="fa-solid fa-memory" style="color:#94a3b8; margin-right:4px;"></i>${p.spaceComplexity}</span>
+            </div>
+          </div>
+
+          <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin:0;">
+            ${p.summary}
+          </p>
+
+          <div>
+            <div class="pattern-section-label">
+              <i class="fa-solid fa-bullseye" style="color:${iconColor};"></i> When to Use & Decision Triggers
+            </div>
+            <ul class="pattern-triggers-list">
+              ${p.whenToUse.map(t => `<li>${t}</li>`).join('')}
+            </ul>
+          </div>
+
+          <div class="pattern-code-box">
+            <div class="pattern-code-header">
+              <span><i class="fa-solid fa-code" style="color:var(--accent-cyan); margin-right:6px;"></i> Boilerplate Template</span>
+              <button class="pattern-copy-btn" data-pattern-id="${p.id}" title="Copy code snippet to clipboard">
+                <i class="fa-solid fa-copy"></i> Copy
+              </button>
+            </div>
+            <pre class="pattern-code-content"><code>${escapeHtml(p.templateCode)}</code></pre>
+          </div>
+
+          ${p.edgeCases && p.edgeCases.length ? `
+            <div class="pattern-edge-cases">
+              <div style="font-size:11.5px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                <i class="fa-solid fa-triangle-exclamation"></i> Key Invariants & Edge Cases
+              </div>
+              <p>${p.edgeCases.join(' • ')}</p>
+            </div>
+          ` : ''}
+
+          <div>
+            <div class="pattern-section-label" style="font-size:11px;">
+              <i class="fa-solid fa-star" style="color:#eab308;"></i> Canonical Practice Problems
+            </div>
+            <div class="pattern-canonical-chips">
+              ${p.canonicalProblems.map(probTitle => `
+                <button class="pattern-problem-chip btn-jump-problem-search" data-query="${probTitle}">
+                  <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:9px;"></i> ${probTitle}
+                </button>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   function startWeekendExam(topic) {
     let topicProblems = allProblems.filter(p => p.topic.toLowerCase().includes((topic || '').toLowerCase()));
     if (topicProblems.length < 3) {
@@ -1992,6 +2108,60 @@
     document.getElementById('filter-status')?.addEventListener('change', renderProblemsTable);
     document.getElementById('btn-open-add-modal-2')?.addEventListener('click', () => {
       document.getElementById('add-problem-modal')?.classList.add('open');
+    });
+
+    // Patterns Handbook Category Pills & Search
+    document.getElementById('pattern-search-input')?.addEventListener('input', renderPatternsHandbook);
+
+    document.querySelectorAll('#pattern-category-pills .sheet-pill[data-cat]').forEach(pill => {
+      pill.addEventListener('click', () => {
+        document.querySelectorAll('#pattern-category-pills .sheet-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        activePatternCategory = pill.getAttribute('data-cat') || 'all';
+        renderPatternsHandbook();
+      });
+    });
+
+    // Delegate Patterns Card Actions (Copy Template, Jump to Problem)
+    document.getElementById('patterns-cards-container')?.addEventListener('click', async (e) => {
+      // 1. Copy Template
+      const copyBtn = e.target.closest('.pattern-copy-btn');
+      if (copyBtn) {
+        const patternId = copyBtn.dataset.patternId;
+        const pattern = (window.DSA_PATTERNS || []).find(p => p.id === patternId);
+        if (pattern && pattern.templateCode) {
+          try {
+            await navigator.clipboard.writeText(pattern.templateCode);
+            const origHtml = copyBtn.innerHTML;
+            copyBtn.innerHTML = '<i class="fa-solid fa-check" style="color:var(--primary);"></i> Copied!';
+            setTimeout(() => { copyBtn.innerHTML = origHtml; }, 1800);
+          } catch (_) {
+            prompt('Copy code template:', pattern.templateCode);
+          }
+        }
+        return;
+      }
+
+      // 2. Jump to Problem Explorer from canonical problem chip
+      const probChip = e.target.closest('.btn-jump-problem-search');
+      if (probChip) {
+        const query = probChip.dataset.query;
+        if (query) {
+          document.querySelector('[data-view="problems"]')?.click();
+          const searchInp = document.getElementById('global-search-input');
+          if (searchInp) {
+            searchInp.value = query;
+          }
+          const sheetSelect = document.getElementById('filter-sheet');
+          if (sheetSelect) sheetSelect.value = 'all';
+          document.querySelectorAll('.sheet-pill').forEach(p => {
+            if (p.getAttribute('data-sheet-val') === 'all') p.classList.add('active');
+            else p.classList.remove('active');
+          });
+          renderProblemsTable();
+        }
+        return;
+      }
     });
 
     // Flashcard Mode Listeners
