@@ -162,15 +162,15 @@ async function runAll() {
       assert.strictEqual(isMastered, true);
     });
 
-    test('processReview advances stage and clamps intervals when hints used', () => {
+    test('processReview does not advance stage and schedules 1-2 day follow-up when hints used', () => {
       const state = { stage: 1, stability: 3, history: [] };
       const resNoHints = SRSEngine.processReview(state, 'simple', 15, 'Clear solution', 4, { hintsUsed: false });
       assert.strictEqual(resNoHints.stage, 2);
       assert.strictEqual(resNoHints.intervalDays, 21); // INTERVAL_MATRIX.simple[1]
 
       const resWithHints = SRSEngine.processReview(state, 'simple', 15, 'Needed help', 3, { hintsUsed: true });
-      assert.strictEqual(resWithHints.stage, 2);
-      assert.ok(resWithHints.intervalDays <= 11, 'Hints used must clamp interval progression');
+      assert.strictEqual(resWithHints.stage, 1, 'Hints used must not advance Leitner stage');
+      assert.ok(resWithHints.intervalDays <= 2, 'Hints used must schedule follow-up within 1-2 days');
     });
 
     test('processReview resets on failed rating', () => {
@@ -239,7 +239,7 @@ async function runAll() {
       const res = ReadinessEngine.calculateReadiness([], {});
       assert.strictEqual(res.isProvisional, true);
       assert.strictEqual(res.overallScore, 13);
-      assert.strictEqual(res.grade, 'Foundations Needed');
+      assert.strictEqual(res.grade, 'Foundations Needed (Provisional)');
     });
 
     test('calculateReadiness balances all 6 dimensions with empirical weights', () => {
@@ -247,19 +247,20 @@ async function runAll() {
       const states = {};
       const topics = ['Arrays & Hashing', 'Two Pointers', 'Sliding Window', 'Binary Search', 'Trees', 'Graphs'];
 
-      // Generate 12 independent, well-timed solves
+      // Generate 12 independent, well-timed solves with genuine spaced retention delay
       for (let i = 0; i < 12; i++) {
         const id = `prob-${i}`;
         probs.push({ id, difficulty: 'Medium', topic: topics[i % topics.length], pattern: 'Pattern' });
         states[id] = {
-          lastReviewed: new Date().toISOString(),
+          lastReviewed: '2026-09-10T10:00:00.000Z',
           confidence: 4,
           hintsUsed: false,
           totalTimeSpent: 25,
-          reviewCount: 1,
+          reviewCount: 2,
           stage: 2,
           history: [
-            { stage: 2, rating: 'medium', confidence: 4, failureReasons: [] }
+            { date: '2026-09-01T10:00:00.000Z', stage: 1, rating: 'medium', confidence: 4, hintsUsed: false, isMassedPractice: false },
+            { date: '2026-09-10T10:00:00.000Z', stage: 2, rating: 'medium', confidence: 4, hintsUsed: false, isMassedPractice: false }
           ]
         };
       }
@@ -812,6 +813,272 @@ async function runAll() {
       assert.ok(html.includes('id="btn-close-rating-modal" aria-label="Close dialog"'));
       assert.ok(html.includes('id="btn-close-settings-modal" aria-label="Close dialog"'));
       assert.ok(html.includes('id="btn-close-detail-modal" aria-label="Close dialog"'));
+    });
+  });
+
+  // =========================================================================
+  // SUITE 13: Critical Learning Integrity Regressions (Phase 2)
+  // =========================================================================
+  suite('13. Critical Learning Integrity Regressions (Phase 2)', () => {
+    // --- Experiment A: Same-day rapid reviews ---
+    test('Experiment A.1: First successful review establishes Stage 1', () => {
+      const state = SRSEngine.processReview({}, 'simple', 10, 'First solve', 5, { hintsUsed: false });
+      assert.strictEqual(state.stage, 1);
+      assert.strictEqual(state.intervalDays, 7);
+      assert.strictEqual(state.reviewCount, 1);
+    });
+
+    test('Experiment A.2: Reviews within 30 seconds preserve stage and do not advance', () => {
+      const baseTime = new Date('2026-10-12T10:00:00.000Z');
+      let state = SRSEngine.processReview({}, 'simple', 10, 'Solve 1', 5, { hintsUsed: false, asOfDate: baseTime });
+      assert.strictEqual(state.stage, 1);
+      assert.strictEqual(state.intervalDays, 7);
+
+      // 30 seconds later
+      const rapidTime = new Date('2026-10-12T10:00:30.000Z');
+      state = SRSEngine.processReview(state, 'simple', 5, 'Solve 2 rapid', 5, { hintsUsed: false, asOfDate: rapidTime });
+      assert.strictEqual(state.stage, 1, 'Same-day rapid review must not advance stage');
+      assert.strictEqual(state.intervalDays, 7, 'Same-day rapid review must not compound interval');
+      assert.strictEqual(state.history[1].isMassedPractice, true);
+    });
+
+    test('Experiment A.3: Same-calendar-day reviews do not compound the interval', () => {
+      const t1 = new Date('2026-10-12T09:00:00.000Z');
+      const t2 = new Date('2026-10-12T15:00:00.000Z'); // 6 hours later on same day
+      let state = SRSEngine.processReview({}, 'medium', 15, 'Morning solve', 4, { hintsUsed: false, asOfDate: t1 });
+      assert.strictEqual(state.stage, 1);
+      assert.strictEqual(state.intervalDays, 3); // INTERVAL_MATRIX.medium[0] = 3
+
+      state = SRSEngine.processReview(state, 'medium', 10, 'Afternoon rehearsal', 4, { hintsUsed: false, asOfDate: t2 });
+      assert.strictEqual(state.stage, 1, 'Stage must remain 1 on same calendar day');
+      assert.strictEqual(state.intervalDays, 3, 'Interval must not jump to stage 2 (7 days)');
+    });
+
+    test('Experiment A.4: Genuine subsequent review (>=18h on new day) advances the stage', () => {
+      const t1 = new Date('2026-10-12T10:00:00.000Z');
+      const t2 = new Date('2026-10-15T11:00:00.000Z'); // 3 days later (> 18h and new day)
+      let state = SRSEngine.processReview({}, 'simple', 15, 'Solve 1', 4, { hintsUsed: false, asOfDate: t1 });
+      assert.strictEqual(state.stage, 1);
+
+      state = SRSEngine.processReview(state, 'simple', 10, 'Solve 2 spaced', 4, { hintsUsed: false, asOfDate: t2 });
+      assert.strictEqual(state.stage, 2, 'Spaced review must advance stage to 2');
+      assert.strictEqual(state.intervalDays, 21, 'Interval must advance to 21 days');
+      assert.strictEqual(state.history[1].isMassedPractice, false);
+    });
+
+    test('Experiment A.5: Missing or malformed previous timestamps do not crash engine', () => {
+      const corruptState = { stage: 2, lastReviewed: 'invalid-date-string', history: [{ date: 'corrupt' }] };
+      const res = SRSEngine.processReview(corruptState, 'medium', 10, 'Corrupt recovery', 3);
+      assert.ok(res && res.stage >= 1);
+      assert.ok(res.lastReviewed);
+    });
+
+    // --- Experiment B: Fresh Day-1 solves ---
+    test('Experiment B.1 & B.2: 10 problems solved Day 1 produce delayed recall score of 0 and unproven', () => {
+      const probs = [];
+      const states = {};
+      for (let i = 0; i < 10; i++) {
+        const id = `p-${i}`;
+        probs.push({ id, topic: 'Arrays & Hashing', difficulty: 'Easy' });
+        states[id] = SRSEngine.processReview({}, 'simple', 15, 'Day 1 solve', 5, {
+          hintsUsed: false,
+          asOfDate: new Date('2026-10-12T10:00:00.000Z')
+        });
+      }
+
+      const res = ReadinessEngine.calculateReadiness(probs, states, []);
+      const delayedDim = res.dimensions.find(d => d.key === 'delayedRecall');
+      assert.strictEqual(delayedDim.score, 0, 'Delayed recall score must be 0 for day-1 solves');
+      assert.strictEqual(delayedDim.isUnproven, true);
+      assert.strictEqual(delayedDim.evidence, 'Unproven — 0 eligible reviews');
+    });
+
+    test('Experiment B.3, B.4, B.5: Fresh day-1 readiness remains provisional with no unearned 50%', () => {
+      const states = {};
+      for (let i = 0; i < 10; i++) {
+        const id = DEFAULT_DSA_SHEETS[i].id;
+        states[id] = SRSEngine.processReview({}, 'simple', 15, 'Day 1 solve', 5, {
+          hintsUsed: false,
+          asOfDate: new Date('2026-10-12T10:00:00.000Z')
+        });
+      }
+
+      const res = ReadinessEngine.calculateReadiness(DEFAULT_DSA_SHEETS, states, []);
+      assert.strictEqual(res.isProvisional, true, 'Readiness must remain provisional when spaced reviews = 0');
+      assert.strictEqual(res.spacedReviewCount, 0);
+      assert.ok(res.grade.includes('(Provisional)'));
+      assert.strictEqual(res.dimensions.find(d => d.key === 'delayedRecall').score, 0);
+      assert.strictEqual(res.overallScore, 61, `Expected uninflated score 61, got ${res.overallScore}`);
+    });
+
+    // --- Experiment C: Hint-dependent reviews ---
+    test('Experiment C.1 & C.2: Hint-assisted successful review does not advance stage and schedules 1-2d follow-up', () => {
+      const state = { stage: 2, intervalDays: 21, lastReviewed: '2026-09-01T10:00:00.000Z', history: [] };
+      const res = SRSEngine.processReview(state, 'simple', 20, 'Needed hint', 3, {
+        hintsUsed: true,
+        asOfDate: new Date('2026-09-25T10:00:00.000Z')
+      });
+      assert.strictEqual(res.stage, 2, 'Hint-assisted solve must not advance Leitner stage');
+      assert.ok(res.intervalDays <= 2, 'Hint-assisted solve must schedule 1-2 day follow-up');
+      assert.strictEqual(res.hintsUsed, true);
+    });
+
+    test('Experiment C.3: Hint-assisted delayed reviews receive 0 credit in delayed recall', () => {
+      const probs = [{ id: 'p-hint', topic: 'Arrays & Hashing', difficulty: 'Medium' }];
+      const states = {
+        'p-hint': {
+          lastReviewed: '2026-09-20T10:00:00.000Z',
+          confidence: 4,
+          hintsUsed: true,
+          history: [
+            { date: '2026-09-01T10:00:00.000Z', stage: 1, rating: 'medium', confidence: 3, hintsUsed: false },
+            { date: '2026-09-20T10:00:00.000Z', stage: 1, rating: 'medium', confidence: 4, hintsUsed: true }
+          ]
+        }
+      };
+
+      const res = ReadinessEngine.calculateReadiness(probs, states, []);
+      const delayedDim = res.dimensions.find(d => d.key === 'delayedRecall');
+      assert.strictEqual(delayedDim.score, 0, 'Hint-assisted delayed review must receive 0 credit');
+    });
+
+    test('Experiment C.4: Independent delayed review receives credit when spacing and confidence met', () => {
+      const probs = [{ id: 'p-indep', topic: 'Arrays & Hashing', difficulty: 'Medium' }];
+      const states = {
+        'p-indep': {
+          lastReviewed: '2026-09-20T10:00:00.000Z',
+          confidence: 5,
+          hintsUsed: false,
+          history: [
+            { date: '2026-09-01T10:00:00.000Z', stage: 1, rating: 'medium', confidence: 4, hintsUsed: false },
+            { date: '2026-09-20T10:00:00.000Z', stage: 2, rating: 'simple', confidence: 5, hintsUsed: false }
+          ]
+        }
+      };
+
+      const res = ReadinessEngine.calculateReadiness(probs, states, []);
+      const delayedDim = res.dimensions.find(d => d.key === 'delayedRecall');
+      assert.strictEqual(delayedDim.score, 100, 'Independent delayed recall must receive 100 credit');
+      assert.strictEqual(delayedDim.evidence, '1/1 retained independently');
+    });
+
+    // --- Experiment D: Evidence threshold boundaries ---
+    test('Experiment D.1: 9 attempts and 5 spaced reviews remains provisional', () => {
+      const probs = [];
+      const states = {};
+      for (let i = 0; i < 9; i++) {
+        const id = `p-${i}`;
+        probs.push({ id, topic: 'Arrays & Hashing', difficulty: 'Easy' });
+        states[id] = {
+          lastReviewed: '2026-09-10T10:00:00.000Z',
+          confidence: 4,
+          hintsUsed: false,
+          history: [
+            { date: '2026-09-01T10:00:00.000Z', stage: 1, confidence: 4 },
+            { date: '2026-09-10T10:00:00.000Z', stage: 2, confidence: 4, hintsUsed: false }
+          ]
+        };
+      }
+      const res = ReadinessEngine.calculateReadiness(probs, states, []);
+      assert.strictEqual(res.totalAttempts, 9);
+      assert.strictEqual(res.spacedReviewCount, 9);
+      assert.strictEqual(res.isProvisional, true, 'Under 10 attempts must remain provisional');
+    });
+
+    test('Experiment D.2: 10 attempts and 4 spaced reviews remains provisional', () => {
+      const probs = [];
+      const states = {};
+      for (let i = 0; i < 10; i++) {
+        const id = `p-${i}`;
+        probs.push({ id, topic: 'Arrays & Hashing', difficulty: 'Easy' });
+        const hasSpaced = i < 4;
+        states[id] = {
+          lastReviewed: '2026-09-10T10:00:00.000Z',
+          confidence: 4,
+          hintsUsed: false,
+          history: hasSpaced
+            ? [{ date: '2026-09-01T10:00:00.000Z' }, { date: '2026-09-10T10:00:00.000Z', confidence: 4, hintsUsed: false }]
+            : [{ date: '2026-09-10T10:00:00.000Z', confidence: 4, hintsUsed: false }]
+        };
+      }
+      const res = ReadinessEngine.calculateReadiness(probs, states, []);
+      assert.strictEqual(res.totalAttempts, 10);
+      assert.strictEqual(res.spacedReviewCount, 4);
+      assert.strictEqual(res.isProvisional, true, 'Under 5 spaced reviews must remain provisional');
+    });
+
+    test('Experiment D.3: 10 attempts and 5 spaced reviews satisfies evidence threshold', () => {
+      const probs = [];
+      const states = {};
+      for (let i = 0; i < 10; i++) {
+        const id = `p-${i}`;
+        probs.push({ id, topic: 'Arrays & Hashing', difficulty: 'Easy' });
+        const hasSpaced = i < 5;
+        states[id] = {
+          lastReviewed: '2026-09-10T10:00:00.000Z',
+          confidence: 4,
+          hintsUsed: false,
+          history: hasSpaced
+            ? [{ date: '2026-09-01T10:00:00.000Z' }, { date: '2026-09-10T10:00:00.000Z', confidence: 4, hintsUsed: false }]
+            : [{ date: '2026-09-10T10:00:00.000Z', confidence: 4, hintsUsed: false }]
+        };
+      }
+      const res = ReadinessEngine.calculateReadiness(probs, states, []);
+      assert.strictEqual(res.totalAttempts, 10);
+      assert.strictEqual(res.spacedReviewCount, 5);
+      assert.strictEqual(res.isProvisional, false, '10 attempts and 5 spaced reviews is non-provisional');
+    });
+
+    test('Experiment D.4: Repeated same-day reviews do not inflate spaced review count', () => {
+      const probs = [{ id: 'p-spam', topic: 'Arrays & Hashing', difficulty: 'Easy' }];
+      const states = {
+        'p-spam': {
+          lastReviewed: '2026-10-12T12:00:00.000Z',
+          history: [
+            { date: '2026-10-12T10:00:00.000Z' },
+            { date: '2026-10-12T10:30:00.000Z' },
+            { date: '2026-10-12T11:00:00.000Z' },
+            { date: '2026-10-12T12:00:00.000Z' }
+          ]
+        }
+      };
+      const res = ReadinessEngine.calculateReadiness(probs, states, []);
+      assert.strictEqual(res.spacedReviewCount, 0, 'Same-day reviews must yield 0 spaced reviews');
+    });
+
+    // --- Experiment E: Failure and history integrity ---
+    test('Experiment E.1: Failed attempt resets stage to 1 and interval to 1 even on same day', () => {
+      const state = { stage: 4, intervalDays: 60, lastReviewed: '2026-10-12T09:00:00.000Z', history: [] };
+      const res = SRSEngine.processReview(state, 'failed', 20, 'Forgot solution', 1, {
+        asOfDate: new Date('2026-10-12T10:00:00.000Z')
+      });
+      assert.strictEqual(res.stage, 1, 'Failure must reset stage to 1');
+      assert.strictEqual(res.intervalDays, 1, 'Failure must reset interval to 1');
+    });
+
+    test('Experiment E.2: 18-hour cutoff boundary test separates massed practice from spaced review', () => {
+      const tStart = new Date('2026-10-12T10:00:00.000Z');
+      const state1 = SRSEngine.processReview({}, 'simple', 10, 'Initial', 4, { hintsUsed: false, asOfDate: tStart });
+      assert.strictEqual(state1.stage, 1);
+
+      // 17.5 hours later (2026-10-13T03:30:00.000Z) -> under 18h -> massed practice!
+      const t17_5h = new Date('2026-10-13T03:30:00.000Z');
+      const stateUnder18 = SRSEngine.processReview(state1, 'simple', 10, 'Under 18h', 4, { hintsUsed: false, asOfDate: t17_5h });
+      assert.strictEqual(stateUnder18.stage, 1, '17.5h elapsed must not advance stage');
+
+      // 18.5 hours later (2026-10-13T04:30:00.000Z) -> over 18h on new calendar day -> spaced review!
+      const t18_5h = new Date('2026-10-13T04:30:00.000Z');
+      const stateOver18 = SRSEngine.processReview(state1, 'simple', 10, 'Over 18h', 4, { hintsUsed: false, asOfDate: t18_5h });
+      assert.strictEqual(stateOver18.stage, 2, '18.5h elapsed on new calendar day must advance stage');
+    });
+
+    test('Experiment E.3: Midnight crossing within 10 minutes remains protected massed practice', () => {
+      const t2355 = new Date('2026-10-12T23:55:00.000Z');
+      const state1 = SRSEngine.processReview({}, 'simple', 10, 'Late night', 4, { hintsUsed: false, asOfDate: t2355 });
+
+      const t0005 = new Date('2026-10-13T00:05:00.000Z'); // 10 minutes later across midnight
+      const state2 = SRSEngine.processReview(state1, 'simple', 10, 'Midnight click', 4, { hintsUsed: false, asOfDate: t0005 });
+      assert.strictEqual(state2.stage, 1, 'Midnight crossing under 18h must be treated as massed practice');
     });
   });
 

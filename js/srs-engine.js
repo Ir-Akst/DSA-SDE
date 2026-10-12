@@ -182,24 +182,41 @@
     /**
      * Core Review Processor
      * Calculates next interval, updates stability, difficulty, history, and scheduled due date.
+     * Enforces strict learning integrity:
+     * - Priority 1: Failure Reset (rating === 'failed') resets stage to 1 and interval to 1d
+     * - Priority 2: Massed Practice Guard (same calendar day or <18h) preserves stage and does not compound interval
+     * - Priority 3: Hint Gating (hintsUsed === true) preserves stage and schedules 1-2d independent retrieval
+     * - Priority 4: Spaced Independent Review advances Leitner stage
+     *
      * @param {Object} problemState - current user state for problem
      * @param {string} rating - 'simple' | 'medium' | 'hard' | 'failed'
      * @param {number} timeSpentMinutes - time spent during solve
      * @param {string} reviewNotes - notes added during review
      * @param {number|null} confidence - optional 1-5 confidence score
-     * @param {Object} options - { hintsUsed: bool, failureReasons: [], solutionNotes: '' }
+     * @param {Object} options - { hintsUsed, hintsUsedCount, failureReasons, asOfDate, ... }
      */
     processReview(problemState = {}, rating, timeSpentMinutes = 0, reviewNotes = "", confidence = null, options = {}) {
-      const today = new Date();
+      const safeState = problemState || {};
+      const now = (options.asOfDate instanceof Date && !isNaN(options.asOfDate.getTime()))
+        ? new Date(options.asOfDate)
+        : new Date();
+
+      const today = new Date(now);
       today.setHours(0, 0, 0, 0);
 
-      const safeState = problemState || {};
-      let currentStage = safeState.stage || 0;
+      const currentStage = Math.max(0, safeState.stage || 0);
       let nextStage = currentStage;
       let daysToAdd = 1;
 
-      // Extract options
-      const hintsUsed = !!options.hintsUsed;
+      // Normalize hintsUsed safely across boolean, number, string
+      const hintsUsed = Boolean(
+        options.hintsUsed === true ||
+        options.hintsUsed === 'true' ||
+        (typeof options.hintsUsed === 'number' && options.hintsUsed > 0) ||
+        (typeof options.hintsUsedCount === 'number' && options.hintsUsedCount > 0) ||
+        (typeof options.hintLevel === 'number' && options.hintLevel > 0)
+      );
+
       const failureReasons = Array.isArray(options.failureReasons) ? options.failureReasons : [];
 
       // Resolve confidence (1-5)
@@ -214,31 +231,75 @@
       const newStability = this.calculateStability(prevStability, rating, confVal, hintsUsed);
       const newDifficulty = this.calculateDifficulty(prevDifficulty, rating, confVal, hintsUsed);
 
-      if (rating === 'failed') {
-        // Reset to stage 1 and review tomorrow
+      // Inspect previous review timestamp
+      let prevReviewDate = null;
+      if (safeState.lastReviewed) {
+        const parsed = new Date(safeState.lastReviewed);
+        if (!isNaN(parsed.getTime())) prevReviewDate = parsed;
+      }
+      if (!prevReviewDate && Array.isArray(safeState.history) && safeState.history.length > 0) {
+        const lastH = safeState.history[safeState.history.length - 1];
+        if (lastH && (lastH.date || lastH.reviewedAt)) {
+          const parsed = new Date(lastH.date || lastH.reviewedAt);
+          if (!isNaN(parsed.getTime())) prevReviewDate = parsed;
+        }
+      }
+
+      // Check massed practice condition:
+      // Occurs on same calendar day as previous review, OR < 18 hours elapsed
+      let isMassedPractice = false;
+      if (prevReviewDate) {
+        const elapsedMs = now.getTime() - prevReviewDate.getTime();
+        const elapsedHours = elapsedMs / (1000 * 60 * 60);
+        const sameCalendarDay = this.getLocalDateString(now) === this.getLocalDateString(prevReviewDate);
+        if (sameCalendarDay || elapsedHours < 18) {
+          isMassedPractice = true;
+        }
+      }
+
+      // --- DOCUMENTED PRECEDENCE ORDER ---
+      // 1. Failure Reset (Highest Priority)
+      // 2. Massed Practice Guard
+      // 3. Hint Gating
+      // 4. Genuine Spaced Independent Review
+      let isIndependentSolve = false;
+
+      if (rating === 'failed' || confVal <= 1) {
+        // Priority 1: Failure Reset - always resets stage and interval
         nextStage = 1;
         daysToAdd = 1;
+        isIndependentSolve = false;
+      } else if (isMassedPractice) {
+        // Priority 2: Massed practice (same day / <18h)
+        // Preserve existing Leitner stage, do NOT advance or compound interval
+        nextStage = Math.max(1, currentStage || 1);
+        daysToAdd = safeState.intervalDays || (this.INTERVAL_MATRIX[rating] ? this.INTERVAL_MATRIX[rating][0] : 1);
+        isIndependentSolve = false; // Massed practice is not independent delayed-recall evidence
+      } else if (hintsUsed) {
+        // Priority 3: Hint gating
+        // Do NOT advance stage; schedule independent retrieval in 1-2 days
+        nextStage = Math.max(1, currentStage || 1);
+        daysToAdd = (rating === 'simple' && confVal >= 4) ? 2 : 1;
+        isIndependentSolve = false;
       } else {
-        // Valid progression ('simple', 'medium', 'hard')
+        // Priority 4: Genuine spaced independent review
         nextStage = currentStage + 1;
         const matrix = this.INTERVAL_MATRIX[rating] || this.INTERVAL_MATRIX.medium;
         const intervalIndex = Math.min(nextStage - 1, matrix.length - 1);
         daysToAdd = matrix[intervalIndex];
-
-        // If hints were used during solve, clamp interval progression
-        if (hintsUsed) {
-          daysToAdd = Math.max(1, Math.round(daysToAdd * 0.5));
-        }
+        isIndependentSolve = confVal >= 4;
       }
 
       // Check mastery eligibility with anti-inflation safeguards
       const prevHistory = Array.isArray(safeState.history) ? safeState.history : [];
       const historyEntry = {
-        date: new Date().toISOString(),
+        date: now.toISOString(),
         rating: rating,
         confidence: confVal,
         confidenceLabel: confMeta.label,
         hintsUsed: hintsUsed,
+        isMassedPractice: isMassedPractice,
+        isIndependent: isIndependentSolve,
         failureReasons: failureReasons,
         stage: nextStage,
         intervalDays: daysToAdd,
@@ -257,10 +318,18 @@
         daysToAdd = matrix[matrix.length - 1]; // Maintenance interval (e.g. 120-240d)
       }
 
-      const nextDate = new Date(today);
-      nextDate.setDate(nextDate.getDate() + daysToAdd);
+      // Next review date calculation:
+      // For massed practice, preserve existing future nextReviewDate if available to prevent date pushout
+      let nextDateStr;
+      if (isMassedPractice && safeState.nextReviewDate && safeState.nextReviewDate >= this.getLocalDateString(today)) {
+        nextDateStr = safeState.nextReviewDate;
+      } else {
+        const nextDate = new Date(today);
+        nextDate.setDate(nextDate.getDate() + daysToAdd);
+        nextDateStr = this.getLocalDateString(nextDate);
+      }
 
-      // Compute streak of consecutive low-confidence attempts (<= 2)
+      // Streaks
       let lowConfidenceStreak = 0;
       for (let i = updatedHistory.length - 1; i >= 0; i--) {
         const c = updatedHistory[i].confidence || this.mapRatingToDefaultConfidence(updatedHistory[i].rating);
@@ -271,11 +340,10 @@
         }
       }
 
-      // Compute streak of consecutive independent solves
       let independentStreak = 0;
       for (let i = updatedHistory.length - 1; i >= 0; i--) {
         const h = updatedHistory[i];
-        if (!h.hintsUsed && (h.confidence || 3) >= 4) {
+        if (!h.hintsUsed && !h.isMassedPractice && (h.confidence || 3) >= 4) {
           independentStreak++;
         } else {
           break;
@@ -296,8 +364,8 @@
         independentStreak: independentStreak,
         stability: newStability,
         difficultyEst: newDifficulty,
-        lastReviewed: new Date().toISOString(),
-        nextReviewDate: this.getLocalDateString(nextDate),
+        lastReviewed: now.toISOString(),
+        nextReviewDate: nextDateStr,
         isMastered: isMastered,
         reviewCount: (safeState.reviewCount || 0) + 1,
         totalTimeSpent: (safeState.totalTimeSpent || 0) + Number(timeSpentMinutes || 0),
