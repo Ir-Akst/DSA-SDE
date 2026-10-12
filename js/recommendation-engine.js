@@ -7,7 +7,14 @@
 (function () {
   'use strict';
 
-  window.RecommendationEngine = {
+  const SRSEngine = (typeof window !== 'undefined' && window.SRSEngine) || (typeof require !== 'undefined' ? require('./srs-engine') : null);
+  const FailureEngine = (typeof window !== 'undefined' && window.FailureEngine) || (typeof require !== 'undefined' ? require('./failure-engine') : null);
+  const GraphEngine = (typeof window !== 'undefined' && window.GraphEngine) || (typeof require !== 'undefined' ? require('./graph-engine') : null);
+  const _SRSEngine = SRSEngine;
+  const _FailureEngine = FailureEngine;
+  const _GraphEngine = GraphEngine;
+
+  const RecommendationEngine = {
     /**
      * Compute comprehensive confidence statistics across all attempts, patterns, and topics
      * @param {Array} allProblems
@@ -26,7 +33,7 @@
 
       allProblems.forEach(p => {
         const state = userStates[p.id];
-        const topic = SRSEngine.canonicalizeTopic(p.topic);
+        const topic = _SRSEngine ? _SRSEngine.canonicalizeTopic(p.topic) : p.topic;
         const pattern = (p.pattern || 'General Pattern').trim();
         const patternKey = `${topic}:::${pattern.toLowerCase()}`;
 
@@ -421,9 +428,31 @@
         }
       }
 
+      // Failure Intelligence integration
+      let prescription = null;
+      const failureEngine = (typeof window !== 'undefined' && window.FailureEngine) || _FailureEngine;
+      if (failureEngine && state && Array.isArray(state.lastFailureReasons) && state.lastFailureReasons.length > 0) {
+        prescription = failureEngine.getPrescription(problem, state.lastFailureReasons);
+        if (isDue || isOverdue) {
+          confidenceMultiplier *= 1.35;
+          reason = `Targeted review: ${prescription.reason} (${prescription.actionText})`;
+          tag = prescription.tag;
+        }
+      }
+
       // Repeated low confidence penalty / alert
       if (state && (state.lowConfidenceStreak || 0) >= 2 && !isJustAttempted) {
         confidenceMultiplier *= 1.3; // Boost priority for comprehensive review after cooling off
+      }
+
+      // Prerequisite check for unattempted or weak problems
+      let prerequisiteNotice = null;
+      const graphEngine = (typeof window !== 'undefined' && window.GraphEngine) || _GraphEngine;
+      if (graphEngine && (!isSolved || (probConfidence && probConfidence <= 2))) {
+        const prereqCheck = graphEngine.findMissingPrerequisite(problem, Object.values(stats.patternStats || {}).length ? [] : [problem], userStates);
+        if (prereqCheck) {
+          prerequisiteNotice = prereqCheck;
+        }
       }
 
       const finalScore = Number((baseScore * confidenceMultiplier).toFixed(1));
@@ -435,6 +464,8 @@
         finalScore: finalScore,
         reason: reason,
         tag: tag,
+        prescription: prescription,
+        prerequisiteNotice: prerequisiteNotice,
         confidence: probConfidence,
         patternAvgConfidence: patAvgConf
       };
@@ -543,4 +574,11 @@
       return candidateProblems.slice(0, limit);
     }
   };
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = RecommendationEngine;
+  }
+  if (typeof window !== 'undefined') {
+    window.RecommendationEngine = RecommendationEngine;
+  }
 })();

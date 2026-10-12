@@ -7,15 +7,24 @@
 (function () {
   'use strict';
 
+  const getLocalStorage = () => {
+    try {
+      if (typeof localStorage !== 'undefined') return localStorage;
+      if (typeof global !== 'undefined' && global.localStorage) return global.localStorage;
+    } catch (_) {}
+    return null;
+  };
+
   const STORAGE_KEY_ROADMAP = 'algorecall_roadmap_progress_v1';
 
-  window.RoadmapEngine = {
+  const RoadmapEngine = {
     progress: null,
 
     // Initialize or load roadmap progress from localStorage
     initProgress() {
       try {
-        const stored = localStorage.getItem(STORAGE_KEY_ROADMAP);
+        const storage = getLocalStorage();
+        const stored = storage ? storage.getItem(STORAGE_KEY_ROADMAP) : null;
         this.progress = stored ? JSON.parse(stored) : this.getDefaultProgress();
       } catch (e) {
         console.error('Error loading roadmap progress:', e);
@@ -37,7 +46,10 @@
 
     saveProgress() {
       try {
-        localStorage.setItem(STORAGE_KEY_ROADMAP, JSON.stringify(this.progress));
+        const storage = getLocalStorage();
+        if (storage) {
+          storage.setItem(STORAGE_KEY_ROADMAP, JSON.stringify(this.progress));
+        }
       } catch (e) {
         console.error('Error saving roadmap progress:', e);
       }
@@ -1336,6 +1348,11 @@
     }
   };
 
-  // Auto-init on load
-  window.RoadmapEngine.initProgress();
+  if (typeof window !== 'undefined') {
+    window.RoadmapEngine = RoadmapEngine;
+    RoadmapEngine.initProgress();
+  }
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = RoadmapEngine;
+  }
 })();

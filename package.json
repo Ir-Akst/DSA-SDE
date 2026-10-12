@@ -1,0 +1,22 @@
+{
+  "name": "algorecall",
+  "version": "2.0.0",
+  "description": "Adaptive DSA Learning & SDE Interview Readiness Platform",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/run-all-tests.js",
+    "audit": "python scripts/audit_topics.py"
+  },
+  "keywords": [
+    "dsa",
+    "algorithms",
+    "spaced-repetition",
+    "interview-prep",
+    "sde",
+    "leetcode",
+    "striver"
+  ],
+  "author": "AlgoRecall Team",
+  "license": "MIT"
+}

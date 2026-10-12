@@ -7,7 +7,7 @@
 (function () {
   'use strict';
 
-  window.DSA_PATTERNS = [
+  const DSA_PATTERNS = [
     {
       id: 'two-pointers',
       title: 'Two Pointers (Opposite Ends)',
@@ -665,4 +665,11 @@ function countSetBits(n) {
       canonicalProblems: ['Single Number', 'Number of 1 Bits', 'Counting Bits', 'Reverse Bits', 'Missing Number', 'Subsets (Bitmask)']
     }
   ];
+
+  if (typeof module !== 'undefined' && module.exports) {
+    module.exports = DSA_PATTERNS;
+  }
+  if (typeof window !== 'undefined') {
+    window.DSA_PATTERNS = DSA_PATTERNS;
+  }
 })();

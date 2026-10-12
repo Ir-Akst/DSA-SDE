@@ -2,7 +2,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 const ROOT = path.resolve(__dirname);
 
 const MIME_TYPES = {
@@ -24,6 +24,47 @@ const MIME_TYPES = {
 const server = http.createServer((req, res) => {
   const parsedUrl = new URL(req.url, `http://localhost:${PORT}`);
   let pathname = parsedUrl.pathname;
+
+  // Optional API endpoints
+  if (pathname === '/api/status' && req.method === 'GET') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'ok',
+      version: '2.0.0',
+      timestamp: new Date().toISOString(),
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      hasGeminiKey: !!process.env.GEMINI_API_KEY
+    }));
+    return;
+  }
+
+  if (pathname === '/api/ai-hint' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const problem = payload.problem || {};
+        const level = payload.level || 1;
+
+        // If local environment key is available, you can connect upstream;
+        // Otherwise return clean structured server-side response
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true,
+          provider: 'server_proxy',
+          level: level,
+          message: `Server hint response for ${problem.title || 'problem'} at Level ${level}.`
+        }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Invalid JSON payload' }));
+      }
+    });
+    return;
+  }
+
+  // Static File Serving
   if (pathname === '/') pathname = '/index.html';
 
   const safePath = path.normalize(path.join(ROOT, pathname));
@@ -54,9 +95,13 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`\n=================================================`);
-  console.log(`🚀 AlgoRecall App is running locally!`);
-  console.log(`👉 Open in browser: http://localhost:${PORT}`);
-  console.log(`=================================================\n`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`\n=================================================`);
+    console.log(`🚀 AlgoRecall 2.0 is running locally!`);
+    console.log(`👉 Open in browser: http://localhost:${PORT}`);
+    console.log(`=================================================\n`);
+  });
+}
+
+module.exports = server;

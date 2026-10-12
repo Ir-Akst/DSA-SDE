@@ -8,10 +8,12 @@
 
   // --- STORAGE KEYS ---
   const STORAGE_KEYS = {
-    PROBLEMS: 'algorecall_problems_v1',
+    PROBLEMS: 'algorecall_problems_v2',
     USER_STATES: 'algorecall_user_states_v2',
-    TEST_HISTORY: 'algorecall_test_history_v1',
-    ACTIVE_EXAM_SESSION: 'algorecall_active_exam_v1'
+    TEST_HISTORY: 'algorecall_exam_history_v2',
+    MOCK_HISTORY: 'algorecall_mock_history_v2',
+    ACTIVE_EXAM_SESSION: 'algorecall_active_exam_session_v2',
+    ACTIVE_MOCK_SESSION: 'algorecall_active_mock_session_v2'
   };
 
   // --- STATE ---
@@ -32,14 +34,30 @@
 
   // --- INITIALIZATION ---
   function init() {
+    if (window.StorageEngine) {
+      StorageEngine.init();
+      const settings = StorageEngine.getSettings();
+      if (settings && settings.theme) {
+        document.documentElement.setAttribute('data-theme', settings.theme);
+        const icon = document.getElementById('theme-toggle-icon');
+        if (icon) {
+          icon.className = settings.theme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        }
+      }
+    }
+
     loadData();
     if (window.RoadmapEngine) {
       RoadmapEngine.initProgress();
     }
     populateTopicDropdown();
     setupEventListeners();
+    setupSettingsModalListeners();
+    setupDetailModalSubTabs();
+    updateGamificationHeader();
     renderAll();
     checkAndRestoreActiveExamSession();
+    checkAndRestoreActiveMockSession();
     checkUrlHashSync();
   }
 
@@ -289,7 +307,10 @@
     renderActivityHeatmap();
     renderRoadmapView();
     renderPatternsHandbook();
+    renderPrerequisiteGraph();
+    renderMockInterviewView();
     updateSidebarBadges();
+    updateGamificationHeader();
   }
 
   // --- SIDEBAR BADGES & STATS ---
@@ -369,6 +390,101 @@
     if (statDueEl) statDueEl.textContent = dueCount;
     if (statMasteredEl) statMasteredEl.textContent = masteredCount;
     if (statRetentionEl) statRetentionEl.textContent = `${avgMastery}%`;
+
+    // Feature A: Interview Readiness Engine
+    let readiness = { overallScore: 0, grade: 'Not Ready', dimensions: [], isProvisional: true, evidenceProgress: 0 };
+    if (window.ReadinessEngine) {
+      let mockList = [];
+      try {
+        const rawMocks = localStorage.getItem('algorecall_mock_history_v2');
+        if (rawMocks) mockList = JSON.parse(rawMocks);
+      } catch (_) {}
+
+      readiness = ReadinessEngine.calculateReadiness(allProblems, userStates, mockList);
+
+      const scoreEl = document.getElementById('readiness-overall-score');
+      const gradeEl = document.getElementById('readiness-grade-label');
+      const provEl = document.getElementById('readiness-provisional-badge');
+      const indepStat = document.getElementById('readiness-independent-stat');
+      const delayedStat = document.getElementById('readiness-delayed-stat');
+      const weakStat = document.getElementById('readiness-weakness-stat');
+
+      if (scoreEl) {
+        scoreEl.textContent = readiness.overallScore;
+        scoreEl.style.color = readiness.statusColor;
+      }
+      if (gradeEl) gradeEl.textContent = readiness.grade;
+      if (provEl) {
+        if (readiness.isProvisional) {
+          provEl.style.display = 'inline-flex';
+          provEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> Provisional (${readiness.evidenceProgress}% Evidence)`;
+        } else {
+          provEl.style.display = 'none';
+        }
+      }
+
+      if (indepStat && readiness.dimensions[0]) indepStat.innerHTML = `<i class="fa-solid fa-check" style="color:#10b981;"></i> ${readiness.dimensions[0].evidence}`;
+      if (delayedStat && readiness.dimensions[1]) delayedStat.innerHTML = `<i class="fa-solid fa-clock" style="color:#8b5cf6;"></i> ${readiness.dimensions[1].evidence}`;
+
+      if (weakStat && window.FailureEngine) {
+        const weakness = FailureEngine.computeWeaknessProfile(allProblems, userStates);
+        if (weakness && weakness.topFailure && weakness.topFailure.count > 0) {
+          weakStat.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> Top Struggle: ${weakness.topFailure.label} (${weakness.topFailure.count})`;
+        } else {
+          weakStat.innerHTML = `<i class="fa-solid fa-shield-halved" style="color:#38bdf8;"></i> Clean solve history`;
+        }
+      }
+
+      const dimsContainer = document.getElementById('readiness-dimensions-container');
+      if (dimsContainer) {
+        dimsContainer.innerHTML = readiness.dimensions.map(d => `
+          <div class="dimension-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:12.5px; font-weight:600; color:var(--text-main);">${d.label}</span>
+              <strong style="font-size:13px; color:${d.score >= 70 ? '#10b981' : d.score >= 50 ? '#38bdf8' : '#f59e0b'};">${d.score}%</strong>
+            </div>
+            <div class="dimension-bar-track">
+              <div class="dimension-bar-fill" style="width:${d.score}%; background:${d.score >= 70 ? '#10b981' : d.score >= 50 ? '#38bdf8' : '#f59e0b'};"></div>
+            </div>
+            <span style="font-size:11px; color:var(--text-dim);">${d.evidence}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Prescribed Next Learning Action Hero
+    const nextActionTitle = document.getElementById('dashboard-next-action-title');
+    const nextActionSubtitle = document.getElementById('dashboard-next-action-subtitle');
+    const btnNextAction = document.getElementById('btn-dashboard-start-session');
+
+    if (nextActionTitle && nextActionSubtitle && btnNextAction) {
+      if (dueCount > 0) {
+        nextActionTitle.textContent = `Clear ${dueCount} Due Revision Problem${dueCount > 1 ? 's' : ''}`;
+        nextActionSubtitle.textContent = `Scientific Leitner memory intervals show retention decay. Cement your active patterns now.`;
+        btnNextAction.onclick = () => switchView('revision');
+      } else {
+        let missingPrereq = null;
+        if (window.GraphEngine) {
+          const sampleStruggle = allProblems.find(p => {
+            const s = userStates[p.id];
+            return s && (s.lastRating === 'failed' || (s.confidence && s.confidence <= 2));
+          });
+          if (sampleStruggle) {
+            missingPrereq = GraphEngine.findMissingPrerequisite(sampleStruggle, allProblems, userStates);
+          }
+        }
+
+        if (missingPrereq) {
+          nextActionTitle.textContent = `Strengthen Prerequisite: ${missingPrereq.weakPrerequisiteNode.title}`;
+          nextActionSubtitle.textContent = missingPrereq.reason;
+          btnNextAction.onclick = () => switchView('graph');
+        } else {
+          nextActionTitle.textContent = `Continue Daily Structured Roadmap Workout`;
+          nextActionSubtitle.textContent = `Progress through your active curriculum track and maintain your daily problem streak.`;
+          btnNextAction.onclick = () => switchView('roadmap');
+        }
+      }
+    }
 
     // Revision Banner
     const banner = document.getElementById('dashboard-revision-banner');
@@ -935,8 +1051,29 @@
     document.getElementById('modal-rating-subtitle').textContent = `${p.topic} • ${p.difficulty} • ${p.pattern || ''}`;
     document.getElementById('rating-modal-notes').value = '';
 
-    updateRatingModalConfidenceUI(activeRatingConfidence);
+    // Reset Hint Used checkbox & Time Spent
+    const hintCheck = document.getElementById('rating-modal-hint-used');
+    if (hintCheck) hintCheck.checked = false;
+    const timeInput = document.getElementById('rating-modal-time-spent');
+    if (timeInput) timeInput.value = (p.difficulty === 'Easy' ? 12 : (p.difficulty === 'Hard' ? 35 : 20));
 
+    // Populate Failure Intelligence chips
+    const chipsContainer = document.getElementById('rating-modal-failure-chips');
+    if (chipsContainer && window.FailureEngine) {
+      chipsContainer.innerHTML = '';
+      FailureEngine.getAllCategories().forEach(cat => {
+        const chip = document.createElement('div');
+        chip.className = 'failure-chip';
+        chip.dataset.failureId = cat.id;
+        chip.innerHTML = `<i class="fa-solid ${cat.icon}" style="color:${cat.color};"></i> ${cat.label}`;
+        chip.addEventListener('click', () => {
+          chip.classList.toggle('active');
+        });
+        chipsContainer.appendChild(chip);
+      });
+    }
+
+    updateRatingModalConfidenceUI(activeRatingConfidence);
     document.getElementById('srs-rating-modal').classList.add('open');
   }
 
@@ -949,10 +1086,38 @@
     if (!activeRatingProblemId) return;
 
     const notes = document.getElementById('rating-modal-notes').value.trim();
+    const hintsUsed = document.getElementById('rating-modal-hint-used')?.checked || false;
+    const timeSpent = parseInt(document.getElementById('rating-modal-time-spent')?.value, 10) || 15;
+
+    const selectedFailures = [];
+    document.querySelectorAll('#rating-modal-failure-chips .failure-chip.active').forEach(chip => {
+      selectedFailures.push(chip.dataset.failureId);
+    });
+
     const currentState = userStates[activeRatingProblemId] || {};
 
-    userStates[activeRatingProblemId] = SRSEngine.processReview(currentState, rating, 15, notes, activeRatingConfidence);
+    userStates[activeRatingProblemId] = SRSEngine.processReview(
+      currentState,
+      rating,
+      timeSpent,
+      notes,
+      activeRatingConfidence,
+      { hintsUsed: hintsUsed, failureReasons: selectedFailures }
+    );
     saveUserStates();
+
+    // Gamification XP & Badges
+    if (window.GamificationEngine) {
+      if (!hintsUsed && activeRatingConfidence >= 4) {
+        GamificationEngine.awardXP('independent_solve');
+      } else if (currentState.stage >= 2 && rating !== 'failed') {
+        GamificationEngine.awardXP('delayed_recall');
+      } else {
+        GamificationEngine.awardXP('review');
+      }
+      GamificationEngine.evaluateBadges(allProblems, userStates, monthlyTestHistory);
+      updateGamificationHeader();
+    }
 
     closeRatingModal();
     renderAll();
@@ -967,6 +1132,26 @@
 
     document.getElementById('detail-modal-title').textContent = p.title;
     document.getElementById('detail-modal-meta').textContent = `${p.topic} • ${p.difficulty}${p.pattern ? ` • ${p.pattern}` : ''}`;
+
+    // Reset sub-tabs to Overview
+    document.querySelectorAll('#problem-detail-modal button[id^="tab-btn-detail-"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-btn-detail-overview')?.classList.add('active');
+    if (document.getElementById('detail-tab-content-overview')) document.getElementById('detail-tab-content-overview').style.display = 'flex';
+    if (document.getElementById('detail-tab-content-hints')) document.getElementById('detail-tab-content-hints').style.display = 'none';
+    if (document.getElementById('detail-tab-content-analysis')) document.getElementById('detail-tab-content-analysis').style.display = 'none';
+    if (document.getElementById('detail-tab-content-history')) document.getElementById('detail-tab-content-history').style.display = 'none';
+
+    const hintContent = document.getElementById('detail-ai-hint-content');
+    if (hintContent) {
+      hintContent.textContent = 'Select a hint level above to get targeted scaffolding without revealing solutions.';
+    }
+    document.querySelectorAll('#detail-ai-hint-tabs .ai-hint-tab-btn').forEach((b, idx) => {
+      if (idx === 0) b.classList.add('active');
+      else b.classList.remove('active');
+    });
+
+    const analysisRes = document.getElementById('analysis-feedback-result');
+    if (analysisRes) analysisRes.style.display = 'none';
 
     const statusBadge = document.getElementById('detail-modal-status-badge');
     const dueInfo = SRSEngine.getDueStatus(state);
@@ -1986,25 +2171,656 @@
     document.getElementById('monthly-test-overlay')?.classList.add('open');
   }
 
-  // --- BACKUP & RESTORE ---
-  function exportDataJSON() {
-    const payload = {
-      version: 1.0,
-      exportDate: new Date().toISOString(),
-      problems: allProblems,
-      userStates: userStates,
-      monthlyTestHistory: monthlyTestHistory
-    };
+  // --- SAFE NAVIGATION ROUTER ---
+  function switchView(viewName) {
+    if (!viewName) return;
+    document.querySelectorAll('.nav-item').forEach(n => {
+      n.classList.toggle('active', n.getAttribute('data-view') === viewName);
+    });
+    document.querySelectorAll('.view-section').forEach(v => {
+      v.classList.toggle('active', v.id === `view-${viewName}`);
+    });
+    if (viewName === 'dashboard' || viewName === 'analytics') {
+      renderAll();
+    }
+  }
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `algorecall_dsa_backup_${SRSEngine.getLocalDateString(new Date())}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  // --- GAMIFICATION HEADER UI ---
+  function updateGamificationHeader() {
+    if (!window.GamificationEngine) return;
+    const progress = GamificationEngine.getProgress();
+    const tier = GamificationEngine.getLevelProgress(progress.xp || 0);
+
+    const levelNameEl = document.getElementById('header-level-name');
+    const xpFillEl = document.getElementById('header-xp-fill');
+    const xpTextEl = document.getElementById('header-xp-text');
+    const pillEl = document.getElementById('header-gamification-pill');
+
+    if (levelNameEl) levelNameEl.textContent = `Lvl ${tier.currentLevel}: ${tier.title}`;
+    if (xpFillEl) xpFillEl.style.width = `${tier.percent}%`;
+    if (xpTextEl) xpTextEl.textContent = `${progress.xp || 0} XP`;
+    if (pillEl) pillEl.title = `Mastery Tier: ${tier.title} (${tier.xpCurrent} XP, ${tier.xpToNext} XP to ${tier.nextTitle})`;
+  }
+
+  // --- SETTINGS & DATA MANAGEMENT MODAL ---
+  function setupSettingsModalListeners() {
+    const modal = document.getElementById('settings-modal');
+    const openBtn = document.getElementById('btn-open-settings-modal');
+    const closeBtn = document.getElementById('btn-close-settings-modal');
+    const themeToggleHeaderBtn = document.getElementById('btn-theme-toggle');
+    const themeToggleIcon = document.getElementById('theme-toggle-icon');
+
+    const darkOptBtn = document.getElementById('btn-theme-dark-opt');
+    const lightOptBtn = document.getElementById('btn-theme-light-opt');
+    const aiProviderSelect = document.getElementById('settings-ai-provider');
+    const apiKeyWrap = document.getElementById('settings-api-key-wrap');
+    const apiKeyInput = document.getElementById('settings-ai-key');
+    const saveBtn = document.getElementById('btn-save-settings');
+
+    const btnExportBackup = document.getElementById('btn-settings-export-backup');
+    const btnRestoreTrigger = document.getElementById('btn-settings-restore-trigger');
+    const btnCopySync = document.getElementById('btn-settings-copy-sync');
+
+    function refreshSettingsForm() {
+      if (!window.StorageEngine) return;
+      const s = StorageEngine.getSettings();
+      if (s.theme === 'light') {
+        lightOptBtn?.classList.add('active');
+        darkOptBtn?.classList.remove('active');
+      } else {
+        darkOptBtn?.classList.add('active');
+        lightOptBtn?.classList.remove('active');
+      }
+
+      if (aiProviderSelect) {
+        aiProviderSelect.value = s.aiProvider || 'offline';
+        if (apiKeyWrap) {
+          apiKeyWrap.style.display = (s.aiProvider === 'openai' || s.aiProvider === 'gemini') ? 'block' : 'none';
+        }
+      }
+      if (apiKeyInput) apiKeyInput.value = s.aiApiKey || '';
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      if (themeToggleIcon) {
+        themeToggleIcon.className = theme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+      }
+      if (window.StorageEngine) {
+        StorageEngine.saveSettings({ theme: theme });
+      }
+      if (theme === 'light') {
+        lightOptBtn?.classList.add('active');
+        darkOptBtn?.classList.remove('active');
+      } else {
+        darkOptBtn?.classList.add('active');
+        lightOptBtn?.classList.remove('active');
+      }
+    }
+
+    // Header Theme Toggle button
+    themeToggleHeaderBtn?.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyTheme(nextTheme);
+    });
+
+    // Modal Theme Option Buttons
+    darkOptBtn?.addEventListener('click', () => applyTheme('dark'));
+    lightOptBtn?.addEventListener('click', () => applyTheme('light'));
+
+    // AI Provider change toggles API key input
+    aiProviderSelect?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (apiKeyWrap) {
+        apiKeyWrap.style.display = (val === 'openai' || val === 'gemini') ? 'block' : 'none';
+      }
+    });
+
+    openBtn?.addEventListener('click', () => {
+      refreshSettingsForm();
+      modal?.classList.add('open');
+    });
+
+    closeBtn?.addEventListener('click', () => {
+      modal?.classList.remove('open');
+    });
+
+    saveBtn?.addEventListener('click', () => {
+      if (!window.StorageEngine) return;
+      const provider = aiProviderSelect?.value || 'offline';
+      const key = apiKeyInput?.value.trim() || '';
+      StorageEngine.saveSettings({
+        aiProvider: provider,
+        aiApiKey: key
+      });
+      modal?.classList.remove('open');
+      alert('✅ Settings successfully saved!');
+    });
+
+    btnExportBackup?.addEventListener('click', exportDataJSON);
+    btnRestoreTrigger?.addEventListener('click', () => {
+      document.getElementById('import-file-input')?.click();
+    });
+    btnCopySync?.addEventListener('click', async () => {
+      if (!window.StorageEngine) return;
+      const code = StorageEngine.generateSafeSyncHash();
+      try {
+        await navigator.clipboard.writeText(code);
+        alert('📋 Safe Sync Hash copied to clipboard!\n\nPaste this code on any device to instantly load your progress.');
+      } catch (_) {
+        prompt('Copy Safe Sync Hash:', code);
+      }
+    });
+  }
+
+  // --- DETAIL MODAL SUB-TABS (AI HINTS & COMPLEXITY ANALYSIS) ---
+  function setupDetailModalSubTabs() {
+    const tabBtnOverview = document.getElementById('tab-btn-detail-overview');
+    const tabBtnHints = document.getElementById('tab-btn-detail-hints');
+    const tabBtnAnalysis = document.getElementById('tab-btn-detail-analysis');
+    const tabBtnHistory = document.getElementById('tab-btn-detail-history');
+
+    const contentOverview = document.getElementById('detail-tab-content-overview');
+    const contentHints = document.getElementById('detail-tab-content-hints');
+    const contentAnalysis = document.getElementById('detail-tab-content-analysis');
+    const contentHistory = document.getElementById('detail-tab-content-history');
+
+    const tabs = [
+      { btn: tabBtnOverview, pane: contentOverview },
+      { btn: tabBtnHints, pane: contentHints },
+      { btn: tabBtnAnalysis, pane: contentAnalysis },
+      { btn: tabBtnHistory, pane: contentHistory }
+    ];
+
+    tabs.forEach(t => {
+      t.btn?.addEventListener('click', () => {
+        tabs.forEach(item => {
+          item.btn?.classList.remove('active');
+          if (item.pane) item.pane.style.display = 'none';
+        });
+        t.btn?.classList.add('active');
+        if (t.pane) t.pane.style.display = 'flex';
+
+        // Auto-load Hint level 1 when opening Hints tab
+        if (t.btn === tabBtnHints && activeDetailProblemId) {
+          const activeLevelBtn = document.querySelector('#detail-ai-hint-tabs .ai-hint-tab-btn.active') || document.querySelector('#detail-ai-hint-tabs .ai-hint-tab-btn');
+          const level = parseInt(activeLevelBtn?.dataset.hintLevel || '1', 10);
+          loadDetailAIHint(level);
+        }
+      });
+    });
+
+    // Progressive Hint Level Tabs (Level 1-5)
+    document.querySelectorAll('#detail-ai-hint-tabs .ai-hint-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#detail-ai-hint-tabs .ai-hint-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const level = parseInt(btn.dataset.hintLevel || '1', 10);
+        loadDetailAIHint(level);
+      });
+    });
+
+    async function loadDetailAIHint(level) {
+      if (!activeDetailProblemId || !window.AIEngine) return;
+      const p = allProblems.find(item => item.id === activeDetailProblemId);
+      if (!p) return;
+
+      const hintContent = document.getElementById('detail-ai-hint-content');
+      if (hintContent) {
+        hintContent.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating targeted scaffold...';
+      }
+
+      try {
+        const res = await AIEngine.getProgressiveHint(p, level, {
+          onHintUsed: () => {
+            const state = userStates[p.id];
+            if (state) {
+              state.hintsUsed = true;
+            }
+          }
+        });
+        if (hintContent) {
+          hintContent.textContent = res.content;
+        }
+      } catch (err) {
+        if (hintContent) {
+          hintContent.textContent = 'Failed to load hint: ' + err.message;
+        }
+      }
+    }
+
+    // Generate Edge Cases button
+    document.getElementById('btn-detail-generate-edgecases')?.addEventListener('click', () => {
+      if (!activeDetailProblemId || !window.AIEngine) return;
+      const p = allProblems.find(item => item.id === activeDetailProblemId);
+      if (!p) return;
+
+      const edgeCases = AIEngine.generateEdgeCases(p);
+      const hintContent = document.getElementById('detail-ai-hint-content');
+      if (hintContent) {
+        const header = `🛡️ **Boundary Checklist for "${p.title}"**:\n\n` +
+          edgeCases.map((ec, idx) => `[ ] ${idx + 1}. ${ec}`).join('\n') + '\n\n---\n\n';
+        hintContent.textContent = header + (hintContent.textContent || '');
+      }
+    });
+
+    // Solution Complexity & Validation Runner
+    document.getElementById('btn-run-solution-analysis')?.addEventListener('click', () => {
+      if (!activeDetailProblemId || !window.SolutionAnalysisEngine) return;
+      const p = allProblems.find(item => item.id === activeDetailProblemId);
+      if (!p) return;
+
+      const userTime = document.getElementById('analysis-input-time')?.value || 'O(N)';
+      const userSpace = document.getElementById('analysis-input-space')?.value || 'O(1)';
+      const checkedCases = [];
+      document.querySelectorAll('.analysis-edge-check:checked').forEach(c => checkedCases.push(c.value));
+
+      const result = SolutionAnalysisEngine.analyzeSubmission(p, {
+        timeComplexity: userTime,
+        spaceComplexity: userSpace,
+        edgeCases: checkedCases
+      });
+
+      const resultBox = document.getElementById('analysis-feedback-result');
+      if (resultBox) {
+        resultBox.style.display = 'block';
+        const isOpt = result.isOptimal;
+        resultBox.style.background = isOpt ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)';
+        resultBox.style.border = `1px solid ${isOpt ? '#10b981' : '#f59e0b'}`;
+        resultBox.style.color = isOpt ? '#34d399' : '#fbbf24';
+
+        resultBox.innerHTML = `
+          <div style="font-weight:700; margin-bottom:4px; font-size:13px;">
+            ${isOpt ? '🎯 Optimal Complexity Analysis!' : '⚠️ Suboptimal Complexity Detected'}
+          </div>
+          <p style="margin:0 0 6px 0; font-size:12px; color:var(--text-main);">${result.evaluation.time.message}</p>
+          <p style="margin:0 0 6px 0; font-size:12px; color:var(--text-main);">${result.evaluation.space.message}</p>
+          <div style="font-size:11.5px; color:var(--text-dim); margin-top:6px;">
+            <strong>Follow-up interview check:</strong> ${result.followUpQuestion}
+          </div>
+        `;
+      }
+    });
+  }
+
+  // --- VIEW 9: PREREQUISITE LEARNING GRAPH ---
+  function renderPrerequisiteGraph() {
+    const container = document.getElementById('prereq-graph-container');
+    if (!container || !window.GraphEngine) return;
+
+    const evaluated = GraphEngine.evaluateGraph(allProblems, userStates);
+    const nodes = evaluated.nodes;
+
+    if (!nodes || nodes.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-dim); padding:20px;">No graph nodes defined.</div>';
+      return;
+    }
+
+    container.innerHTML = nodes.map(node => {
+      const statusClasses = {
+        mastered: 'status-mastered',
+        proficient: 'status-proficient',
+        learning: 'status-learning',
+        available: 'status-available',
+        locked: 'status-locked'
+      };
+      const statusBadges = {
+        mastered: '<span class="prereq-status-badge" style="background:rgba(16,185,129,0.2); color:#34d399; border:1px solid #10b981;">🏆 Mastered</span>',
+        proficient: '<span class="prereq-status-badge" style="background:rgba(6,182,212,0.2); color:#38bdf8; border:1px solid #06b6d4;">🔷 Proficient</span>',
+        learning: '<span class="prereq-status-badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid #f59e0b;">⏳ Learning</span>',
+        available: '<span class="prereq-status-badge" style="background:rgba(139,92,246,0.2); color:#c084fc; border:1px solid #8b5cf6;">🚀 Available</span>',
+        locked: '<span class="prereq-status-badge" style="background:rgba(100,116,139,0.2); color:#94a3b8; border:1px solid #64748b;">🔒 Locked</span>'
+      };
+
+      const cardClass = statusClasses[node.status] || 'status-available';
+      const badgeHtml = statusBadges[node.status] || '';
+
+      const prereqTitles = (node.prerequisites || []).map(pId => {
+        const pNode = evaluated.nodeMap[pId];
+        return pNode ? pNode.title : pId;
+      });
+
+      return `
+        <div class="prereq-node-card ${cardClass}" id="graph-node-${node.id}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div>
+              <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim);">Tier ${node.level} • ${node.topic}</div>
+              <h3 style="font-size:15px; font-weight:700; margin:3px 0 0 0; color:#f8fafc;">${node.title}</h3>
+            </div>
+            ${badgeHtml}
+          </div>
+
+          <p style="font-size:12.5px; color:var(--text-muted); line-height:1.45; margin:0;">
+            ${node.summary}
+          </p>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:4px;">
+              <span style="color:var(--text-dim);">Topic Proficiency</span>
+              <strong style="color:var(--text-main);">${node.proficiencyScore}%</strong>
+            </div>
+            <div class="dimension-bar-track">
+              <div class="dimension-bar-fill" style="width:${node.proficiencyScore}%; background:${node.proficiencyScore >= 70 ? '#10b981' : node.proficiencyScore >= 40 ? '#38bdf8' : '#f59e0b'};"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-top:4px;">
+              <span>${node.solvedCount} of ${node.totalProblems} Solved</span>
+              <span>${node.independentRate}% Independent</span>
+            </div>
+          </div>
+
+          ${prereqTitles.length > 0 ? `
+            <div style="font-size:11px; color:var(--text-dim); background:rgba(255,255,255,0.02); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.04);">
+              <strong style="color:var(--text-muted);"><i class="fa-solid fa-link" style="font-size:10px;"></i> Prereqs:</strong> ${prereqTitles.join(', ')}
+            </div>
+          ` : ''}
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:6px;">
+            <span style="font-size:11px; color:var(--accent-cyan);">
+              <i class="fa-solid fa-code-fork"></i> ${node.patterns ? node.patterns.join(', ') : ''}
+            </span>
+            <button class="btn btn-secondary btn-sm btn-prereq-practice" data-topic="${node.topic}" style="font-size:11.5px; padding:4px 10px;">
+              <i class="fa-solid fa-play"></i> Practice
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.btn-prereq-practice').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const topic = btn.dataset.topic;
+        switchView('problems');
+        const topicSelect = document.getElementById('filter-topic');
+        if (topicSelect) {
+          topicSelect.value = topic;
+        }
+        renderProblemsTable();
+      });
+    });
+  }
+
+  // --- VIEW 10: REALISTIC MOCK INTERVIEW SIMULATOR ---
+  let activeMockSession = null;
+  let mockTimerInterval = null;
+
+  function renderMockInterviewView() {
+    const topicSelect = document.getElementById('mock-config-topic');
+    if (topicSelect && topicSelect.children.length <= 1) {
+      const topics = Array.from(new Set(allProblems.map(p => SRSEngine.canonicalizeTopic(p.topic)))).sort();
+      topicSelect.innerHTML = '<option value="all">All Topics (Comprehensive Pool)</option>';
+      topics.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        topicSelect.appendChild(opt);
+      });
+    }
+
+    const tbody = document.getElementById('mock-history-tbody');
+    if (tbody) {
+      let history = [];
+      try {
+        const raw = localStorage.getItem('algorecall_mock_history_v2');
+        if (raw) history = JSON.parse(raw);
+      } catch (_) {}
+
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim);">No mock interview rounds completed yet. Start your first session above!</td></tr>';
+      } else {
+        tbody.innerHTML = history.slice().reverse().map(m => `
+          <tr>
+            <td><strong style="color:var(--text-main); font-size:12.5px;">${new Date(m.completedAt || Date.now()).toLocaleDateString()}</strong></td>
+            <td><span class="badge badge-srs-upcoming" style="font-size:11px;">${m.trackTitle}</span></td>
+            <td>${m.actualMinutes || m.durationMinutes} mins</td>
+            <td><strong style="font-size:14px; color:${(m.overallPercentage || 0) >= 75 ? '#10b981' : (m.overallPercentage || 0) >= 60 ? '#38bdf8' : '#f59e0b'};">${m.overallPercentage || 0}%</strong></td>
+            <td><span class="badge ${(m.overallPercentage || 0) >= 75 ? 'badge-easy' : (m.overallPercentage || 0) >= 60 ? 'badge-medium' : 'badge-hard'}">${m.grade}</span></td>
+            <td>${(m.questionResults || []).map(q => `<span class="company-badge" style="font-size:10px;">${q.title} (${q.score}pts)</span>`).join(' ')}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    const startBtn = document.getElementById('btn-start-mock-interview');
+    if (startBtn && !startBtn.dataset.bound) {
+      startBtn.dataset.bound = 'true';
+      startBtn.addEventListener('click', () => {
+        if (!window.MockEngine) return;
+        const trackId = document.getElementById('mock-config-track')?.value || 'faang_standard';
+        const duration = parseInt(document.getElementById('mock-config-duration')?.value || '45', 10);
+        const hints = document.getElementById('mock-config-hints')?.value || 'penalty';
+        const topic = document.getElementById('mock-config-topic')?.value || 'all';
+
+        const session = MockEngine.createSession(allProblems, userStates, {
+          trackId: trackId,
+          durationMinutes: duration,
+          hintPolicy: hints,
+          topicFilter: topic
+        });
+
+        startActiveMockSession(session);
+      });
+    }
+
+    document.getElementById('btn-close-mock-report')?.addEventListener('click', () => {
+      document.getElementById('mock-report-modal')?.classList.remove('open');
+    });
+    document.getElementById('btn-mock-report-done')?.addEventListener('click', () => {
+      document.getElementById('mock-report-modal')?.classList.remove('open');
+      renderAll();
+    });
+  }
+
+  function startActiveMockSession(session) {
+    if (!session) return;
+    activeMockSession = session;
+
+    const cockpit = document.getElementById('mock-interview-cockpit');
+    if (cockpit) {
+      cockpit.style.display = 'block';
+      cockpit.classList.add('open');
+    }
+
+    renderActiveMockQuestion();
+
+    if (mockTimerInterval) clearInterval(mockTimerInterval);
+    updateMockTimer();
+    mockTimerInterval = setInterval(() => {
+      updateMockTimer();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((activeMockSession.targetEndTime - now) / 1000));
+      if (remaining <= 0) {
+        clearInterval(mockTimerInterval);
+        alert('⏰ Mock interview time is up! Submitting evaluation.');
+        finishMockInterview();
+      }
+    }, 1000);
+  }
+
+  function updateMockTimer() {
+    if (!activeMockSession) return;
+    const now = Date.now();
+    const remainingSeconds = Math.max(0, Math.floor((activeMockSession.targetEndTime - now) / 1000));
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = remainingSeconds % 60;
+    const timerEl = document.getElementById('mock-cockpit-timer');
+    if (timerEl) {
+      timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      timerEl.classList.toggle('danger', remainingSeconds <= 300);
+    }
+  }
+
+  function saveCurrentMockQuestionState() {
+    if (!activeMockSession || !activeMockSession.problems[activeMockSession.activeQuestionIndex]) return;
+    const p = activeMockSession.problems[activeMockSession.activeQuestionIndex];
+    const ans = activeMockSession.answers[p.id] || {};
+
+    ans.code = document.getElementById('mock-code-editor')?.value || '';
+    ans.timeComplexity = document.getElementById('mock-input-time')?.value || '';
+    ans.spaceComplexity = document.getElementById('mock-input-space')?.value || '';
+
+    const activeRatingBtn = document.querySelector('#mock-q-rating-options .rating-btn.active');
+    ans.rating = activeRatingBtn ? activeRatingBtn.dataset.mockRating : 'medium';
+
+    activeMockSession.answers[p.id] = ans;
+    if (window.MockEngine) {
+      MockEngine.saveActiveSession(activeMockSession);
+    }
+  }
+
+  function renderActiveMockQuestion() {
+    if (!activeMockSession) return;
+    const idx = activeMockSession.activeQuestionIndex;
+    const p = activeMockSession.problems[idx];
+    if (!p) return;
+
+    const counterEl = document.getElementById('mock-cockpit-q-counter');
+    if (counterEl) counterEl.textContent = `Problem ${idx + 1} of ${activeMockSession.problems.length}`;
+
+    const titleEl = document.getElementById('mock-active-title');
+    if (titleEl) titleEl.textContent = p.title;
+
+    const badgesEl = document.getElementById('mock-active-badges');
+    if (badgesEl) {
+      badgesEl.innerHTML = `
+        <span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span>
+        <span class="badge badge-srs-upcoming">${p.topic}</span>
+        ${p.pattern ? `<span class="badge badge-srs-unsolved">${p.pattern}</span>` : ''}
+      `;
+    }
+
+    const linkEl = document.getElementById('mock-active-link');
+    if (linkEl) linkEl.href = p.url || `https://leetcode.com/problemset/all/?search=${encodeURIComponent(p.title)}`;
+
+    const ans = activeMockSession.answers[p.id] || {};
+    const codeEl = document.getElementById('mock-code-editor');
+    if (codeEl) codeEl.value = ans.code || '';
+
+    const timeEl = document.getElementById('mock-input-time');
+    if (timeEl) timeEl.value = ans.timeComplexity || '';
+
+    const spaceEl = document.getElementById('mock-input-space');
+    if (spaceEl) spaceEl.value = ans.spaceComplexity || '';
+
+    document.querySelectorAll('#mock-q-rating-options .rating-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mockRating === (ans.rating || 'medium'));
+    });
+
+    const hintBanner = document.getElementById('mock-hint-banner');
+    if (hintBanner) hintBanner.style.display = 'none';
+
+    const qList = document.getElementById('mock-question-list');
+    if (qList) {
+      qList.innerHTML = activeMockSession.problems.map((prob, i) => `
+        <div class="test-q-item ${i === idx ? 'active' : ''}" data-mock-idx="${i}">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="font-size:13px;">Q${i + 1}: ${prob.title}</strong>
+            <span class="badge badge-${prob.difficulty.toLowerCase()}">${prob.difficulty}</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-dim);">${prob.topic}</div>
+        </div>
+      `).join('');
+
+      qList.querySelectorAll('.test-q-item').forEach(item => {
+        item.addEventListener('click', () => {
+          saveCurrentMockQuestionState();
+          activeMockSession.activeQuestionIndex = parseInt(item.dataset.mockIdx, 10);
+          renderActiveMockQuestion();
+        });
+      });
+    }
+  }
+
+  function checkAndRestoreActiveMockSession() {
+    if (!window.MockEngine) return;
+    const session = MockEngine.getActiveSession();
+    if (session && !session.isExpired) {
+      startActiveMockSession(session);
+    }
+  }
+
+  function finishMockInterview() {
+    if (!activeMockSession || !window.MockEngine) return;
+    saveCurrentMockQuestionState();
+
+    if (mockTimerInterval) clearInterval(mockTimerInterval);
+
+    const report = MockEngine.evaluateSession(activeMockSession, userStates);
+
+    activeMockSession.problems.forEach(p => {
+      const ans = activeMockSession.answers[p.id] || {};
+      const curr = userStates[p.id] || {};
+      const hintsUsed = (ans.hintsUsedCount || 0) > 0;
+      userStates[p.id] = SRSEngine.processReview(
+        curr,
+        ans.rating || 'medium',
+        Math.round(activeMockSession.durationMinutes / activeMockSession.problems.length),
+        `Mock Round (${activeMockSession.trackTitle}): ${ans.rating || 'medium'}`,
+        ans.rating === 'simple' ? 5 : ans.rating === 'medium' ? 3 : 2,
+        { hintsUsed: hintsUsed }
+      );
+    });
+    saveUserStates();
+
+    if (window.GamificationEngine) {
+      GamificationEngine.awardXP('mock_interview');
+      GamificationEngine.evaluateBadges(allProblems, userStates, [report]);
+      updateGamificationHeader();
+    }
+
+    const cockpit = document.getElementById('mock-interview-cockpit');
+    if (cockpit) {
+      cockpit.style.display = 'none';
+      cockpit.classList.remove('open');
+    }
+    activeMockSession = null;
+
+    showMockReport(report);
+  }
+
+  function showMockReport(report) {
+    if (!report) return;
+    const modal = document.getElementById('mock-report-modal');
+    if (!modal) return;
+
+    document.getElementById('mock-report-date').textContent = new Date(report.completedAt).toLocaleString();
+    document.getElementById('mock-report-score').textContent = `${report.overallPercentage}%`;
+    document.getElementById('mock-report-grade').textContent = report.grade;
+    document.getElementById('mock-report-track-info').textContent = `${report.trackTitle} • ${report.actualMinutes} mins elapsed`;
+
+    const breakdownEl = document.getElementById('mock-report-breakdown');
+    if (breakdownEl) {
+      breakdownEl.innerHTML = report.questionResults.map(q => `
+        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <strong style="font-size:13px; color:var(--text-main);">${q.title}</strong>
+            <span style="font-size:11px; color:var(--text-dim); display:block;">${q.topic} • ${q.difficulty} • Self-Rating: ${capitalize(q.rating)}</span>
+          </div>
+          <div style="text-align:right;">
+            <strong style="font-size:15px; color:${q.score >= 70 ? '#10b981' : '#f59e0b'};">${q.score} / 100</strong>
+            ${q.hintsUsedCount > 0 ? `<span style="font-size:10px; color:#f43f5e; display:block;">-${q.hintsUsedCount * 5} hint penalty</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    modal.classList.add('open');
+  }
+
+  // --- UNIFIED BACKUP & RESTORE ---
+  function exportDataJSON() {
+    if (window.StorageEngine) {
+      const bundle = StorageEngine.createExportBundle();
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `algorecall_backup_v2_${SRSEngine.getLocalDateString(new Date())}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   }
 
   function importDataJSON(event) {
@@ -2014,22 +2830,22 @@
     const reader = new FileReader();
     reader.onload = function (e) {
       try {
-        const data = JSON.parse(e.target.result);
-        if (data.problems && Array.isArray(data.problems)) {
-          allProblems = data.problems;
-          saveProblems();
+        const jsonObj = JSON.parse(e.target.result);
+        if (!window.StorageEngine) return;
+        const inspection = StorageEngine.inspectImportBundle(jsonObj);
+        if (!inspection.valid) {
+          alert('Import Error: ' + inspection.error);
+          return;
         }
-        if (data.userStates && typeof data.userStates === 'object') {
-          userStates = data.userStates;
-          saveUserStates();
+
+        const msg = `Found ${inspection.stats.problemsCount} problems, ${inspection.stats.statesCount} review records, and ${inspection.stats.mocksCount} mock sessions.\n\nChoose OK to merge with existing data, or Cancel to abort.`;
+        if (confirm(msg)) {
+          StorageEngine.applyImportBundle(inspection, 'merge');
+          loadData();
+          populateTopicDropdown();
+          renderAll();
+          alert('🎉 Data restored and merged successfully!');
         }
-        if (data.monthlyTestHistory && Array.isArray(data.monthlyTestHistory)) {
-          monthlyTestHistory = data.monthlyTestHistory;
-          saveTestHistory();
-        }
-        populateTopicDropdown();
-        renderAll();
-        alert('Data restored successfully!');
       } catch (err) {
         alert('Failed to parse JSON file. Please ensure it is a valid AlgoRecall backup.');
       }
@@ -2043,18 +2859,50 @@
     // Navigation routing
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-
-        item.classList.add('active');
         const viewName = item.getAttribute('data-view');
-        const viewEl = document.getElementById(`view-${viewName}`);
-        if (viewEl) viewEl.classList.add('active');
+        switchView(viewName);
+      });
+    });
 
-        // Re-render chart sizes if entering chart views
-        if (viewName === 'dashboard' || viewName === 'analytics') {
-          renderAll();
-        }
+    // Mock Cockpit Listeners
+    document.getElementById('btn-mock-request-hint')?.addEventListener('click', async () => {
+      if (!activeMockSession || !window.AIEngine) return;
+      const p = activeMockSession.problems[activeMockSession.activeQuestionIndex];
+      if (!p) return;
+
+      const ans = activeMockSession.answers[p.id] || {};
+      ans.hintsUsedCount = (ans.hintsUsedCount || 0) + 1;
+      const currentHintLevel = Math.min(5, ans.hintsUsedCount);
+
+      const banner = document.getElementById('mock-hint-banner');
+      if (banner) {
+        banner.style.display = 'block';
+        banner.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Loading hint...`;
+      }
+
+      const hint = await AIEngine.getProgressiveHint(p, currentHintLevel);
+      if (banner) {
+        banner.innerHTML = `
+          <div style="font-weight:700; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>💡 Mock Hint (${hint.levelTitle})</span>
+            <span style="font-size:11px; opacity:0.8;">Hint #${ans.hintsUsedCount}</span>
+          </div>
+          <div style="white-space:pre-wrap; line-height:1.5;">${hint.content}</div>
+        `;
+      }
+    });
+
+    document.getElementById('btn-finish-mock-interview')?.addEventListener('click', () => {
+      if (confirm('Are you sure you want to finish and submit your mock interview for grading?')) {
+        finishMockInterview();
+      }
+    });
+
+    document.querySelectorAll('#mock-q-rating-options .rating-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#mock-q-rating-options .rating-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        saveCurrentMockQuestionState();
       });
     });
 

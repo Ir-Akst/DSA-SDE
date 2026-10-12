@@ -3,7 +3,10 @@
  * Generates curated monthly mock tests from covered topics to evaluate retention
  */
 
-window.MonthlyAssessmentEngine = {
+(function () {
+  'use strict';
+
+  const MonthlyAssessmentEngine = {
   /**
    * Determine active / covered topics based on user problem history
    */
@@ -189,3 +192,11 @@ window.MonthlyAssessmentEngine = {
     };
   }
 };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = MonthlyAssessmentEngine;
+}
+if (typeof window !== 'undefined') {
+  window.MonthlyAssessmentEngine = MonthlyAssessmentEngine;
+}
+})();
