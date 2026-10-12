@@ -52,6 +52,8 @@
     }
     populateTopicDropdown();
     setupEventListeners();
+    setupCrossTabSync();
+    setupMobileNav();
     setupSettingsModalListeners();
     setupDetailModalSubTabs();
     updateGamificationHeader();
@@ -871,13 +873,13 @@
     // Build date activity map
     const activityMap = {};
     Object.values(userStates).forEach(st => {
-      if (st && st.history) {
+      if (!st) return;
+      if (Array.isArray(st.history) && st.history.length > 0) {
         st.history.forEach(h => {
           const dStr = toLocalDateKey(h.date || h.reviewedAt);
           if (dStr) activityMap[dStr] = (activityMap[dStr] || 0) + 1;
         });
-      }
-      if (st && st.lastReviewed) {
+      } else if (st.lastReviewed) {
         const dStr = toLocalDateKey(st.lastReviewed);
         if (dStr) activityMap[dStr] = (activityMap[dStr] || 0) + 1;
       }
@@ -1355,7 +1357,7 @@
       }
     }, 1000);
 
-    document.getElementById('monthly-test-overlay')?.classList.add('open');
+    (document.getElementById('monthly-test-cockpit') || document.getElementById('monthly-test-overlay'))?.classList.add('open');
   }
 
   function startMonthlyExam(questionCount = 4, durationMinutes = 60) {
@@ -1408,13 +1410,13 @@
       }
     }, 1000);
 
-    document.getElementById('monthly-test-overlay').classList.add('open');
+    (document.getElementById('monthly-test-cockpit') || document.getElementById('monthly-test-overlay'))?.classList.add('open');
   }
 
   function updateTimerDisplay() {
     const mins = Math.floor(testTimeRemainingSeconds / 60);
     const secs = testTimeRemainingSeconds % 60;
-    const timerEl = document.getElementById('test-timer-display');
+    const timerEl = document.getElementById('test-countdown-display') || document.getElementById('test-timer-display');
     if (timerEl) {
       timerEl.innerHTML = `<i class="fa-regular fa-clock"></i> ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
@@ -1449,7 +1451,10 @@
     const p = activeTestSession.problems[activeTestQuestionIndex];
     if (!p) return;
 
-    document.getElementById('test-progress-indicator').textContent = `Question ${activeTestQuestionIndex + 1} of ${activeTestSession.problems.length}`;
+    const progressEl = document.getElementById('test-question-counter') || document.getElementById('test-progress-indicator');
+    if (progressEl) {
+      progressEl.textContent = `Question ${activeTestQuestionIndex + 1} of ${activeTestSession.problems.length}`;
+    }
     document.getElementById('test-active-title').textContent = p.title;
 
     document.getElementById('test-active-badges').innerHTML = `
@@ -1502,7 +1507,7 @@
     saveUserStates();
 
     // Close Exam overlay
-    document.getElementById('monthly-test-overlay').classList.remove('open');
+    (document.getElementById('monthly-test-cockpit') || document.getElementById('monthly-test-overlay'))?.classList.remove('open');
     activeTestSession = null;
 
     // Show Assessment Evaluation Modal
@@ -2168,7 +2173,7 @@
       }
     }, 1000);
 
-    document.getElementById('monthly-test-overlay')?.classList.add('open');
+    (document.getElementById('monthly-test-cockpit') || document.getElementById('monthly-test-overlay'))?.classList.add('open');
   }
 
   // --- SAFE NAVIGATION ROUTER ---
@@ -3445,6 +3450,7 @@
     });
 
     // Monthly Assessment Buttons
+    document.getElementById('btn-start-monthly-test')?.addEventListener('click', () => startMonthlyExam(4, 60));
     document.getElementById('btn-start-monthly-exam')?.addEventListener('click', () => startMonthlyExam(4, 60));
     document.getElementById('btn-quick-sample-exam')?.addEventListener('click', () => startMonthlyExam(2, 30));
     document.getElementById('btn-header-monthly-test')?.addEventListener('click', () => {
@@ -3705,6 +3711,118 @@
         renderFlashcards();
         return;
       }
+
+      // G. Global Escape key listener for modals and drawer
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const sidebar = document.querySelector('.sidebar');
+          const backdrop = document.getElementById('sidebar-mobile-backdrop');
+          const mobileToggle = document.getElementById('btn-mobile-menu-toggle');
+          if (sidebar && sidebar.classList.contains('mobile-open')) {
+            sidebar.classList.remove('mobile-open');
+            backdrop?.classList.remove('active');
+            if (mobileToggle) mobileToggle.setAttribute('aria-expanded', 'false');
+            return;
+          }
+
+          const openModals = document.querySelectorAll('.modal-backdrop.open');
+          if (openModals.length > 0) {
+            openModals.forEach(m => m.classList.remove('open'));
+          }
+        }
+      });
+    });
+  }
+
+  // --- CROSS-TAB SYNCHRONIZATION CONTROLLER ---
+  function setupCrossTabSync() {
+    window.addEventListener('storage', (e) => {
+      if (!e || !e.key) return;
+
+      let shouldRender = false;
+      let shouldUpdateTopics = false;
+
+      try {
+        if (e.key === STORAGE_KEYS.USER_STATES || e.key === 'algorecall_user_states_v1') {
+          if (e.newValue) {
+            userStates = JSON.parse(e.newValue);
+            shouldRender = true;
+          }
+        } else if (e.key === STORAGE_KEYS.PROBLEMS || e.key === 'algorecall_problems_v1') {
+          if (e.newValue) {
+            allProblems = JSON.parse(e.newValue);
+            shouldUpdateTopics = true;
+            shouldRender = true;
+          }
+        } else if (e.key === STORAGE_KEYS.TEST_HISTORY || e.key === 'algorecall_monthly_test_history_v1') {
+          if (e.newValue) {
+            monthlyTestHistory = JSON.parse(e.newValue);
+            shouldRender = true;
+          }
+        } else if (e.key === 'algorecall_roadmap_progress_v1') {
+          if (window.RoadmapEngine) {
+            RoadmapEngine.initProgress();
+            shouldRender = true;
+          }
+        } else if (e.key === 'algorecall_settings_v2') {
+          if (e.newValue) {
+            const settings = JSON.parse(e.newValue);
+            if (settings && settings.theme) {
+              document.documentElement.setAttribute('data-theme', settings.theme);
+              const icon = document.getElementById('theme-toggle-icon');
+              if (icon) {
+                icon.className = settings.theme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+              }
+            }
+          }
+        } else if (e.key === 'algorecall_gamification_v2') {
+          updateGamificationHeader();
+        }
+      } catch (err) {
+        console.warn('Cross-tab sync error parsing storage update:', err);
+      }
+
+      if (shouldUpdateTopics) {
+        populateTopicDropdown();
+      }
+      if (shouldRender) {
+        updateGamificationHeader();
+        renderAll();
+      }
+    });
+  }
+
+  // --- ACCESSIBLE MOBILE DRAWER NAVIGATION CONTROLLER ---
+  function setupMobileNav() {
+    const sidebar = document.querySelector('.sidebar');
+    const toggleBtn = document.getElementById('btn-mobile-menu-toggle');
+    const backdrop = document.getElementById('sidebar-mobile-backdrop');
+
+    if (!toggleBtn || !sidebar) return;
+
+    function setDrawerState(isOpen) {
+      sidebar.classList.toggle('mobile-open', isOpen);
+      backdrop?.classList.toggle('active', isOpen);
+      toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willOpen = !sidebar.classList.contains('mobile-open');
+      setDrawerState(willOpen);
+    });
+
+    backdrop?.addEventListener('click', () => {
+      setDrawerState(false);
+    });
+
+    // Close mobile drawer when clicking navigation items on small screens
+    sidebar.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+          setDrawerState(false);
+        }
+      });
     });
   }
 

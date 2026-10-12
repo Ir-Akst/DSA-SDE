@@ -22,7 +22,7 @@
 
   <div class="app-container">
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="app-sidebar" aria-label="Main Navigation">
       <div class="brand">
         <div class="brand-icon">
           <i class="fa-solid fa-brain"></i>
@@ -118,14 +118,22 @@
       </div>
     </aside>
 
+    <!-- Mobile Sidebar Drawer Backdrop -->
+    <div class="sidebar-backdrop" id="sidebar-mobile-backdrop" aria-hidden="true"></div>
+
     <!-- Main Content Area -->
     <main class="main-content">
       <!-- Top Header -->
       <header class="top-header">
-        <div class="header-search">
-          <i class="fa-solid fa-magnifying-glass search-icon"></i>
-          <input type="text" id="global-search-input" placeholder="Search problems, topics, patterns, companies (Google, Amazon)...">
-          <span class="search-kbd">/</span>
+        <div class="header-left-group" style="display:flex; align-items:center; gap:12px; flex:1;">
+          <button class="mobile-menu-toggle-btn" id="btn-mobile-menu-toggle" aria-label="Toggle navigation menu" aria-expanded="false" aria-controls="app-sidebar">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div class="header-search">
+            <i class="fa-solid fa-magnifying-glass search-icon"></i>
+            <input type="text" id="global-search-input" placeholder="Search problems, topics, patterns, companies (Google, Amazon)..." aria-label="Search problems, topics, patterns, and companies">
+            <span class="search-kbd" aria-hidden="true">/</span>
+          </div>
         </div>
         <div class="header-actions">
           <!-- Gamification XP & Level Pill -->
@@ -143,7 +151,7 @@
           </div>
 
           <!-- Theme Toggle Button -->
-          <button class="theme-toggle-btn" id="btn-theme-toggle" title="Toggle Dark / Light Theme">
+          <button class="theme-toggle-btn" id="btn-theme-toggle" title="Toggle Dark / Light Theme" aria-label="Toggle dark or light theme">
             <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
           </button>
         </div>
@@ -555,8 +563,8 @@
               <option value="due">Problems Due for Review</option>
               <option value="all">All Master Problems</option>
             </select>
-            <button class="btn btn-secondary btn-sm" id="btn-flashcard-prev"><i class="fa-solid fa-arrow-left"></i> Prev</button>
-            <button class="btn btn-secondary btn-sm" id="btn-flashcard-next">Next <i class="fa-solid fa-arrow-right"></i></button>
+            <button class="btn btn-secondary btn-sm" id="btn-flashcard-prev" aria-label="Previous flashcard"><i class="fa-solid fa-arrow-left"></i> Prev</button>
+            <button class="btn btn-secondary btn-sm" id="btn-flashcard-next" aria-label="Next flashcard">Next <i class="fa-solid fa-arrow-right"></i></button>
           </div>
         </div>
 
@@ -865,7 +873,7 @@
           <h3 id="modal-rating-title" style="font-size: 16px; font-weight:700;">Rate Problem Recall</h3>
           <span style="font-size:12px; color:var(--text-dim);" id="modal-rating-subtitle">Two Sum • Easy</span>
         </div>
-        <button class="modal-close" id="btn-close-rating-modal">&times;</button>
+        <button class="modal-close" id="btn-close-rating-modal" aria-label="Close dialog">&times;</button>
       </div>
 
       <!-- Confidence Level Selector (1 - 5) -->
@@ -976,7 +984,7 @@
           <h3 style="font-size: 16px; font-weight:700;"><i class="fa-solid fa-shuffle" style="color:var(--primary); margin-right:6px;"></i> Customize Daily Topic & Mixed Workout</h3>
           <span style="font-size:12px; color:var(--text-dim);" id="modal-switch-topic-subtitle">Day Topic Customization</span>
         </div>
-        <button class="modal-close" id="btn-close-switch-topic-modal">&times;</button>
+        <button class="modal-close" id="btn-close-switch-topic-modal" aria-label="Close dialog">&times;</button>
       </div>
 
       <!-- Segmented Tab Controls -->
@@ -1052,7 +1060,7 @@
     <div class="modal-box">
       <div class="modal-header">
         <h3 style="font-size:16px; font-weight:700;">Add Custom DSA Problem</h3>
-        <button class="modal-close" id="btn-close-add-modal">&times;</button>
+        <button class="modal-close" id="btn-close-add-modal" aria-label="Close dialog">&times;</button>
       </div>
 
       <form id="add-problem-form" style="display:flex; flex-direction:column; gap:14px;">
@@ -1110,7 +1118,7 @@
           <h3 style="font-size:16px; font-weight:700;"><i class="fa-solid fa-cloud-arrow-down" style="color:var(--accent-cyan);"></i> Import Sheet / Fetch from URL</h3>
           <span style="font-size:12px; color:var(--text-dim);">1-Click load verified sheets or paste multiline problem lists</span>
         </div>
-        <button class="modal-close" id="btn-close-bulk-modal">&times;</button>
+        <button class="modal-close" id="btn-close-bulk-modal" aria-label="Close dialog">&times;</button>
       </div>
 
       <!-- Mode Selector Tabs -->
@@ -1267,7 +1275,7 @@
           <h3 id="detail-modal-title" style="font-size: 16px; font-weight:700;">Problem Details</h3>
           <span style="font-size:12px; color:var(--text-dim);" id="detail-modal-meta">Array • Medium</span>
         </div>
-        <button class="modal-close" id="btn-close-detail-modal">&times;</button>
+        <button class="modal-close" id="btn-close-detail-modal" aria-label="Close dialog">&times;</button>
       </div>
 
       <!-- Detail Sub-Navigation Tabs -->
@@ -1429,7 +1437,7 @@
           <h3 style="font-size:16px; font-weight:700;"><i class="fa-solid fa-gear" style="color:var(--primary); margin-right:6px;"></i> AlgoRecall Settings & AI Config</h3>
           <span style="font-size:12px; color:var(--text-dim);">Configure interface themes, progressive AI hints, and data backups</span>
         </div>
-        <button class="modal-close" id="btn-close-settings-modal">&times;</button>
+        <button class="modal-close" id="btn-close-settings-modal" aria-label="Close dialog">&times;</button>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:16px;">
@@ -1555,7 +1563,7 @@
           <h3 style="font-size:16px; font-weight:700;"><i class="fa-solid fa-award" style="color:var(--primary); margin-right:6px;"></i> Mock Interview Performance Report</h3>
           <span style="font-size:12px; color:var(--text-dim);" id="mock-report-date">-</span>
         </div>
-        <button class="modal-close" id="btn-close-mock-report">&times;</button>
+        <button class="modal-close" id="btn-close-mock-report" aria-label="Close dialog">&times;</button>
       </div>
 
       <div style="display:flex; flex-direction:column; gap:16px;">

@@ -242,19 +242,84 @@
      * Validate an imported JSON bundle and return inspection statistics
      */
     inspectImportBundle(jsonObj) {
-      if (!jsonObj || typeof jsonObj !== 'object') {
+      if (!jsonObj || typeof jsonObj !== 'object' || Array.isArray(jsonObj)) {
         return { valid: false, error: 'File is not a valid JSON object.' };
       }
 
-      if (jsonObj.app !== 'AlgoRecall' && !jsonObj.userStates && !jsonObj.problems) {
-        return { valid: false, error: 'Unrecognized file format. Not an AlgoRecall backup.' };
+      // Check schema version support
+      if (jsonObj.version && typeof jsonObj.version === 'string') {
+        const majorVersion = parseInt(jsonObj.version.split('.')[0], 10);
+        if (!isNaN(majorVersion) && majorVersion > 2) {
+          return { valid: false, error: `Unsupported backup schema version (${jsonObj.version}). Please upgrade AlgoRecall to restore this file.` };
+        }
       }
 
       const data = jsonObj.data || jsonObj;
+      if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        return { valid: false, error: 'Invalid backup format: payload data must be an object.' };
+      }
+
+      // Check for recognizable AlgoRecall signatures
+      const hasSignature = jsonObj.app === 'AlgoRecall' ||
+        data.userStates !== undefined ||
+        data.problems !== undefined ||
+        data.examHistory !== undefined ||
+        data.monthlyTestHistory !== undefined ||
+        data.mockHistory !== undefined ||
+        data.gamification !== undefined ||
+        data.roadmapProgress !== undefined ||
+        data.roadmap !== undefined;
+
+      if (!hasSignature) {
+        return { valid: false, error: 'Unrecognized file format. Not an AlgoRecall backup.' };
+      }
+
+      // 1. Validate userStates if present
+      if (data.userStates !== undefined) {
+        if (typeof data.userStates !== 'object' || data.userStates === null || Array.isArray(data.userStates)) {
+          return { valid: false, error: 'Invalid userStates format: expected a key-value object of problem states.' };
+        }
+        for (const [pId, st] of Object.entries(data.userStates)) {
+          if (!st || typeof st !== 'object' || Array.isArray(st)) {
+            return { valid: false, error: `Invalid problem state for "${pId}": state entry must be an object.` };
+          }
+          if (st.history !== undefined && !Array.isArray(st.history)) {
+            return { valid: false, error: `Invalid history for "${pId}": review history must be an array.` };
+          }
+        }
+      }
+
+      // 2. Validate problems if present
+      if (data.problems !== undefined && !Array.isArray(data.problems)) {
+        return { valid: false, error: 'Invalid problems format: expected an array of problem definitions.' };
+      }
+
+      // 3. Validate examHistory if present
+      if (data.examHistory !== undefined && !Array.isArray(data.examHistory)) {
+        return { valid: false, error: 'Invalid examHistory format: expected an array.' };
+      }
+      if (data.monthlyTestHistory !== undefined && !Array.isArray(data.monthlyTestHistory)) {
+        return { valid: false, error: 'Invalid monthlyTestHistory format: expected an array.' };
+      }
+
+      // 4. Validate mockHistory if present
+      if (data.mockHistory !== undefined && !Array.isArray(data.mockHistory)) {
+        return { valid: false, error: 'Invalid mockHistory format: expected an array of mock sessions.' };
+      }
+
+      // 5. Validate gamification if present
+      if (data.gamification !== undefined && data.gamification !== null && (typeof data.gamification !== 'object' || Array.isArray(data.gamification))) {
+        return { valid: false, error: 'Invalid gamification format: expected an object.' };
+      }
+
       const problemsCount = Array.isArray(data.problems) ? data.problems.length : 0;
       const statesCount = data.userStates && typeof data.userStates === 'object' ? Object.keys(data.userStates).length : 0;
       const examsCount = Array.isArray(data.examHistory || data.monthlyTestHistory) ? (data.examHistory || data.monthlyTestHistory).length : 0;
       const mocksCount = Array.isArray(data.mockHistory) ? data.mockHistory.length : 0;
+
+      if (problemsCount === 0 && statesCount === 0 && examsCount === 0 && mocksCount === 0 && !data.gamification && !data.roadmapProgress && !data.roadmap) {
+        return { valid: false, error: 'The backup bundle contains no recognized AlgoRecall records.' };
+      }
 
       return {
         valid: true,
@@ -279,7 +344,14 @@
       try {
         const storage = getLocalStorage();
         if (!storage) return { success: false, error: 'Storage unavailable' };
-        const payload = bundleData.payload || bundleData;
+
+        // Ensure bundle is validated before modifying existing state
+        const inspection = bundleData.stats ? bundleData : this.inspectImportBundle(bundleData);
+        if (!inspection.valid) {
+          return { success: false, error: inspection.error };
+        }
+
+        const payload = inspection.payload || bundleData.payload || bundleData;
 
         // 1. User States
         if (payload.userStates) {

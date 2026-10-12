@@ -682,6 +682,140 @@ async function runAll() {
   });
 
   // =========================================================================
+  // SUITE 12: Phase 1 Stabilization & Bug Fix Regressions
+  // =========================================================================
+  suite('12. Phase 1 Stabilization & Bug Fix Regressions', () => {
+    test('index.html contains synchronized monthly test and cockpit DOM IDs', () => {
+      const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf-8');
+      assert.ok(html.includes('id="monthly-test-cockpit"'), 'Missing monthly-test-cockpit');
+      assert.ok(html.includes('id="test-question-counter"'), 'Missing test-question-counter');
+      assert.ok(html.includes('id="test-countdown-display"'), 'Missing test-countdown-display');
+      assert.ok(html.includes('id="btn-start-monthly-test"'), 'Missing btn-start-monthly-test');
+      assert.ok(html.includes('id="btn-finish-test"'), 'Missing btn-finish-test');
+    });
+
+    test('Heatmap activity algorithm avoids double-counting on lastReviewed', () => {
+      const testStates = {
+        'two-sum': {
+          id: 'two-sum',
+          lastReviewed: '2026-10-12T10:00:00.000Z',
+          history: [
+            { date: '2026-10-12T09:00:00.000Z', rating: 'good' },
+            { date: '2026-10-12T10:00:00.000Z', rating: 'easy' }
+          ]
+        },
+        'legacy-prob': {
+          id: 'legacy-prob',
+          lastReviewed: '2026-10-12T11:00:00.000Z'
+          // no history array
+        }
+      };
+
+      const toLocalDateKey = (d) => {
+        if (!d) return null;
+        const dt = new Date(d);
+        if (isNaN(dt.getTime())) return null;
+        return SRSEngine.getLocalDateString(dt);
+      };
+
+      const activityMap = {};
+      Object.values(testStates).forEach(st => {
+        if (!st) return;
+        if (Array.isArray(st.history) && st.history.length > 0) {
+          st.history.forEach(h => {
+            const dStr = toLocalDateKey(h.date || h.reviewedAt);
+            if (dStr) activityMap[dStr] = (activityMap[dStr] || 0) + 1;
+          });
+        } else if (st.lastReviewed) {
+          const dStr = toLocalDateKey(st.lastReviewed);
+          if (dStr) activityMap[dStr] = (activityMap[dStr] || 0) + 1;
+        }
+      });
+
+      const todayKey = SRSEngine.getLocalDateString(new Date('2026-10-12T10:00:00.000Z'));
+      // two-sum gives 2 reviews (not 3), legacy-prob gives 1 review -> total exactly 3
+      assert.strictEqual(activityMap[todayKey], 3, 'Heatmap double-counted review actions!');
+    });
+
+    test('StorageEngine inspectImportBundle enforces strict schema and type validation', () => {
+      // 1. Rejects invalid bundle objects
+      assert.strictEqual(StorageEngine.inspectImportBundle(null).valid, false);
+      assert.strictEqual(StorageEngine.inspectImportBundle('not a bundle').valid, false);
+
+      // 2. Rejects unsupported schema versions
+      const unsupp = StorageEngine.inspectImportBundle({ version: '5.0.0', app: 'AlgoRecall', data: {} });
+      assert.strictEqual(unsupp.valid, false);
+      assert.ok(unsupp.error.includes('Unsupported backup schema version'));
+
+      // 3. Rejects invalid userStates types
+      const badStates = StorageEngine.inspectImportBundle({ version: '2.0.0', app: 'AlgoRecall', data: { userStates: 'not-an-object' } });
+      assert.strictEqual(badStates.valid, false);
+      assert.ok(badStates.error.includes('Invalid userStates format'));
+
+      const arrStates = StorageEngine.inspectImportBundle({ version: '2.0.0', app: 'AlgoRecall', data: { userStates: [1, 2, 3] } });
+      assert.strictEqual(arrStates.valid, false);
+
+      // 4. Rejects corrupt history
+      const badHistory = StorageEngine.inspectImportBundle({
+        version: '2.0.0',
+        app: 'AlgoRecall',
+        data: { userStates: { 'p1': { history: 'invalid-history' } } }
+      });
+      assert.strictEqual(badHistory.valid, false);
+      assert.ok(badHistory.error.includes('review history must be an array'));
+
+      // 5. Rejects invalid problems array
+      const badProbs = StorageEngine.inspectImportBundle({
+        version: '2.0.0',
+        app: 'AlgoRecall',
+        data: { userStates: {}, problems: 'not-an-array' }
+      });
+      assert.strictEqual(badProbs.valid, false);
+      assert.ok(badProbs.error.includes('Invalid problems format'));
+
+      // 6. Accepts valid bundle
+      const validBundle = {
+        app: 'AlgoRecall',
+        version: '2.0.0',
+        data: {
+          userStates: { 'two-sum': { interval: 3, stage: 2 } },
+          problems: [{ id: 'custom-1', title: 'Custom 1', difficulty: 'Easy', topic: 'Arrays' }]
+        }
+      };
+      const inspected = StorageEngine.inspectImportBundle(validBundle);
+      assert.strictEqual(inspected.valid, true);
+      assert.strictEqual(inspected.stats.statesCount, 1);
+      assert.strictEqual(inspected.stats.problemsCount, 1);
+
+      // 7. Verify applyImportBundle refuses to write corrupt bundle
+      const applyResult = StorageEngine.applyImportBundle({ version: '9.0.0', app: 'AlgoRecall', data: {} });
+      assert.strictEqual(applyResult.success, false);
+    });
+
+    test('Mobile drawer markup and styles are configured properly', () => {
+      const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf-8');
+      assert.ok(html.includes('id="btn-mobile-menu-toggle"'), 'Missing btn-mobile-menu-toggle');
+      assert.ok(html.includes('id="sidebar-mobile-backdrop"'), 'Missing sidebar-mobile-backdrop');
+      assert.ok(html.includes('aria-controls="app-sidebar"'), 'Missing aria-controls');
+
+      const css = fs.readFileSync(path.join(__dirname, '../css/styles.css'), 'utf-8');
+      assert.ok(css.includes('.mobile-menu-toggle-btn'), 'Missing .mobile-menu-toggle-btn CSS');
+      assert.ok(css.includes('.sidebar-backdrop'), 'Missing .sidebar-backdrop CSS');
+      assert.ok(css.includes('.sidebar.mobile-open'), 'Missing .sidebar.mobile-open CSS');
+    });
+
+    test('Accessibility aria-label attributes exist on interactive controls', () => {
+      const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf-8');
+      assert.ok(html.includes('id="btn-theme-toggle" title="Toggle Dark / Light Theme" aria-label="Toggle dark or light theme"'));
+      assert.ok(html.includes('id="btn-flashcard-prev" aria-label="Previous flashcard"'));
+      assert.ok(html.includes('id="btn-flashcard-next" aria-label="Next flashcard"'));
+      assert.ok(html.includes('id="btn-close-rating-modal" aria-label="Close dialog"'));
+      assert.ok(html.includes('id="btn-close-settings-modal" aria-label="Close dialog"'));
+      assert.ok(html.includes('id="btn-close-detail-modal" aria-label="Close dialog"'));
+    });
+  });
+
+  // =========================================================================
   // Summary
   // =========================================================================
   console.log('\n========================================');
