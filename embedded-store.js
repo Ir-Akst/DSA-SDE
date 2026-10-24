@@ -285,6 +285,53 @@ const EmbeddedStore = {
       version: nextVersion,
       updatedAt: now
     };
+  },
+
+  getTeamLeaderboard() {
+    ensureDirectories();
+    const users = readUsers();
+    const leaderboard = users.map(u => {
+      let snap = {};
+      const snapPath = path.join(SNAPSHOTS_DIR, `${u.id}.json`);
+      if (fs.existsSync(snapPath)) {
+        try {
+          const raw = JSON.parse(fs.readFileSync(snapPath, 'utf8'));
+          snap = raw.snapshot || {};
+        } catch (_) {}
+      }
+
+      const userStates = snap.userStates || {};
+      const statesArr = Object.values(userStates);
+      const solvedCount = statesArr.filter(s => s && (s.status === 'completed' || s.status === 'mastered' || s.lastReviewed)).length;
+      const masteredCount = statesArr.filter(s => s && s.status === 'mastered').length;
+      const gamification = snap.gamification || {};
+      const xp = typeof gamification.xp === 'number' ? gamification.xp : 0;
+      const level = gamification.level || 1;
+      const streak = gamification.streak || 0;
+      const tierTitle = gamification.levelTitle || 'Novice';
+
+      return {
+        id: u.id,
+        username: u.username,
+        displayName: u.displayName || u.username,
+        xp,
+        level,
+        tierTitle,
+        streak,
+        solvedCount,
+        masteredCount,
+        totalPracticed: statesArr.length,
+        lastActive: snap.updatedAt || u.createdAt
+      };
+    });
+
+    leaderboard.sort((a, b) => b.xp - a.xp || b.solvedCount - a.solvedCount);
+    return {
+      success: true,
+      maxUsers: MAX_USERS,
+      memberCount: leaderboard.length,
+      leaderboard
+    };
   }
 };
 

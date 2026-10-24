@@ -2724,6 +2724,17 @@
     if (document.getElementById('detail-tab-content-analysis')) document.getElementById('detail-tab-content-analysis').style.display = 'none';
     if (document.getElementById('detail-tab-content-history')) document.getElementById('detail-tab-content-history').style.display = 'none';
 
+    // Recommendation 3: Populate personal scratchpad and timer display
+    const scratchpad = document.getElementById('detail-modal-scratchpad');
+    const saveIndicator = document.getElementById('scratchpad-save-indicator');
+    if (scratchpad) {
+      scratchpad.value = (state && state.personalNotes) || '';
+    }
+    if (saveIndicator) saveIndicator.style.display = 'none';
+    if (!detailTimerIsRunning) {
+      updateMockTimerDisplay();
+    }
+
     const hintContent = document.getElementById('detail-ai-hint-content');
     if (hintContent) {
       hintContent.textContent = 'Select a hint level above to get targeted scaffolding without revealing solutions.';
@@ -2848,8 +2859,115 @@
   }
 
   function closeDetailModal() {
+    saveCurrentScratchpad();
     document.getElementById('problem-detail-modal').classList.remove('open');
     activeDetailProblemId = null;
+  }
+
+  // --- RECOMMENDATION 3: SCRATCHPAD & MOCK INTERVIEW TIMER ---
+  function saveCurrentScratchpad() {
+    if (!activeDetailProblemId) return;
+    const scratchpad = document.getElementById('detail-modal-scratchpad');
+    if (!scratchpad) return;
+    const noteText = scratchpad.value;
+    userStates[activeDetailProblemId] = userStates[activeDetailProblemId] || {};
+    if (userStates[activeDetailProblemId].personalNotes !== noteText) {
+      userStates[activeDetailProblemId].personalNotes = noteText;
+      saveUserStates();
+    }
+    const indicator = document.getElementById('scratchpad-save-indicator');
+    if (indicator) {
+      indicator.style.display = 'inline-flex';
+      setTimeout(() => {
+        if (indicator) indicator.style.display = 'none';
+      }, 2500);
+    }
+  }
+
+  let detailTimerInterval = null;
+  let detailTimerRemainingSeconds = 45 * 60;
+  let detailTimerTotalSeconds = 45 * 60;
+  let detailTimerIsRunning = false;
+
+  function formatTimerDisplay(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  function updateMockTimerDisplay() {
+    const displayEl = document.getElementById('mock-timer-display');
+    if (!displayEl) return;
+    displayEl.textContent = formatTimerDisplay(detailTimerRemainingSeconds);
+    if (detailTimerRemainingSeconds <= 300 && detailTimerRemainingSeconds > 0) {
+      displayEl.style.color = '#ef4444';
+    } else if (detailTimerRemainingSeconds === 0) {
+      displayEl.style.color = '#ef4444';
+    } else {
+      displayEl.style.color = '#34d399';
+    }
+  }
+
+  function playTimerAlertSound() {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.8);
+    } catch (_) {}
+  }
+
+  function startMockTimer() {
+    if (detailTimerIsRunning) return;
+    detailTimerIsRunning = true;
+    const toggleBtn = document.getElementById('btn-mock-timer-toggle');
+    if (toggleBtn) {
+      toggleBtn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause';
+      toggleBtn.className = 'btn btn-secondary btn-xs';
+    }
+    detailTimerInterval = setInterval(() => {
+      if (detailTimerRemainingSeconds > 0) {
+        detailTimerRemainingSeconds--;
+        updateMockTimerDisplay();
+        if (detailTimerRemainingSeconds === 0) {
+          pauseMockTimer();
+          playTimerAlertSound();
+        }
+      } else {
+        pauseMockTimer();
+      }
+    }, 1000);
+  }
+
+  function pauseMockTimer() {
+    detailTimerIsRunning = false;
+    if (detailTimerInterval) {
+      clearInterval(detailTimerInterval);
+      detailTimerInterval = null;
+    }
+    const toggleBtn = document.getElementById('btn-mock-timer-toggle');
+    if (toggleBtn) {
+      toggleBtn.innerHTML = '<i class="fa-solid fa-play"></i> Start';
+      toggleBtn.className = 'btn btn-primary btn-xs';
+    }
+  }
+
+  function resetMockTimer(seconds) {
+    pauseMockTimer();
+    if (typeof seconds === 'number') {
+      detailTimerTotalSeconds = seconds;
+    }
+    detailTimerRemainingSeconds = detailTimerTotalSeconds;
+    updateMockTimerDisplay();
   }
 
   // --- MONTHLY ASSESSMENT EXAM SANDBOX ---
@@ -3822,7 +3940,9 @@
     'readiness': { destination: 'progress', subtab: 'readiness' },
     'graph': { destination: 'progress', subtab: 'graph' },
     'mock': { destination: 'progress', subtab: 'mock' },
-    'roadmap': { destination: 'progress', subtab: 'roadmap' }
+    'roadmap': { destination: 'progress', subtab: 'roadmap' },
+    'leaderboard': { destination: 'progress', subtab: 'leaderboard' },
+    'team': { destination: 'progress', subtab: 'leaderboard' }
   };
 
   function switchView(requestedView, explicitSubtab) {
@@ -3851,7 +3971,8 @@
 
     // Refresh views/charts if needed
     if (destination === 'dashboard' || destination === 'progress') {
-      renderAll();
+      if (subtab === 'leaderboard') renderLeaderboardView();
+      else renderAll();
     } else if (destination === 'revision') {
       renderRevisionQueue();
     } else if (destination === 'practice') {
@@ -3909,6 +4030,166 @@
       else if (targetSubtab === 'graph') renderPrerequisiteGraph();
       else if (targetSubtab === 'mock') renderMockInterviewView();
       else if (targetSubtab === 'roadmap') renderRoadmapView();
+      else if (targetSubtab === 'leaderboard') renderLeaderboardView();
+    }
+  }
+
+  // --- RECOMMENDATION 1: STUDY GROUP LEADERBOARD CONTROLLER ---
+  async function renderLeaderboardView() {
+    const container = document.getElementById('team-leaderboard-container');
+    if (!container) return;
+
+    container.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:center; padding:30px; color:var(--text-dim); gap:10px;">
+        <i class="fa-solid fa-spinner fa-spin"></i> Loading Study Group Standings...
+      </div>
+    `;
+
+    try {
+      const res = await fetch('/api/team/leaderboard', {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data || !data.success || !Array.isArray(data.leaderboard)) {
+        throw new Error('Invalid leaderboard payload');
+      }
+
+      const members = data.leaderboard;
+      const totalSolved = members.reduce((sum, m) => sum + (m.masteredCount || 0), 0);
+      const totalXP = members.reduce((sum, m) => sum + (m.xp || 0), 0);
+      const topStreak = members.reduce((max, m) => Math.max(max, m.streak || 0), 0);
+      const memberCount = data.memberCount || members.length;
+      const maxUsers = data.maxUsers || 5;
+
+      const totalSolvedEl = document.getElementById('team-stat-total-solved');
+      const totalXpEl = document.getElementById('team-stat-total-xp');
+      const topStreakEl = document.getElementById('team-stat-top-streak');
+      const membersEl = document.getElementById('team-stat-members');
+
+      if (totalSolvedEl) totalSolvedEl.textContent = totalSolved;
+      if (totalXpEl) totalXpEl.textContent = `${totalXP.toLocaleString()} XP`;
+      if (topStreakEl) topStreakEl.textContent = `${topStreak} ${topStreak === 1 ? 'Day' : 'Days'}`;
+      if (membersEl) membersEl.textContent = `${memberCount} / ${maxUsers}`;
+
+      if (members.length === 0) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:30px; color:var(--text-dim);">
+            <i class="fa-solid fa-users" style="font-size:28px; margin-bottom:10px; display:block;"></i>
+            No members registered yet in this study group.
+          </div>
+        `;
+        return;
+      }
+
+      const activeUser = (window.AuthEngine && typeof window.AuthEngine.getUser === 'function')
+        ? window.AuthEngine.getUser()
+        : null;
+      const activeUserId = activeUser ? activeUser.id : null;
+
+      container.innerHTML = members.map((m, idx) => {
+        const rank = idx + 1;
+        const isSelf = activeUserId && m.id === activeUserId;
+        let rankBadge = `<span style="font-size:14px; font-weight:700; color:var(--text-dim); width:24px; text-align:center;">#${rank}</span>`;
+        if (rank === 1) {
+          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="1st Place">🥇</span>`;
+        } else if (rank === 2) {
+          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="2nd Place">🥈</span>`;
+        } else if (rank === 3) {
+          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="3rd Place">🥉</span>`;
+        }
+
+        const initial = (m.displayName || m.username || 'U').charAt(0).toUpperCase();
+
+        return `
+          <div class="leaderboard-card ${isSelf ? 'leaderboard-card-self' : ''}" style="
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            flex-wrap:wrap;
+            gap:12px;
+            padding:12px 16px;
+            background:${isSelf ? 'rgba(99, 102, 241, 0.12)' : 'rgba(255, 255, 255, 0.03)'};
+            border:1px solid ${isSelf ? 'var(--primary)' : 'var(--border-color, #28334D)'};
+            border-radius:var(--radius-md, 8px);
+            transition: transform 0.15s ease, border-color 0.15s ease;
+          ">
+            <div style="display:flex; align-items:center; gap:12px;">
+              ${rankBadge}
+              <div style="
+                width:36px;
+                height:36px;
+                border-radius:50%;
+                background:${isSelf ? 'linear-gradient(135deg, #6366f1, #a855f7)' : 'linear-gradient(135deg, #334155, #475569)'};
+                color:#fff;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-weight:700;
+                font-size:14px;
+                box-shadow:0 2px 6px rgba(0,0,0,0.2);
+              ">${initial}</div>
+              <div>
+                <div style="display:flex; align-items:center; gap:6px;">
+                  <span style="font-weight:700; font-size:14px; color:var(--text-main);">${escapeHtml(m.displayName || m.username)}</span>
+                  ${isSelf ? '<span class="badge badge-primary" style="font-size:10px; padding:2px 6px;">You</span>' : ''}
+                </div>
+                <div style="font-size:11.5px; color:var(--text-dim); display:flex; align-items:center; gap:8px;">
+                  <span>Lvl ${m.level || 1} • ${escapeHtml(m.tierTitle || 'Novice')}</span>
+                  <span>•</span>
+                  <span>@${escapeHtml(m.username)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:16px;">
+              <div style="text-align:right;">
+                <div style="font-size:13.5px; font-weight:700; color:#34d399; display:flex; align-items:center; gap:4px; justify-content:flex-end;">
+                  <i class="fa-solid fa-circle-check"></i> ${m.masteredCount || 0}
+                </div>
+                <div style="font-size:10.5px; color:var(--text-dim);">${m.solvedCount || 0} attempted</div>
+              </div>
+
+              <div style="text-align:right;">
+                <div style="font-size:13.5px; font-weight:700; color:#ef4444; display:flex; align-items:center; gap:4px; justify-content:flex-end;">
+                  <i class="fa-solid fa-fire"></i> ${m.streak || 0}
+                </div>
+                <div style="font-size:10.5px; color:var(--text-dim);">day streak</div>
+              </div>
+
+              <div style="
+                background:rgba(245, 158, 11, 0.12);
+                border:1px solid rgba(245, 158, 11, 0.3);
+                padding:6px 12px;
+                border-radius:20px;
+                font-size:13px;
+                font-weight:700;
+                color:#f59e0b;
+                display:flex;
+                align-items:center;
+                gap:5px;
+                min-width:85px;
+                justify-content:center;
+              ">
+                <i class="fa-solid fa-bolt"></i> ${(m.xp || 0).toLocaleString()} XP
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    } catch (err) {
+      console.error('[Leaderboard] Failed to fetch leaderboard:', err);
+      container.innerHTML = `
+        <div style="text-align:center; padding:24px; color:var(--text-dim);">
+          <i class="fa-solid fa-triangle-exclamation" style="color:#ef4444; font-size:20px; margin-bottom:8px; display:block;"></i>
+          Unable to fetch team standings. Ensure you are connected to the local embedded server.
+          <div style="margin-top:10px;">
+            <button type="button" class="btn btn-secondary btn-xs" onclick="window.renderLeaderboardView && window.renderLeaderboardView()">
+              <i class="fa-solid fa-rotate-right"></i> Try Again
+            </button>
+          </div>
+        </div>
+      `;
     }
   }
 
@@ -3917,6 +4198,7 @@
     window.switchView = switchView;
     window.switchSubView = switchSubView;
     window.VIEW_MAP = VIEW_MAP;
+    window.renderLeaderboardView = renderLeaderboardView;
   }
 
   // --- GAMIFICATION HEADER UI ---
@@ -5141,6 +5423,35 @@
         }
       }
     });
+
+    // Recommendation 3: Scratchpad & Mock Interview Timer Listeners
+    document.getElementById('btn-save-scratchpad')?.addEventListener('click', saveCurrentScratchpad);
+    document.getElementById('detail-modal-scratchpad')?.addEventListener('blur', saveCurrentScratchpad);
+
+    document.getElementById('btn-mock-timer-toggle')?.addEventListener('click', () => {
+      if (detailTimerIsRunning) pauseMockTimer();
+      else startMockTimer();
+    });
+
+    document.getElementById('btn-mock-timer-reset')?.addEventListener('click', () => {
+      resetMockTimer();
+    });
+
+    document.querySelectorAll('[data-timer-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-timer-preset]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mins = parseInt(btn.getAttribute('data-timer-preset'), 10) || 45;
+        resetMockTimer(mins * 60);
+      });
+    });
+
+    // Recommendation 1: Team Leaderboard & Study Group Listeners
+    document.getElementById('btn-sidebar-study-group')?.addEventListener('click', () => {
+      switchView('progress', 'leaderboard');
+    });
+    document.getElementById('btn-refresh-leaderboard')?.addEventListener('click', renderLeaderboardView);
+    document.getElementById('btn-team-export-backup')?.addEventListener('click', exportDataJSON);
 
     // Adaptive Learning Loop Next Action trigger
     document.getElementById('btn-adaptive-loop-action')?.addEventListener('click', handleAdaptiveLoopAction);

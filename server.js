@@ -578,6 +578,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === '/api/team/leaderboard' && (req.method === 'GET' || req.method === 'HEAD')) {
+    const data = EmbeddedStore.getTeamLeaderboard();
+    if (req.method === 'HEAD') {
+      sendResponse(res, 200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, private' });
+      return;
+    }
+    sendJson(200, data);
+    return;
+  }
+
   if (pathname === '/api/auth/register') {
     if (req.method !== 'POST') {
       sendResponse(res, 405, { 'Content-Type': 'application/json', 'Allow': 'POST', 'Cache-Control': 'no-store' }, JSON.stringify({ success: false, error: 'Method Not Allowed' }));
