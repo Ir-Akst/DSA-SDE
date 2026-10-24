@@ -578,6 +578,16 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (pathname === '/api/team/leaderboard' && (req.method === 'GET' || req.method === 'HEAD')) {
+    const data = EmbeddedStore.getTeamLeaderboard();
+    if (req.method === 'HEAD') {
+      sendResponse(res, 200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store, private' });
+      return;
+    }
+    sendJson(200, data);
+    return;
+  }
+
   if (pathname === '/api/auth/register') {
     if (req.method !== 'POST') {
       sendResponse(res, 405, { 'Content-Type': 'application/json', 'Allow': 'POST', 'Cache-Control': 'no-store' }, JSON.stringify({ success: false, error: 'Method Not Allowed' }));
@@ -652,6 +662,12 @@ const server = http.createServer((req, res) => {
     }
 
     sendResponse(res, 405, { 'Content-Type': 'application/json', 'Allow': 'GET, POST, HEAD', 'Cache-Control': 'no-store' }, JSON.stringify({ success: false, error: 'Method Not Allowed' }));
+    return;
+  }
+
+  // Catch-all for unhandled /api/* endpoints (always return JSON, never HTML)
+  if (pathname.startsWith('/api/')) {
+    sendJson(404, { success: false, error: `API endpoint not found: ${pathname}` });
     return;
   }
 
