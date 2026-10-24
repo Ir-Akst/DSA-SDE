@@ -29,7 +29,14 @@ def save_catalog(data):
  * 100% Comprehensive & Balanced Coverage across all DSA Topics
  */
 
-window.DEFAULT_DSA_SHEETS = {json.dumps(data, indent=2)};
+const DEFAULT_DSA_SHEETS = {json.dumps(data, indent=2)};
+
+if (typeof module !== 'undefined' && module.exports) {{
+  module.exports = DEFAULT_DSA_SHEETS;
+}}
+if (typeof window !== 'undefined') {{
+  window.DEFAULT_DSA_SHEETS = DEFAULT_DSA_SHEETS;
+}}
 """
     with open(DATASET_PATH, 'w', encoding='utf-8') as f:
         f.write(output_js)

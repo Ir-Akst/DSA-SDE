@@ -197,9 +197,10 @@
      */
     processReview(problemState = {}, rating, timeSpentMinutes = 0, reviewNotes = "", confidence = null, options = {}) {
       const safeState = problemState || {};
-      const now = (options.asOfDate instanceof Date && !isNaN(options.asOfDate.getTime()))
-        ? new Date(options.asOfDate)
-        : new Date();
+      const rawDate = options.now || options.asOfDate || options.today || options.virtualDate;
+      const now = (rawDate instanceof Date && !isNaN(rawDate.getTime()))
+        ? new Date(rawDate)
+        : (rawDate && !isNaN(new Date(rawDate).getTime()) ? new Date(rawDate) : new Date());
 
       const today = new Date(now);
       today.setHours(0, 0, 0, 0);
@@ -257,9 +258,16 @@
         }
       }
 
+      // Check if this review is elective topic practice on a problem not yet due for spaced repetition
+      const isPrematureTopicPractice = Boolean(
+        options.isTopicPractice &&
+        safeState.nextReviewDate &&
+        (new Date(safeState.nextReviewDate).getTime() >= today.getTime() || safeState.nextReviewDate >= this.getLocalDateString(today))
+      );
+
       // --- DOCUMENTED PRECEDENCE ORDER ---
       // 1. Failure Reset (Highest Priority)
-      // 2. Massed Practice Guard
+      // 2. Massed Practice Guard / Premature Topic Practice Guard
       // 3. Hint Gating
       // 4. Genuine Spaced Independent Review
       let isIndependentSolve = false;
@@ -269,12 +277,12 @@
         nextStage = 1;
         daysToAdd = 1;
         isIndependentSolve = false;
-      } else if (isMassedPractice) {
-        // Priority 2: Massed practice (same day / <18h)
+      } else if (isMassedPractice || isPrematureTopicPractice) {
+        // Priority 2: Massed practice (same day / <18h) OR elective topic practice of an item not yet due
         // Preserve existing Leitner stage, do NOT advance or compound interval
         nextStage = Math.max(1, currentStage || 1);
-        daysToAdd = safeState.intervalDays || (this.INTERVAL_MATRIX[rating] ? this.INTERVAL_MATRIX[rating][0] : 1);
-        isIndependentSolve = false; // Massed practice is not independent delayed-recall evidence
+        daysToAdd = safeState.intervalDays || safeState.interval || (this.INTERVAL_MATRIX[rating] ? this.INTERVAL_MATRIX[rating][0] : 1);
+        isIndependentSolve = false; // Ordinary practice is not independent delayed-recall evidence
       } else if (hintsUsed) {
         // Priority 3: Hint gating
         // Do NOT advance stage; schedule independent retrieval in 1-2 days
@@ -302,6 +310,7 @@
         isIndependent: isIndependentSolve,
         failureReasons: failureReasons,
         stage: nextStage,
+        interval: daysToAdd,
         intervalDays: daysToAdd,
         timeSpentMinutes: Number(timeSpentMinutes || 0),
         note: reviewNotes,
@@ -319,9 +328,9 @@
       }
 
       // Next review date calculation:
-      // For massed practice, preserve existing future nextReviewDate if available to prevent date pushout
+      // For massed practice or premature topic practice of non-due item, preserve existing future nextReviewDate if available to prevent date pushout
       let nextDateStr;
-      if (isMassedPractice && safeState.nextReviewDate && safeState.nextReviewDate >= this.getLocalDateString(today)) {
+      if ((isMassedPractice || isPrematureTopicPractice) && safeState.nextReviewDate && (new Date(safeState.nextReviewDate).getTime() >= today.getTime() || safeState.nextReviewDate >= this.getLocalDateString(today))) {
         nextDateStr = safeState.nextReviewDate;
       } else {
         const nextDate = new Date(today);
@@ -353,6 +362,7 @@
       return {
         status: isMastered ? 'mastered' : 'scheduled',
         stage: nextStage,
+        interval: daysToAdd,
         intervalDays: daysToAdd,
         lastRating: rating,
         confidence: confVal,
@@ -426,10 +436,10 @@
       if (!topic) return 'Basics & Math';
       const t = topic.trim().toLowerCase();
       if (t === 'backtracking' || t.includes('recursion') || t.includes('backtrack')) return 'Recursion & Backtracking';
+      if (t.includes('heap') || t.includes('priority')) return 'Heap / Priority Queue';
       if (t === 'stack' || t === 'queue' || t.includes('stack') || t.includes('queue')) return 'Stack & Queue';
       if (t === 'two pointers' || t === 'sliding window' || t.includes('sliding') || t.includes('pointer')) return 'Sliding Window & Two Pointers';
       if (t.includes('tree') || t.includes('bst')) return 'Binary Trees & BST';
-      if (t.includes('heap') || t.includes('priority')) return 'Heap / Priority Queue';
       if (t.includes('bit')) return 'Bit Manipulation';
       if (t.includes('greedy') || t.includes('interval')) return 'Greedy & Intervals';
       if (t.includes('graph')) return 'Graphs';

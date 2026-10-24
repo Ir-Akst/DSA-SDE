@@ -97,9 +97,15 @@
 
     /**
      * Diagnose a struggling problem and find if any prerequisite nodes are deficient
-     * @param {Object} problem 
-     * @param {Array} allProblems 
-     * @param {Object} userStates 
+     * @param {Object} problem
+     * @param {Array} allProblems
+     * @param {Object} userStates
+     */
+    /**
+     * Diagnose a struggling problem and find if any prerequisite nodes are deficient
+     * @param {Object} problem
+     * @param {Array} allProblems
+     * @param {Object} userStates
      */
     findMissingPrerequisite(problem, allProblems = [], userStates = {}) {
       if (!problem) return null;
@@ -131,6 +137,148 @@
       }
 
       return null;
+    },
+
+    /**
+     * Detect circular dependencies in the prerequisite DAG using 3-color DFS
+     * @param {Array} graph - Array of graph node objects
+     * @returns {Object} { hasCycle: boolean, cyclePath: string[]|null }
+     */
+    detectCycles(graph = null) {
+      const g = graph || (typeof window !== 'undefined' && window.DSA_PREREQUISITE_GRAPH) || _DSA_PREREQUISITE_GRAPH || [];
+      const nodeMap = new Map();
+      g.forEach(node => nodeMap.set(node.id, node));
+
+      // States: 0 = unvisited, 1 = visiting (on current recursion stack), 2 = visited
+      const state = new Map();
+      let cyclePath = null;
+      const stack = [];
+
+      function dfs(nodeId) {
+        state.set(nodeId, 1);
+        stack.push(nodeId);
+
+        const node = nodeMap.get(nodeId);
+        const prereqs = (node && Array.isArray(node.prerequisites)) ? node.prerequisites : [];
+
+        for (const pId of prereqs) {
+          if (!nodeMap.has(pId)) continue; // Handled by validateGraphIntegrity
+          const pState = state.get(pId) || 0;
+          if (pState === 1) {
+            // Cycle detected!
+            const cycleStartIdx = stack.indexOf(pId);
+            cyclePath = stack.slice(cycleStartIdx).concat(pId);
+            return true;
+          }
+          if (pState === 0) {
+            if (dfs(pId)) return true;
+          }
+        }
+
+        stack.pop();
+        state.set(nodeId, 2);
+        return false;
+      }
+
+      for (const node of g) {
+        if ((state.get(node.id) || 0) === 0) {
+          if (dfs(node.id)) {
+            return { hasCycle: true, cyclePath };
+          }
+        }
+      }
+
+      return { hasCycle: false, cyclePath: null };
+    },
+
+    /**
+     * Comprehensive DAG Integrity Evaluation
+     * Validates no cycles, no orphan IDs, reachability from roots, and catalog topic mapping.
+     * @param {Array} graph
+     * @param {Array} allProblems
+     */
+    validateGraphIntegrity(graph = null, allProblems = []) {
+      const g = graph || (typeof window !== 'undefined' && window.DSA_PREREQUISITE_GRAPH) || _DSA_PREREQUISITE_GRAPH || [];
+      const errors = [];
+      const warnings = [];
+      const nodeIds = new Set();
+      const roots = [];
+
+      // 1. Check duplicate IDs
+      g.forEach(n => {
+        if (nodeIds.has(n.id)) {
+          errors.push(`Duplicate node ID detected: "${n.id}".`);
+        }
+        nodeIds.add(n.id);
+        if (!n.prerequisites || n.prerequisites.length === 0) {
+          roots.push(n.id);
+        }
+      });
+
+      // 2. Check orphan prerequisite references
+      g.forEach(n => {
+        (n.prerequisites || []).forEach(pId => {
+          if (!nodeIds.has(pId)) {
+            errors.push(`Node "${n.id}" references non-existent prerequisite ID "${pId}".`);
+          }
+        });
+      });
+
+      // 3. Cycle Detection
+      const cycleCheck = this.detectCycles(g);
+      if (cycleCheck.hasCycle) {
+        errors.push(`Circular dependency cycle detected: ${cycleCheck.cyclePath.join(' -> ')}`);
+      }
+
+      // 4. Problem catalog topic coverage
+      if (Array.isArray(allProblems) && allProblems.length > 0) {
+        const catalogTopics = new Set(allProblems.map(p => _SRSEngine ? _SRSEngine.canonicalizeTopic(p.topic) : p.topic));
+        g.forEach(n => {
+          const t = _SRSEngine ? _SRSEngine.canonicalizeTopic(n.topic) : n.topic;
+          if (!catalogTopics.has(t)) {
+            warnings.push(`Node "${n.id}" defines topic "${n.topic}" which has 0 problems in current catalog.`);
+          }
+        });
+      }
+
+      return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+        roots,
+        nodeCount: g.length,
+        hasCycle: cycleCheck.hasCycle
+      };
+    },
+
+    /**
+     * Non-Blocking Prerequisite Advisory Check
+     * Respects learner autonomy: returns stepping-stone advice without restricting problem access.
+     * @param {Object} problem
+     * @param {Array} allProblems
+     * @param {Object} userStates
+     */
+    checkPrerequisiteAdvisory(problem, allProblems = [], userStates = {}) {
+      if (!problem) return { isAdvised: false, reason: null, steppingStone: null };
+
+      const missing = this.findMissingPrerequisite(problem, allProblems, userStates);
+      if (!missing) {
+        return {
+          isAdvised: false,
+          reason: 'All prerequisite foundations are proficient or problem is foundational.',
+          steppingStone: null,
+          autonomyNotice: 'Learner autonomy preserved: you can practice any problem directly.'
+        };
+      }
+
+      return {
+        isAdvised: true,
+        reason: missing.reason,
+        steppingStone: missing.recommendedSteppingStone,
+        weakNodeTitle: missing.weakPrerequisiteNode.title,
+        weakNodeProficiency: missing.weakPrerequisiteNode.proficiencyScore,
+        autonomyNotice: 'Learner autonomy preserved: prerequisite practice is advisory; direct attempts remain unlocked.'
+      };
     }
   };
 

@@ -263,14 +263,30 @@
         recommendedActions.push('Maintain rhythm: Complete today’s revision queue and attempt 1 Hard challenge.');
       }
 
+      const provisionalReason = isProvisional
+        ? `Insufficient evidence: requires at least ${MINIMUM_EVIDENCE_THRESHOLD.minProblemAttempts} problem attempts and ${MINIMUM_EVIDENCE_THRESHOLD.minSpacedReviews} eligible spaced reviews.`
+        : '';
+
+      const breakdown = {
+        independentSolving: { score: independentScore },
+        delayedRecall: { score: delayedRecallScore, attemptsCount: totalAttempts, eligibleSpacedCount: spacedReviewCount },
+        patternCoverage: { score: patternScore },
+        timeEfficiency: { score: timeScore },
+        edgeCaseRobustness: { score: edgeScore },
+        mockPerformance: { score: mockScore }
+      };
+
       return {
         overallScore: overallScore,
+        score: overallScore,
         grade: grade,
         statusColor: statusColor,
         isProvisional: isProvisional,
+        provisionalReason: provisionalReason,
         evidenceProgress: evidenceProgress,
         totalAttempts: totalAttempts,
         spacedReviewCount: spacedReviewCount,
+        breakdown: breakdown,
         dimensions: dimensions,
         strongAreas: strongAreas,
         weakAreas: weakAreas,

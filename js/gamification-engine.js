@@ -41,6 +41,14 @@
     return null;
   };
 
+  const getRepo = () => {
+    try {
+      if (typeof window !== 'undefined' && window.LearnerRepository) return window.LearnerRepository;
+      if (typeof require !== 'undefined') return require('./learner-repository');
+    } catch (_) {}
+    return null;
+  };
+
   const GamificationEngine = {
     LEVELS,
     BADGES,
@@ -48,11 +56,17 @@
     /**
      * Get or initialize gamification progress
      */
-    getProgress() {
+    getProgress(ctx) {
       try {
-        const storage = getLocalStorage();
-        const raw = storage ? storage.getItem(STORAGE_KEY_GAMIFICATION) : null;
-        if (raw) return JSON.parse(raw);
+        const repo = getRepo();
+        if (repo) {
+          const stored = repo.getGamification(ctx);
+          if (stored) return stored;
+        } else {
+          const storage = getLocalStorage();
+          const raw = storage ? storage.getItem(STORAGE_KEY_GAMIFICATION) : null;
+          if (raw) return JSON.parse(raw);
+        }
       } catch (e) {
         console.error('Error loading gamification progress:', e);
       }
@@ -74,8 +88,13 @@
     /**
      * Save progress
      */
-    saveProgress(progress) {
+    saveProgress(progress, ctx) {
       try {
+        const repo = getRepo();
+        if (repo) {
+          repo.saveGamification(progress, ctx);
+          return;
+        }
         const storage = getLocalStorage();
         if (storage) {
           storage.setItem(STORAGE_KEY_GAMIFICATION, JSON.stringify(progress));

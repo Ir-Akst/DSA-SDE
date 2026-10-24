@@ -33,66 +33,32 @@
         </div>
       </div>
 
-      <nav class="nav-links">
-        <div class="nav-group-title">Core Workspace</div>
-        
-        <div class="nav-item active" data-view="dashboard">
+      <nav class="nav-links" id="main-nav-links" aria-label="Main Navigation">
+        <div class="nav-item active" data-view="dashboard" id="nav-item-dashboard" role="tab" aria-selected="true" tabindex="0">
           <i class="fa-solid fa-gauge-high"></i>
-          <span>Dashboard & Readiness</span>
+          <span>Dashboard</span>
         </div>
-        
-        <div class="nav-item" data-view="roadmap">
-          <i class="fa-solid fa-calendar-check"></i>
-          <span>Today's Workout</span>
-          <span class="nav-badge new">Daily</span>
-        </div>
-        
-        <div class="nav-item" data-view="problems">
-          <i class="fa-solid fa-layer-group"></i>
-          <span>Problem Catalog</span>
+
+        <div class="nav-item" data-view="practice" id="nav-item-practice" role="tab" aria-selected="false" tabindex="0">
+          <i class="fa-solid fa-code"></i>
+          <span>Practice</span>
           <span class="nav-badge" id="sidebar-total-badge">0</span>
         </div>
-        
-        <div class="nav-item" data-view="revision">
+
+        <div class="nav-item" data-view="revision" id="nav-item-revision" role="tab" aria-selected="false" tabindex="0">
           <i class="fa-solid fa-clock-rotate-left"></i>
-          <span>Revision Queue</span>
+          <span>Revision</span>
           <span class="nav-badge due" id="sidebar-due-badge" style="display:none;">0</span>
         </div>
-        
-        <div class="nav-item" data-view="patterns">
-          <i class="fa-solid fa-code-fork"></i>
-          <span>Pattern Handbook</span>
-          <span class="nav-badge new">20+ Templates</span>
+
+        <div class="nav-item" data-view="progress" id="nav-item-progress" role="tab" aria-selected="false" tabindex="0">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Progress</span>
         </div>
 
-        <div class="nav-group-title">Evaluation & Interview</div>
-
-        <div class="nav-item" data-view="graph">
-          <i class="fa-solid fa-diagram-project"></i>
-          <span>Prerequisite Graph</span>
-          <span class="nav-badge new">Adaptive</span>
-        </div>
-
-        <div class="nav-item" data-view="mock">
-          <i class="fa-solid fa-stopwatch-20"></i>
-          <span>Mock Interviews</span>
-          <span class="nav-badge new">Timed</span>
-        </div>
-
-        <div class="nav-item" data-view="flashcards">
-          <i class="fa-solid fa-bolt"></i>
-          <span>Flashcard Quiz</span>
-          <span class="nav-badge new">Quick</span>
-        </div>
-
-        <div class="nav-item" data-view="monthly-assessment">
-          <i class="fa-solid fa-award"></i>
-          <span>Monthly Test</span>
-        </div>
-        
-        <div class="nav-item" data-view="analytics">
-          <i class="fa-solid fa-chart-radar"></i>
-          <span>Analytics & Mastery</span>
+        <div class="nav-item" data-view="settings" id="nav-item-settings" role="tab" aria-selected="false" tabindex="0">
+          <i class="fa-solid fa-gear"></i>
+          <span>Settings</span>
         </div>
       </nav>
 
@@ -150,6 +116,41 @@
             <span style="color:#94a3b8;"><i class="fa-regular fa-circle" style="margin-right:4px;"></i><strong id="header-unsolved-count">0</strong> Unsolved</span>
           </div>
 
+          <!-- Authentication Status & Action Container (5-User Team Auth) -->
+          <div class="header-auth-container" id="header-auth-container">
+            <!-- Guest State: Clean Sign In Pill -->
+            <button type="button" class="header-auth-btn-guest" id="btn-header-auth" aria-label="Sign in or view account" title="Sign in">
+              <i class="fa-solid fa-circle-user header-auth-icon" aria-hidden="true"></i>
+              <span class="auth-btn-text" id="header-auth-label">Sign in</span>
+            </button>
+
+            <!-- Authenticated State (Hidden when guest): User Profile Pill -->
+            <div class="header-user-pill" id="header-user-pill" style="display:none;" tabindex="0" role="button" aria-haspopup="true" aria-expanded="false" aria-label="User Account Menu">
+              <div class="header-user-avatar" id="header-user-avatar" aria-hidden="true">U</div>
+              <span class="header-user-name" id="header-user-name">Learner</span>
+              <i class="fa-solid fa-chevron-down header-user-caret" aria-hidden="true"></i>
+
+              <!-- Account Dropdown Menu -->
+              <div class="header-auth-dropdown" id="header-auth-dropdown" role="menu" aria-label="Account Options">
+                <div class="header-auth-dropdown-header">
+                  <div class="header-auth-dropdown-email" id="header-user-email">learner@example.com</div>
+                  <div class="header-auth-dropdown-badge">
+                    <i class="fa-solid fa-circle-check"></i> Active Account
+                  </div>
+                </div>
+                <div class="header-auth-dropdown-divider"></div>
+                <button type="button" class="header-auth-dropdown-item" id="btn-header-account-details" role="menuitem">
+                  <i class="fa-solid fa-user-shield"></i>
+                  <span>Account & Auth Status</span>
+                </button>
+                <button type="button" class="header-auth-dropdown-item signout" id="btn-header-signout" role="menuitem">
+                  <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                  <span>Sign out</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Theme Toggle Button -->
           <button class="theme-toggle-btn" id="btn-theme-toggle" title="Toggle Dark / Light Theme" aria-label="Toggle dark or light theme">
             <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
@@ -159,706 +160,1347 @@
 
       <!-- ================= VIEW 1: DASHBOARD ================= -->
       <section id="view-dashboard" class="view-section active">
-        <!-- Action Hero: Next Best Action -->
-        <div style="background:linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(6,182,212,0.08) 100%); border:1px solid rgba(16,185,129,0.3); border-radius:var(--radius-lg); padding:20px 24px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
-          <div>
-            <span style="font-size:11px; text-transform:uppercase; font-weight:700; color:var(--primary); letter-spacing:0.06em; display:flex; align-items:center; gap:6px;">
-              <i class="fa-solid fa-compass"></i> Prescribed Next Learning Action
-            </span>
-            <h2 style="font-size:19px; font-weight:800; margin-top:4px;" id="dashboard-next-action-title">Loading today's optimal task...</h2>
-            <p style="font-size:13px; color:var(--text-muted); margin-top:4px;" id="dashboard-next-action-subtitle">Evaluating spaced retention intervals and roadmap progress...</p>
+        <!-- ================= A. TODAY'S DSA PLAN ================= -->
+        <div class="today-dsa-plan-card" id="today-dsa-plan-section">
+          <!-- Header Bar: Learn Topic, Revise Topic, Session Duration -->
+          <div class="plan-header-bar">
+            <div class="plan-header-title-wrap">
+              <div class="plan-header-badge">
+                <i class="fa-solid fa-route"></i> Adaptive Roadmap
+              </div>
+              <h2 class="plan-header-title">Today's DSA Plan</h2>
+              <span class="plan-header-subtitle" id="dsa-plan-header-summary">
+                Workload-aware learning, topic practice & spaced recall workflow
+              </span>
+            </div>
+
+            <div class="plan-controls-group">
+              <!-- Current Learning Topic Selector (Learner chooses WHAT to study) -->
+              <div class="plan-control-item">
+                <label for="dsa-plan-learning-topic-select"><i class="fa-solid fa-book-open"></i> Learn Topic:</label>
+                <select id="dsa-plan-learning-topic-select" class="plan-select plan-topic-select" aria-label="Select Current Learning Topic">
+                  <!-- Populated dynamically with 16 canonical topics + unattempted count -->
+                </select>
+              </div>
+
+              <!-- Revision Topic Selector (Learner chooses WHAT to revise) -->
+              <div class="plan-control-item">
+                <label for="dsa-plan-revision-topic-select"><i class="fa-solid fa-rotate-left"></i> Revise Topic:</label>
+                <select id="dsa-plan-revision-topic-select" class="plan-select plan-topic-select" aria-label="Select Revision Topic">
+                  <!-- Populated dynamically with All Due Topics + 16 canonical topics + due count -->
+                </select>
+              </div>
+
+            </div>
           </div>
-          <button class="btn btn-primary btn-lg" id="btn-dashboard-start-session" style="padding:12px 24px; font-size:14px; font-weight:700;">
-            <i class="fa-solid fa-play"></i> Start Today's Session
+
+          <!-- Hero Overview: Plain Language Hierarchy -->
+          <div class="plan-hero-banner" id="dsa-plan-hero-banner">
+            <div class="plan-hero-meta-grid">
+              <div class="plan-hero-meta-box highlight-learn">
+                <span class="hero-meta-label"><i class="fa-solid fa-bullseye"></i> Learn Topic</span>
+                <span class="hero-meta-val" id="dsa-plan-main-topic-display">Arrays & Hashing</span>
+              </div>
+              <div class="plan-hero-meta-box highlight-revise">
+                <span class="hero-meta-label"><i class="fa-solid fa-rotate-left"></i> Topic Revision</span>
+                <span class="hero-meta-val" id="dsa-plan-rev-topic-display">Arrays & Hashing</span>
+              </div>
+              <div class="plan-hero-meta-box highlight-spaced">
+                <span class="hero-meta-label"><i class="fa-solid fa-bell"></i> Due Spaced Recall</span>
+                <span class="hero-meta-val" id="dsa-plan-due-reviews-display">0 due</span>
+              </div>
+              <div class="plan-hero-meta-box">
+                <span class="hero-meta-label"><i class="fa-solid fa-stopwatch"></i> Available Study Time</span>
+                <span class="hero-meta-val" id="dsa-plan-study-time-display">120 minutes</span>
+              </div>
+              <div class="plan-hero-meta-box highlight-horizon" id="dsa-plan-horizon-card">
+                <span class="hero-meta-label"><i class="fa-solid fa-hourglass-half"></i> Estimated Horizon</span>
+                <span class="hero-meta-val" id="dsa-plan-horizon-display">~12 weeks (Est.)</span>
+              </div>
+            </div>
+
+            <div class="plan-hero-action-bar">
+              <div class="plan-hero-progress-block">
+                <div class="plan-hero-progress-header">
+                  <span class="plan-hero-tasks-text" id="dsa-plan-tasks-progress-text">0 of 5 tasks completed</span>
+                  <span class="plan-completion-indicator" id="dsa-plan-completion-pill">0% Done</span>
+                </div>
+                <div class="plan-progress-bar-wrap">
+                  <div class="plan-progress-bar-fill" id="dsa-plan-progress-bar" style="width: 0%;"></div>
+                </div>
+              </div>
+
+              <button class="btn btn-primary btn-lg btn-start-next-problem" id="btn-start-next-problem">
+                <i class="fa-solid fa-play"></i> Start Next Problem
+              </button>
+            </div>
+          </div>
+
+          <!-- Adaptive Learning Loop Action Banner -->
+          <div class="adaptive-loop-card" id="adaptive-learning-loop-card" style="margin-top: 14px;">
+            <div class="adaptive-loop-left">
+              <div class="adaptive-loop-badge" id="adaptive-loop-badge">
+                <i class="fa-solid fa-arrows-spin"></i>
+                <span id="adaptive-loop-action-type">Adaptive Loop Recommendation</span>
+              </div>
+              <h4 id="adaptive-loop-title" class="adaptive-loop-title">Loading tailored recommendation...</h4>
+              <p id="adaptive-loop-explanation" class="adaptive-loop-explanation">Observing attempt history and evaluating prerequisite dependencies...</p>
+              <div class="adaptive-loop-meta" id="adaptive-loop-meta">
+                <span class="adaptive-meta-pill" id="adaptive-meta-source"><i class="fa-solid fa-brain"></i> Evidence: Prerequisite Graph</span>
+                <span class="adaptive-meta-pill" id="adaptive-meta-status"><i class="fa-solid fa-check-double"></i> Closed-Loop: Ready</span>
+              </div>
+            </div>
+            <div class="adaptive-loop-right">
+              <button class="btn btn-primary" id="btn-adaptive-loop-action">
+                <i class="fa-solid fa-play"></i> <span id="btn-adaptive-loop-text">Start Recommended Task</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Concise Confirmation Notification -->
+          <div class="plan-feedback-banner" id="dsa-plan-feedback-banner" style="display:none;" role="status" aria-live="polite">
+            <div class="feedback-content">
+              <i class="fa-solid fa-circle-check"></i>
+              <span id="dsa-plan-feedback-text">Saved outcome</span>
+            </div>
+            <button class="btn-close-feedback" id="btn-close-plan-feedback" aria-label="Dismiss">&times;</button>
+          </div>
+        </div>
+
+        <!-- ================= B. LEARN — NEW QUESTIONS ================= -->
+        <div class="plan-section-card" id="dsa-plan-learn-section">
+          <div class="plan-section-card-header">
+            <div class="plan-section-title-wrap">
+              <div class="plan-section-badge learn-badge">
+                <i class="fa-solid fa-book-open"></i> LEARN
+              </div>
+              <h3 class="plan-section-heading">New questions · Selected topic · Adaptive difficulty</h3>
+              <p class="plan-section-desc" id="dsa-plan-learn-concept-sub">Learn new problems and build problem-solving ability in your chosen topic.</p>
+            </div>
+            <div class="plan-section-actions">
+              <div class="plan-section-topic-pill" id="dsa-plan-learn-prominent-topic">
+                <i class="fa-solid fa-layer-group"></i> Focus Topic: <strong id="dsa-plan-learn-topic-title">Arrays & Hashing</strong>
+                <span class="plan-time-subtle" id="dsa-plan-learn-time-badge">~60m target</span>
+              </div>
+              <button type="button" class="btn btn-stream-refresh btn-refresh-learn" id="btn-refresh-learn" title="Refresh Learn Questions" aria-label="Refresh Learn Questions">
+                <i class="fa-solid fa-arrows-rotate"></i> <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="plan-task-list" id="dsa-plan-learn-task-list">
+            <!-- Dynamically populated learn task cards -->
+          </div>
+        </div>
+
+        <!-- ================= C. TOPIC REVISION — TOPIC PRACTICE ================= -->
+        <div class="plan-section-card" id="dsa-plan-topic-revise-section" data-legacy-id="dsa-plan-revise-section">
+          <div class="plan-section-card-header">
+            <div class="plan-section-title-wrap">
+              <div class="plan-section-badge topic-revise-badge">
+                <i class="fa-solid fa-rotate-left"></i> TOPIC REVISION
+              </div>
+              <h3 class="plan-section-heading">Topic-focused practice · Selected revision topic · Adaptive difficulty</h3>
+              <p class="plan-section-desc" id="dsa-plan-topic-revise-concept-sub">Strengthen problem-solving ability in a learner-selected topic with targeted drills.</p>
+            </div>
+            <div class="plan-section-actions">
+              <div class="plan-section-topic-pill revise-topic-pill" id="dsa-plan-topic-revise-prominent-topic">
+                <i class="fa-solid fa-bullseye"></i> Practice Topic: <strong id="dsa-plan-topic-revise-topic-title">Arrays & Hashing</strong>
+                <span class="plan-time-subtle" id="dsa-plan-topic-revise-time-badge">~35m target</span>
+              </div>
+              <button type="button" class="btn btn-stream-refresh btn-refresh-topic-revise" id="btn-refresh-topic-revise" title="Refresh Topic Revision Questions" aria-label="Refresh Topic Revision Questions">
+                <i class="fa-solid fa-arrows-rotate"></i> <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="plan-task-list" id="dsa-plan-topic-revise-task-list">
+            <!-- Dynamically populated topic revision task cards -->
+          </div>
+        </div>
+
+        <!-- ================= D. SPACED REVISION — TIME-BASED SRS RECALL ================= -->
+        <div class="plan-section-card" id="dsa-plan-spaced-revise-section">
+          <div class="plan-section-card-header">
+            <div class="plan-section-title-wrap">
+              <div class="plan-section-badge spaced-revise-badge">
+                <i class="fa-solid fa-clock-rotate-left"></i> SPACED REVISION
+              </div>
+              <h3 class="plan-section-heading">Due reviews · SRS scheduled · All eligible topics</h3>
+              <p class="plan-section-desc" id="dsa-plan-spaced-revise-concept-sub">Recall previously learned questions at appropriate intervals across all topics.</p>
+            </div>
+            <div class="plan-section-actions">
+              <div class="plan-section-topic-pill spaced-topic-pill" id="dsa-plan-spaced-revise-prominent-topic">
+                <i class="fa-solid fa-bell"></i> SRS Due Queue: <strong id="dsa-plan-spaced-revise-topic-title">All Eligible Topics</strong>
+                <span class="plan-time-subtle" id="dsa-plan-spaced-revise-time-badge">~25m target</span>
+                <span class="plan-backlog-badge" id="dsa-plan-spaced-backlog-badge" style="display:none;"></span>
+              </div>
+              <button type="button" class="btn btn-stream-refresh btn-refresh-spaced-revise" id="btn-refresh-spaced-revise" title="Refresh Spaced Revision Questions" aria-label="Refresh Spaced Revision Questions">
+                <i class="fa-solid fa-arrows-rotate"></i> <span>Refresh</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="plan-task-list" id="dsa-plan-spaced-revise-task-list">
+            <!-- Dynamically populated spaced revision task cards -->
+          </div>
+        </div>
+
+        <!-- ================= D. YOUR PROGRESS TODAY ================= -->
+        <div class="plan-section-card" id="dsa-plan-progress-section">
+          <div class="plan-section-card-header">
+            <div class="plan-section-title-wrap">
+              <div class="plan-section-badge progress-badge">
+                <i class="fa-solid fa-chart-pie"></i> Your Progress Today
+              </div>
+              <h3 class="plan-section-heading">Daily Session Summary</h3>
+              <p class="plan-section-desc">Track today's problem-solving momentum and time invested.</p>
+            </div>
+            <div class="plan-budget-pill" id="dsa-plan-budget-pill" title="Time budget split">
+              <span>80m Learn • 30m Revise • 10m Active Recall</span>
+            </div>
+          </div>
+
+          <!-- Essential 4 Metrics Grid -->
+          <div class="plan-metrics-grid">
+            <div class="plan-metric-box">
+              <div class="metric-icon-wrap emerald"><i class="fa-solid fa-circle-check"></i></div>
+              <div class="metric-info">
+                <span class="plan-metric-val" id="dsa-plan-completed-tasks">0</span>
+                <span class="plan-metric-label">Tasks completed</span>
+              </div>
+            </div>
+            <div class="plan-metric-box">
+              <div class="metric-icon-wrap blue"><i class="fa-solid fa-list-check"></i></div>
+              <div class="metric-info">
+                <span class="plan-metric-val" id="dsa-plan-remaining-tasks">0</span>
+                <span class="plan-metric-label">Tasks remaining</span>
+              </div>
+            </div>
+            <div class="plan-metric-box">
+              <div class="metric-icon-wrap violet"><i class="fa-solid fa-stopwatch"></i></div>
+              <div class="metric-info">
+                <span class="plan-metric-val" id="dsa-plan-study-time-spent">0m</span>
+                <span class="plan-metric-label">Study time completed</span>
+              </div>
+            </div>
+            <div class="plan-metric-box">
+              <div class="metric-icon-wrap amber"><i class="fa-solid fa-bell"></i></div>
+              <div class="metric-info">
+                <span class="plan-metric-val" id="dsa-plan-overdue-count">0</span>
+                <span class="plan-metric-label">Overdue revisions remaining</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Active Recall Buffer & Status Footer -->
+          <div class="plan-progress-lower-row">
+            <div class="plan-recall-buffer-card">
+              <div class="plan-recall-header">
+                <i class="fa-solid fa-lightbulb"></i>
+                <strong>10-Min Active Recall Buffer</strong>
+              </div>
+              <p id="dsa-plan-recall-text">
+                Spend 10 minutes explaining today's algorithmic invariants out loud before finishing.
+              </p>
+            </div>
+
+            <div class="plan-status-footer" id="dsa-plan-status-footer">
+              <i class="fa-solid fa-circle-play" style="color:var(--primary);"></i>
+              <span>Ready to start: Pick your first problem above</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= SECONDARY DETAILED ANALYTICS (EXPANDABLE) ================= -->
+        <div class="dashboard-secondary-accordion" id="dashboard-secondary-accordion">
+          <button class="accordion-toggle-btn" id="btn-toggle-secondary-analytics" type="button" aria-expanded="false" aria-controls="secondary-analytics-content">
+            <div class="accordion-toggle-left">
+              <i class="fa-solid fa-chart-line"></i>
+              <div class="accordion-text-wrap">
+                <strong>Comprehensive Analytics & Review Queue</strong>
+                <span class="accordion-subtext">Interview readiness (0-100), topic radar, practice streak & review queue</span>
+              </div>
+            </div>
+            <i class="fa-solid fa-chevron-down accordion-chevron"></i>
           </button>
-        </div>
 
-        <!-- Interview Readiness Score Hero (Feature A) -->
-        <div class="readiness-hero-card" id="dashboard-readiness-hero">
-          <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
-            <div class="readiness-score-dial">
-              <div style="text-align:center;">
-                <div class="readiness-score-number" id="readiness-overall-score" style="color:var(--primary);">0</div>
-                <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Readiness (0-100)</span>
-              </div>
-              <div>
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
-                  <h3 style="font-size:18px; font-weight:700;" id="readiness-grade-label">Calibrating Readiness...</h3>
-                  <span class="readiness-badge-provisional" id="readiness-provisional-badge" style="display:none;"><i class="fa-solid fa-circle-info"></i> Provisional</span>
+          <div class="accordion-content" id="secondary-analytics-content" style="display:none;">
+            <!-- Interview Readiness Score Hero (Feature A) -->
+            <div class="readiness-hero-card" id="dashboard-readiness-hero">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px;">
+                <div class="readiness-score-dial">
+                  <div style="text-align:center;">
+                    <div class="readiness-score-number" id="readiness-overall-score" style="color:var(--primary);">0</div>
+                    <span style="font-size:11px; color:var(--text-dim); text-transform:uppercase; font-weight:700;">Readiness (0-100)</span>
+                  </div>
+                  <div>
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                      <h3 style="font-size:18px; font-weight:700;" id="readiness-grade-label">Calibrating Readiness...</h3>
+                      <span class="readiness-badge-provisional" id="readiness-provisional-badge" style="display:none;"><i class="fa-solid fa-circle-info"></i> Provisional</span>
+                    </div>
+                    <p style="font-size:12.5px; color:var(--text-muted); max-width:550px;" id="readiness-summary-text">
+                      Multi-signal evaluation measuring independent solves, delayed retention, and timed execution.
+                    </p>
+                    <div style="display:flex; gap:14px; margin-top:8px; font-size:12px; color:var(--text-dim);" id="readiness-evidence-counts">
+                      <span id="readiness-independent-stat"><i class="fa-solid fa-check" style="color:#10b981;"></i> 0 Independent Solves</span>
+                      <span id="readiness-delayed-stat"><i class="fa-solid fa-clock" style="color:#8b5cf6;"></i> 0 Delayed Reviews</span>
+                      <span id="readiness-weakness-stat"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> Top Failure: None</span>
+                    </div>
+                  </div>
                 </div>
-                <p style="font-size:12.5px; color:var(--text-muted); max-width:550px;" id="readiness-summary-text">
-                  Multi-signal evaluation measuring independent solves, delayed retention, and timed execution.
-                </p>
-                <div style="display:flex; gap:14px; margin-top:8px; font-size:12px; color:var(--text-dim);" id="readiness-evidence-counts">
-                  <span id="readiness-independent-stat"><i class="fa-solid fa-check" style="color:#10b981;"></i> 0 Independent Solves</span>
-                  <span id="readiness-delayed-stat"><i class="fa-solid fa-clock" style="color:#8b5cf6;"></i> 0 Delayed Reviews</span>
-                  <span id="readiness-weakness-stat"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> Top Failure: None</span>
-                </div>
-              </div>
-            </div>
 
-            <div style="display:flex; gap:8px; align-items:center;">
-              <button class="btn btn-secondary btn-sm" id="btn-dashboard-view-graph"><i class="fa-solid fa-diagram-project"></i> Prereq Graph</button>
-              <button class="btn btn-secondary btn-sm" id="btn-dashboard-view-mock"><i class="fa-solid fa-stopwatch-20"></i> Mock Interview</button>
-            </div>
-          </div>
-
-          <!-- Dimension Breakdown Grid -->
-          <div class="readiness-dimensions-grid" id="readiness-dimensions-container">
-            <!-- Populated dynamically -->
-          </div>
-        </div>
-
-        <!-- Stats Summary Grid -->
-        <div class="stats-grid">
-          <div class="stat-card emerald-top">
-            <div class="stat-label">Total Solved <i class="fa-solid fa-check-double" style="color:var(--primary);"></i></div>
-            <div class="stat-value"><span id="stat-solved-count">0</span> <span class="stat-sub">/ <span id="stat-total-count">0</span></span></div>
-          </div>
-          <div class="stat-card slate-top">
-            <div class="stat-label">Unsolved Remaining <i class="fa-regular fa-circle" style="color:#94a3b8;"></i></div>
-            <div class="stat-value" style="color:#cbd5e1;"><span id="stat-unsolved-count">0</span> <span class="stat-sub">to go</span></div>
-          </div>
-          <div class="stat-card amber-top">
-            <div class="stat-label">Due for Revision <i class="fa-solid fa-bell" style="color:var(--accent-amber);"></i></div>
-            <div class="stat-value" style="color:var(--accent-amber);" id="stat-due-count">0</div>
-          </div>
-          <div class="stat-card violet-top">
-            <div class="stat-label">Mastered (Stage 4+) <i class="fa-solid fa-trophy" style="color:var(--accent-violet);"></i></div>
-            <div class="stat-value" style="color:var(--accent-violet);" id="stat-mastered-count">0</div>
-          </div>
-          <div class="stat-card cyan-top">
-            <div class="stat-label">Overall Retention <i class="fa-solid fa-brain" style="color:var(--accent-cyan);"></i></div>
-            <div class="stat-value" style="color:var(--accent-cyan);" id="stat-retention-score">0%</div>
-          </div>
-        </div>
-
-        <!-- Today's Due Revision Banner -->
-        <div class="revision-banner" id="dashboard-revision-banner">
-          <div class="revision-banner-info">
-            <div class="revision-banner-icon"><i class="fa-solid fa-bell"></i></div>
-            <div>
-              <h3><span id="banner-due-count">0</span> Problems Due for Revision Today</h3>
-              <p>Keep your memory active! Consistent spaced repetition permanently cements patterns in long-term memory.</p>
-            </div>
-          </div>
-          <button class="btn btn-primary" id="btn-banner-start-review">Review Due Now</button>
-        </div>
-
-        <!-- Streak & Daily Activity Heatmap -->
-        <div class="activity-card">
-          <div class="activity-header">
-            <div>
-              <h3 style="font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px;">
-                <i class="fa-solid fa-fire" style="color:#f59e0b;"></i> Daily Practice Streak & Revision Heatmap
-              </h3>
-              <span style="font-size:12px; color:var(--text-dim);">Spaced repetition and practice consistency logged across the last 52 weeks</span>
-            </div>
-            <div class="streak-badges">
-              <div class="streak-badge active-streak">
-                <i class="fa-solid fa-fire"></i>
-                <span><strong id="streak-current-count">1</strong> Day Active Streak</span>
-              </div>
-              <div class="streak-badge">
-                <i class="fa-solid fa-crown" style="color:#eab308;"></i>
-                <span><strong id="streak-max-count">1</strong> Day Record</span>
-              </div>
-            </div>
-          </div>
-          <div class="heatmap-scroll-wrap">
-            <div class="heatmap-grid" id="dashboard-heatmap-grid">
-              <!-- Populated dynamically -->
-            </div>
-          </div>
-          <div class="heatmap-legend">
-            <span>Less</span>
-            <div class="heatmap-cell"></div>
-            <div class="heatmap-cell level-1"></div>
-            <div class="heatmap-cell level-2"></div>
-            <div class="heatmap-cell level-3"></div>
-            <div class="heatmap-cell level-4"></div>
-            <span>More</span>
-          </div>
-        </div>
-
-        <!-- Charts Row -->
-        <div class="charts-grid">
-          <div class="chart-card">
-            <div class="chart-header">
-              <h3><i class="fa-solid fa-chart-radar" style="color:var(--primary); margin-right:8px;"></i> Topic Mastery Radar</h3>
-              <span class="badge badge-easy">Live SRS Depth</span>
-            </div>
-            <div class="chart-container-box">
-              <canvas id="dashboard-radar-chart"></canvas>
-            </div>
-          </div>
-
-          <div class="chart-card">
-            <div class="chart-header">
-              <h3><i class="fa-solid fa-chart-simple" style="color:var(--accent-blue); margin-right:8px;"></i> Topic Coverage & Progress</h3>
-              <span class="badge badge-srs-upcoming">Status Split</span>
-            </div>
-            <div class="chart-container-box">
-              <canvas id="dashboard-bar-chart"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <!-- Quick Access Priority Table -->
-        <div class="section-title-wrap">
-          <h2><i class="fa-solid fa-fire" style="color:var(--accent-amber);"></i> High Priority Review Queue</h2>
-          <button class="btn btn-secondary btn-sm" id="btn-see-all-revisions">View Full Queue</button>
-        </div>
-
-        <div class="table-container">
-          <table class="problem-table">
-            <thead>
-              <tr>
-                <th style="width: 90px;">Status</th>
-                <th>Problem Title</th>
-                <th>Topic & Pattern</th>
-                <th>Difficulty</th>
-                <th>Last Review</th>
-                <th style="width: 140px;">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="dashboard-priority-tbody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ================= VIEW 2: ALL PROBLEMS & SHEETS ================= -->
-      <section id="view-problems" class="view-section">
-        <div class="section-title-wrap">
-          <div>
-            <h2><i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> Curated Problem Explorer</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">Browse all 479 curated interview problems across top roadmaps & sheets</span>
-          </div>
-        </div>
-
-        <!-- Segmented Sheet Tabs on Top -->
-        <div class="sheet-pills-bar" id="sheet-pills-container">
-          <button class="sheet-pill active" data-sheet-val="all"><i class="fa-solid fa-border-all"></i> All Curated Sheets</button>
-          <button class="sheet-pill" data-sheet-val="Striver A2Z"><i class="fa-solid fa-rocket"></i> Striver's A2Z DSA</button>
-          <button class="sheet-pill" data-sheet-val="NeetCode 150"><i class="fa-solid fa-bolt"></i> NeetCode 150</button>
-          <button class="sheet-pill" data-sheet-val="Striver SDE"><i class="fa-solid fa-briefcase"></i> Striver's SDE Sheet</button>
-          <button class="sheet-pill" data-sheet-val="Blind 75"><i class="fa-solid fa-gem"></i> Blind 75</button>
-          <button class="sheet-pill" data-sheet-val="Custom"><i class="fa-solid fa-star"></i> Custom Added</button>
-        </div>
-
-        <!-- Filter Bar -->
-        <div class="filter-bar">
-          <div class="filter-group">
-            <select class="filter-select" id="filter-sheet" style="display:none;">
-              <option value="all">All Curated Sheets</option>
-              <option value="Striver A2Z">Striver's A2Z Sheet</option>
-              <option value="NeetCode 150">NeetCode 150</option>
-              <option value="Striver SDE">Striver's SDE Sheet</option>
-              <option value="Blind 75">Blind 75</option>
-              <option value="Custom">Custom Added</option>
-            </select>
-
-            <select class="filter-select" id="filter-company">
-              <option value="all">🏢 All Companies</option>
-              <option value="Google">Google</option>
-              <option value="Amazon">Amazon</option>
-              <option value="Microsoft">Microsoft</option>
-              <option value="Meta">Meta / Facebook</option>
-              <option value="Apple">Apple</option>
-              <option value="Bloomberg">Bloomberg</option>
-              <option value="Goldman Sachs">Goldman Sachs</option>
-              <option value="Uber">Uber</option>
-              <option value="Adobe">Adobe</option>
-              <option value="Flipkart">Flipkart</option>
-              <option value="TCS">TCS / Infosys</option>
-            </select>
-
-            <select class="filter-select" id="filter-topic">
-              <option value="all">All Topics</option>
-              <!-- Populated dynamically -->
-            </select>
-
-            <select class="filter-select" id="filter-difficulty">
-              <option value="all">All Difficulties</option>
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
-            </select>
-
-            <select class="filter-select" id="filter-status">
-              <option value="all">All Statuses</option>
-              <option value="due">Due / Overdue</option>
-              <option value="in-progress">In Progress</option>
-              <option value="mastered">Mastered</option>
-              <option value="unsolved">Unsolved</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- Live Count Summary Bar -->
-        <div class="problem-count-summary-bar" id="problem-count-summary-bar" style="display:flex; justify-content:space-between; align-items:center; margin: 14px 0 16px; padding: 10px 16px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:var(--radius-md); font-size:12.5px; color:var(--text-muted); flex-wrap:wrap; gap:8px;">
-          <div>
-            <span>Showing <strong id="explorer-filtered-total" style="color:#f8fafc;">0</strong> problems</span>
-          </div>
-          <div style="display:flex; gap:16px; align-items:center; font-weight:600;">
-            <span style="color:#34d399;"><i class="fa-solid fa-circle-check"></i> <strong id="explorer-filtered-solved">0</strong> Solved</span>
-            <span style="color:#94a3b8;"><i class="fa-regular fa-circle"></i> <strong id="explorer-filtered-unsolved">0</strong> Unsolved</span>
-            <span style="color:var(--accent-amber);"><i class="fa-solid fa-bell"></i> <strong id="explorer-filtered-due">0</strong> Due</span>
-          </div>
-        </div>
-
-        <!-- Problem Table -->
-        <div class="table-container">
-          <table class="problem-table">
-            <thead>
-              <tr>
-                <th style="width: 50px;">Solve</th>
-                <th>Problem Title</th>
-                <th>Topic & Pattern</th>
-                <th>Difficulty</th>
-                <th>Confidence</th>
-                <th>Sheet</th>
-                <th>Next Revision</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="all-problems-tbody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ================= VIEW 3: REVISION QUEUE ================= -->
-      <section id="view-revision" class="view-section">
-        <div class="section-title-wrap">
-          <div>
-            <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-amber);"></i> Spaced Repetition Review Queue</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">Scientifically timed intervals to prevent forgetting curve decay</span>
-          </div>
-          <div class="filter-group">
-            <button class="filter-chip active" data-revision-filter="due">Due & Overdue</button>
-            <button class="filter-chip" data-revision-filter="upcoming">Upcoming (Next 7 Days)</button>
-            <button class="filter-chip" data-revision-filter="mastered">Mastered Archive</button>
-          </div>
-        </div>
-
-        <div class="table-container">
-          <table class="problem-table">
-            <thead>
-              <tr>
-                <th>Status</th>
-                <th>Problem Title</th>
-                <th>Topic</th>
-                <th>Difficulty</th>
-                <th>Confidence</th>
-                <th>Stage & Interval</th>
-                <th>Due Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="revision-queue-tbody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ================= VIEW 4: MONTHLY ASSESSMENT ================= -->
-      <section id="view-monthly-assessment" class="view-section">
-        <div class="section-title-wrap">
-          <div>
-            <h2><i class="fa-solid fa-award" style="color:var(--accent-violet);"></i> Monthly Revision Assessment</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">Comprehensive 60-minute retention exam testing both covered questions and unseen problem patterns</span>
-          </div>
-          <button class="btn btn-monthly" id="btn-start-monthly-test">
-            <i class="fa-solid fa-play"></i> Start New 5-Question Exam
-          </button>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-card violet-top">
-            <div class="stat-label">Tests Completed</div>
-            <div class="stat-value" id="test-stat-completed">0</div>
-          </div>
-          <div class="stat-card emerald-top">
-            <div class="stat-label">Average Score</div>
-            <div class="stat-value" id="test-stat-avg">0%</div>
-          </div>
-          <div class="stat-card amber-top">
-            <div class="stat-label">Last Grade</div>
-            <div class="stat-value" id="test-stat-last-grade">-</div>
-          </div>
-        </div>
-
-        <div class="section-title-wrap" style="margin-top:28px;">
-          <h2><i class="fa-solid fa-history" style="color:var(--accent-cyan);"></i> Previous Assessment History</h2>
-        </div>
-
-        <div class="table-container">
-          <table class="problem-table">
-            <thead>
-              <tr>
-                <th>Test Date</th>
-                <th>Score</th>
-                <th>Grade</th>
-                <th>Summary</th>
-              </tr>
-            </thead>
-            <tbody id="monthly-test-history-tbody">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- ================= VIEW 5: TOPIC MASTERY & ANALYTICS ================= -->
-      <section id="view-analytics" class="view-section">
-        <div class="section-title-wrap">
-          <div>
-            <h2><i class="fa-solid fa-chart-pie" style="color:var(--primary);"></i> In-Depth Topic Mastery Matrix</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">Detailed strength vs decay breakdown across all 16 core algorithm domains</span>
-          </div>
-        </div>
-
-        <div class="charts-grid">
-          <div class="chart-card">
-            <div class="chart-header">
-              <h3><i class="fa-solid fa-chart-radar" style="color:var(--primary); margin-right:8px;"></i> Multi-Topic Radar Strength</h3>
-            </div>
-            <div class="chart-container-box">
-              <canvas id="analytics-radar-chart"></canvas>
-            </div>
-          </div>
-
-          <div class="chart-card">
-            <div class="chart-header">
-              <h3><i class="fa-solid fa-pie-chart" style="color:var(--accent-amber); margin-right:8px;"></i> Difficulty Solved Ratio</h3>
-            </div>
-            <div class="chart-container-box">
-              <canvas id="analytics-doughnut-chart"></canvas>
-            </div>
-          </div>
-        </div>
-
-        <div class="section-title-wrap">
-          <h2><i class="fa-solid fa-shield-halved" style="color:var(--accent-cyan);"></i> Topic Health & Decay Status</h2>
-        </div>
-        <div class="topic-matrix-grid" id="topic-matrix-container">
-          <!-- Dynamically populated -->
-        </div>
-      </section>
-
-      <!-- ================= VIEW 6: FLASHCARD QUIZ ================= -->
-      <section id="view-flashcards" class="view-section">
-        <div class="section-title-wrap">
-          <div>
-            <h2><i class="fa-solid fa-bolt" style="color:var(--accent-cyan);"></i> Flashcard Intuition Mode</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">Test your quick algorithmic intuition and recall before flipping the card to check optimal complexity & gotchas</span>
-          </div>
-          <div style="display:flex; gap:8px;">
-            <select class="filter-select" id="flashcard-filter-topic">
-              <option value="due">Problems Due for Review</option>
-              <option value="all">All Master Problems</option>
-            </select>
-            <button class="btn btn-secondary btn-sm" id="btn-flashcard-prev" aria-label="Previous flashcard"><i class="fa-solid fa-arrow-left"></i> Prev</button>
-            <button class="btn btn-secondary btn-sm" id="btn-flashcard-next" aria-label="Next flashcard">Next <i class="fa-solid fa-arrow-right"></i></button>
-          </div>
-        </div>
-
-        <div style="margin-top:20px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; max-width:680px; margin:0 auto 12px; font-size:12.5px; color:var(--text-muted);">
-            <span>Card <strong id="flashcard-current-index" style="color:#fff;">1</strong> of <strong id="flashcard-total-count" style="color:#fff;">0</strong></span>
-            <span id="flashcard-deck-name" class="badge badge-srs-due">Due for Review Deck</span>
-          </div>
-
-          <div class="flashcard-wrap" id="flashcard-container">
-            <div class="flashcard-inner" id="flashcard-card">
-              <!-- Front Face -->
-              <div class="flashcard-face flashcard-front">
-                <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                  <span class="badge" id="fc-front-diff">Medium</span>
-                  <div class="company-chip-wrap" id="fc-front-companies"></div>
-                </div>
-                <div style="text-align:center; padding: 24px 0;">
-                  <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--accent-violet); font-weight:700;" id="fc-front-topic">Dynamic Programming</span>
-                  <h2 style="font-size:24px; margin-top:8px; font-weight:700; color:#f8fafc;" id="fc-front-title">Problem Title</h2>
-                  <p style="font-size:13.5px; color:var(--text-muted); margin-top:10px;" id="fc-front-pattern">Pattern: 2D Grid DP</p>
-                </div>
-                <div class="flashcard-hint">
-                  <i class="fa-solid fa-hand-pointer"></i> Click anywhere on this card to flip & reveal optimal solution
+                <div style="display:flex; gap:8px; align-items:center;">
+                  <button class="btn btn-secondary btn-sm" id="btn-dashboard-view-graph"><i class="fa-solid fa-diagram-project"></i> Prereq Graph</button>
+                  <button class="btn btn-secondary btn-sm" id="btn-dashboard-view-mock"><i class="fa-solid fa-stopwatch-20"></i> Mock Interview</button>
                 </div>
               </div>
 
-              <!-- Back Face -->
-              <div class="flashcard-face flashcard-back">
+              <!-- Dimension Breakdown Grid -->
+              <div class="readiness-dimensions-grid" id="readiness-dimensions-container">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <!-- Stats Summary Grid -->
+            <div class="stats-grid">
+              <div class="stat-card emerald-top">
+                <div class="stat-label">Total Solved <i class="fa-solid fa-check-double" style="color:var(--primary);"></i></div>
+                <div class="stat-value"><span id="stat-solved-count">0</span> <span class="stat-sub">/ <span id="stat-total-count">0</span></span></div>
+              </div>
+              <div class="stat-card slate-top">
+                <div class="stat-label">Unsolved Remaining <i class="fa-regular fa-circle" style="color:#94a3b8;"></i></div>
+                <div class="stat-value" style="color:#cbd5e1;"><span id="stat-unsolved-count">0</span> <span class="stat-sub">to go</span></div>
+              </div>
+              <div class="stat-card amber-top">
+                <div class="stat-label">Due for Revision <i class="fa-solid fa-bell" style="color:var(--accent-amber);"></i></div>
+                <div class="stat-value" style="color:var(--accent-amber);" id="stat-due-count">0</div>
+              </div>
+              <div class="stat-card violet-top">
+                <div class="stat-label">Mastered (Stage 4+) <i class="fa-solid fa-trophy" style="color:var(--accent-violet);"></i></div>
+                <div class="stat-value" style="color:var(--accent-violet);" id="stat-mastered-count">0</div>
+              </div>
+              <div class="stat-card cyan-top">
+                <div class="stat-label">Overall Retention <i class="fa-solid fa-brain" style="color:var(--accent-cyan);"></i></div>
+                <div class="stat-value" style="color:var(--accent-cyan);" id="stat-retention-score">0%</div>
+              </div>
+            </div>
+
+            <!-- Streak & Daily Activity Heatmap -->
+            <div class="activity-card">
+              <div class="activity-header">
                 <div>
-                  <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:10px;">
-                    <strong style="color:var(--primary); font-size:15px;" id="fc-back-title">Problem Title</strong>
-                    <a id="fc-back-link" href="#" target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;" onclick="event.stopPropagation();"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open Problem</a>
-                  </div>
-                  <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0;">
-                    <div style="background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-                      <div style="font-size:11px; color:var(--text-dim);">Time Complexity</div>
-                      <div style="font-weight:700; color:#38bdf8; font-size:13.5px;" id="fc-back-time">O(N)</div>
-                    </div>
-                    <div style="background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-                      <div style="font-size:11px; color:var(--text-dim);">Space Complexity</div>
-                      <div style="font-weight:700; color:#c084fc; font-size:13.5px;" id="fc-back-space">O(1)</div>
-                    </div>
-                  </div>
-                  <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; color:#e2e8f0; max-height:140px; overflow-y:auto;" id="fc-back-notes">
-                    Key intuition and algorithmic approach details...
-                  </div>
+                  <h3 style="font-size:15px; font-weight:700; display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-fire" style="color:#f59e0b;"></i> Daily Practice Streak & Revision Heatmap
+                  </h3>
+                  <span style="font-size:12px; color:var(--text-dim);">Spaced repetition and practice consistency logged across the last 52 weeks</span>
                 </div>
-
-                <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;" onclick="event.stopPropagation();">
-                  <div style="font-size:11.5px; color:var(--text-dim); text-align:center;">Rate your recall to update Spaced Repetition:</div>
-                  <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
-                    <button class="btn btn-sm btn-fc-rate" data-fc-rating="simple" style="background:rgba(16,185,129,0.2); color:#34d399; border:1px solid #10b981;">Easy (+7d)</button>
-                    <button class="btn btn-sm btn-fc-rate" data-fc-rating="medium" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid #f59e0b;">Med (+3d)</button>
-                    <button class="btn btn-sm btn-fc-rate" data-fc-rating="hard" style="background:rgba(244,63,94,0.2); color:#fb7185; border:1px solid #f43f5e;">Hard (+1d)</button>
-                    <button class="btn btn-sm btn-fc-rate" data-fc-rating="failed" style="background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid #ef4444;">Blank (24h)</button>
+                <div class="streak-badges">
+                  <div class="streak-badge active-streak">
+                    <i class="fa-solid fa-fire"></i>
+                    <span><strong id="streak-current-count">1</strong> Day Active Streak</span>
+                  </div>
+                  <div class="streak-badge">
+                    <i class="fa-solid fa-crown" style="color:#eab308;"></i>
+                    <span><strong id="streak-max-count">1</strong> Day Record</span>
                   </div>
                 </div>
               </div>
+              <div class="heatmap-scroll-wrap">
+                <div class="heatmap-grid" id="dashboard-heatmap-grid">
+                  <!-- Populated dynamically -->
+                </div>
+              </div>
+              <div class="heatmap-legend">
+                <span>Less</span>
+                <div class="heatmap-cell"></div>
+                <div class="heatmap-cell level-1"></div>
+                <div class="heatmap-cell level-2"></div>
+                <div class="heatmap-cell level-3"></div>
+                <div class="heatmap-cell level-4"></div>
+                <span>More</span>
+              </div>
+            </div>
+
+            <!-- Charts Row -->
+            <div class="charts-grid">
+              <div class="chart-card">
+                <div class="chart-header">
+                  <h3><i class="fa-solid fa-chart-radar" style="color:var(--primary); margin-right:8px;"></i> Topic Mastery Radar</h3>
+                  <span class="badge badge-easy">Live SRS Depth</span>
+                </div>
+                <div class="chart-container-box">
+                  <canvas id="dashboard-radar-chart"></canvas>
+                </div>
+              </div>
+
+              <div class="chart-card">
+                <div class="chart-header">
+                  <h3><i class="fa-solid fa-chart-simple" style="color:var(--accent-blue); margin-right:8px;"></i> Topic Coverage & Progress</h3>
+                  <span class="badge badge-srs-upcoming">Status Split</span>
+                </div>
+                <div class="chart-container-box">
+                  <canvas id="dashboard-bar-chart"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Access Priority Table -->
+            <div class="section-title-wrap">
+              <h2><i class="fa-solid fa-fire" style="color:var(--accent-amber);"></i> High Priority Review Queue</h2>
+              <button class="btn btn-secondary btn-sm" id="btn-see-all-revisions">View Full Queue</button>
+            </div>
+
+            <div class="table-container">
+              <table class="problem-table">
+                <thead>
+                  <tr>
+                    <th style="width: 90px;">Status</th>
+                    <th>Problem Title</th>
+                    <th>Topic & Pattern</th>
+                    <th>Difficulty</th>
+                    <th>Last Review</th>
+                    <th style="width: 140px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="dashboard-priority-tbody">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ================= VIEW 7: DAILY PROBLEMS & WEEKEND TEST ================= -->
-      <section id="view-roadmap" class="view-section">
-        <!-- Daily Plan Hero Header -->
-        <div class="roadmap-hero-card">
-          <div class="roadmap-hero-main">
-            <div class="roadmap-hero-badge">
-              <i class="fa-solid fa-calendar-check"></i>
-              <span>Daily Problem Pacing & Weekend Test Hub</span>
-            </div>
-            <h2 id="roadmap-track-title">🎯 Daily Practice & Weekend Test</h2>
-            <p id="roadmap-track-subtitle">Adaptive confidence-powered daily DSA target problems, automated spaced revisions, and weekly diagnostic retention exams.</p>
-            
-            <div class="roadmap-stats-row">
-              <div class="roadmap-stat-item">
-                <span class="stat-num" id="roadmap-stat-progress">0%</span>
-                <span class="stat-txt">Cycle Progress</span>
-              </div>
-              <div class="roadmap-stat-item">
-                <span class="stat-num" id="roadmap-stat-days-done">0 / 7</span>
-                <span class="stat-txt">Days Complete</span>
-              </div>
-              <div class="roadmap-stat-item">
-                <span class="stat-num" id="roadmap-stat-solved-count" style="color:#34d399;">0</span>
-                <span class="stat-txt">Solved Problems</span>
-              </div>
-              <div class="roadmap-stat-item">
-                <span class="stat-num" id="roadmap-stat-unsolved-count" style="color:#cbd5e1;">0</span>
-                <span class="stat-txt">Unsolved Remaining</span>
-              </div>
-              <div class="roadmap-stat-item">
-                <span class="stat-num" id="roadmap-stat-active-focus">Basics & Math</span>
-                <span class="stat-txt">Active Focus</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="roadmap-hero-actions">
-            <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Quick Focus Pacing:</label>
-            <select class="filter-select" id="roadmap-track-select" style="width:100%;">
-              <option value="striver_hero">🚀 Full Coverage Track (479 Master Problems)</option>
-              <option value="faang_60">💼 FAANG High-Frequency Sprint</option>
-              <option value="blind_30">⚡ Blind 75 Essentials</option>
-            </select>
-            <div class="roadmap-track-progress-bar">
-              <div class="roadmap-track-progress-fill" id="roadmap-track-progress-fill" style="width:0%;"></div>
-            </div>
-          </div>
+      <!-- ================= DESTINATION 2: PRACTICE ================= -->
+      <section id="view-practice" class="view-section">
+        <!-- View Sub-Navigation -->
+        <div class="view-subtabs-bar" role="tablist" aria-label="Practice Sub-views">
+          <button type="button" class="view-subtab-btn active" data-parent-view="practice" data-subtab="catalog" role="tab" aria-selected="true">
+            <i class="fa-solid fa-layer-group"></i> Problem Catalog
+          </button>
+          <button type="button" class="view-subtab-btn" data-parent-view="practice" data-subtab="patterns" role="tab" aria-selected="false">
+            <i class="fa-solid fa-code-fork"></i> Patterns Handbook
+          </button>
+          <button type="button" class="view-subtab-btn" data-parent-view="practice" data-subtab="flashcards" role="tab" aria-selected="false">
+            <i class="fa-solid fa-bolt"></i> Flashcard Intuition
+          </button>
         </div>
 
-        <!-- 7-Day Cycle Selector Strip -->
-        <div class="roadmap-days-strip-card" style="margin-top:18px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-            <div style="font-size:14px; font-weight:700; color:#f8fafc;" id="roadmap-selected-week-heading">
-              <i class="fa-solid fa-calendar-day" style="color:var(--primary); margin-right:6px;"></i> Weekly Practice & Assessment Schedule
-            </div>
-            <div style="font-size:12px; color:var(--text-dim);" id="roadmap-week-progress-txt">
-              0 / 7 Days Complete
-            </div>
-          </div>
-          <div class="roadmap-days-pills" id="roadmap-days-pills-container">
-            <!-- Dynamically populated 7-Day Pills (Days 1-5 Practice, Day 6 Super Rev, Day 7 Exam) -->
-          </div>
-        </div>
-
-        <!-- Active Day Practice & Weekend Test Container -->
-        <div id="roadmap-active-day-content" style="margin-top:20px;">
-          <!-- Dynamically populated daily target problems, due revisions, or weekend test cards -->
-        </div>
-      </section>
-
-      <!-- ================= VIEW 8: PATTERNS HANDBOOK & CHEAT SHEETS ================= -->
-      <section id="view-patterns" class="view-section">
-        <div class="section-title-wrap">
-          <div>
-            <h2><i class="fa-solid fa-code-fork" style="color:var(--accent-cyan);"></i> Algorithmic Patterns Handbook</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">
-              Essential mental models, decision triggers, and boilerplate code templates for 20+ canonical interview patterns.
-            </span>
-          </div>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <span class="badge" style="background:rgba(6,182,212,0.15); color:#38bdf8; border:1px solid rgba(6,182,212,0.3); font-size:12px; padding:6px 12px;">
-              <i class="fa-solid fa-layer-group"></i> 20+ Master Templates
-            </span>
-          </div>
-        </div>
-
-        <!-- Pattern Search & Category Filter Pills -->
-        <div class="filter-bar" style="margin-bottom:16px;">
-          <div style="flex:1; position:relative; min-width:240px;">
-            <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-dim); font-size:12px;"></i>
-            <input type="text" id="pattern-search-input" placeholder="Search pattern name, triggers, or problems (e.g. Sliding Window, Knapsack, Dijkstra)..." style="width:100%; padding:8px 12px 8px 34px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); color:#fff; font-size:13px;">
-          </div>
-        </div>
-
-        <div class="sheet-pills-bar" id="pattern-category-pills" style="margin-bottom:20px;">
-          <button class="sheet-pill active" data-cat="all"><i class="fa-solid fa-border-all"></i> All Patterns</button>
-          <button class="sheet-pill" data-cat="Pointers & Sliding Window"><i class="fa-solid fa-arrows-left-right"></i> Pointers & Window</button>
-          <button class="sheet-pill" data-cat="Stacks & Heaps"><i class="fa-solid fa-layer-group"></i> Stacks & Heaps</button>
-          <button class="sheet-pill" data-cat="Trees & Graphs"><i class="fa-solid fa-network-wired"></i> Trees & Graphs</button>
-          <button class="sheet-pill" data-cat="Dynamic Programming"><i class="fa-solid fa-table-cells"></i> Dynamic Programming</button>
-          <button class="sheet-pill" data-cat="Arrays & Strings"><i class="fa-solid fa-cubes"></i> Arrays & Strings</button>
-          <button class="sheet-pill" data-cat="Advanced Data Structures"><i class="fa-solid fa-microchip"></i> Advanced DS</button>
-        </div>
-
-        <!-- Patterns Cards Grid -->
-        <div class="patterns-grid" id="patterns-cards-container">
-          <!-- Populated dynamically by js/app.js -->
-        </div>
-      </section>
-
-      <!-- ================= VIEW 9: PREREQUISITE GRAPH ================= -->
-      <section id="view-graph" class="view-section">
-        <div class="section-title-wrap">
-          <div>
-            <h2><i class="fa-solid fa-diagram-project" style="color:#8b5cf6;"></i> Prerequisite-Aware Learning Graph</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">
-              Configurable dependency network connecting foundational topics to advanced interview algorithms.
-            </span>
-          </div>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <span class="badge" style="background:rgba(139,92,246,0.15); color:#c084fc; border:1px solid rgba(139,92,246,0.3); font-size:12px; padding:6px 12px;">
-              <i class="fa-solid fa-stairs"></i> Adaptive Progression
-            </span>
-          </div>
-        </div>
-
-        <!-- Status Legend Bar -->
-        <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; background:var(--bg-card); padding:12px 16px; border-radius:var(--radius-md); border:1px solid var(--border-color); font-size:12px;">
-          <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid #10b981;">Mastered (75%+)</span> Highly retained & independent</span>
-          <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(6,182,212,0.15); color:#38bdf8; border:1px solid #06b6d4;">Proficient (40%+)</span> Solid foundational base</span>
-          <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid #f59e0b;">Learning</span> In active practice</span>
-          <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(139,92,246,0.15); color:#c084fc; border:1px solid #8b5cf6;">Available</span> Prerequisites satisfied</span>
-          <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(100,116,139,0.15); color:#94a3b8; border:1px solid #64748b;">Locked</span> Finish prerequisites first</span>
-        </div>
-
-        <div class="prereq-flow-grid" id="prereq-graph-container">
-          <!-- Populated dynamically by GraphEngine -->
-        </div>
-      </section>
-
-      <!-- ================= VIEW 10: MOCK INTERVIEWS ================= -->
-      <section id="view-mock" class="view-section">
-        <div class="section-title-wrap">
-          <div>
-            <h2><i class="fa-solid fa-stopwatch-20" style="color:#f43f5e;"></i> Realistic Mock Interview Simulator</h2>
-            <span style="font-size:12.5px; color:var(--text-dim);">
-              Timed technical rounds testing execution speed, space-time analysis, edge-case coverage, and hint independence.
-            </span>
-          </div>
-          <div style="display:flex; gap:10px; align-items:center;">
-            <span class="badge" style="background:rgba(244,63,94,0.15); color:#fda4af; border:1px solid rgba(244,63,94,0.3); font-size:12px; padding:6px 12px;">
-              <i class="fa-solid fa-shield-halved"></i> Interview Calibration
-            </span>
-          </div>
-        </div>
-
-        <!-- Setup Configuration Card -->
-        <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:24px; margin-bottom:24px;">
-          <h3 style="font-size:16px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-sliders" style="color:var(--primary);"></i> Configure New Interview Session
-          </h3>
-
-          <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:20px;">
+        <!-- Subview 1: Curated Problem Catalog (Preserves id="view-problems") -->
+        <div id="view-problems" class="subview-section active" data-parent-view="practice" data-subview="catalog">
+          <div class="section-title-wrap">
             <div>
-              <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Target Interview Track</label>
-              <select id="mock-config-track" class="filter-select" style="width:100%;">
-                <option value="faang_standard">💼 FAANG Standard (1 Med + 1 Hard)</option>
-                <option value="blind_sprint">⚡ Blind 75 Sprint (1 Easy + 1 Med)</option>
-                <option value="full_interview">🏆 Senior SDE Comprehensive (3 Problems)</option>
+              <h2><i class="fa-solid fa-layer-group" style="color:var(--primary);"></i> Curated Problem Explorer</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">Browse all 479 curated interview problems across top roadmaps & sheets</span>
+            </div>
+          </div>
+
+          <!-- Segmented Sheet Tabs on Top -->
+          <div class="sheet-pills-bar" id="sheet-pills-container">
+            <button class="sheet-pill active" data-sheet-val="all"><i class="fa-solid fa-border-all"></i> All Curated Sheets</button>
+            <button class="sheet-pill" data-sheet-val="Striver A2Z"><i class="fa-solid fa-rocket"></i> Striver's A2Z DSA</button>
+            <button class="sheet-pill" data-sheet-val="NeetCode 150"><i class="fa-solid fa-bolt"></i> NeetCode 150</button>
+            <button class="sheet-pill" data-sheet-val="Striver SDE"><i class="fa-solid fa-briefcase"></i> Striver's SDE Sheet</button>
+            <button class="sheet-pill" data-sheet-val="Blind 75"><i class="fa-solid fa-gem"></i> Blind 75</button>
+            <button class="sheet-pill" data-sheet-val="Custom"><i class="fa-solid fa-star"></i> Custom Added</button>
+          </div>
+
+          <!-- Filter Bar -->
+          <div class="filter-bar">
+            <div class="filter-group">
+              <select class="filter-select" id="filter-sheet" style="display:none;">
+                <option value="all">All Curated Sheets</option>
+                <option value="Striver A2Z">Striver's A2Z Sheet</option>
+                <option value="NeetCode 150">NeetCode 150</option>
+                <option value="Striver SDE">Striver's SDE Sheet</option>
+                <option value="Blind 75">Blind 75</option>
+                <option value="Custom">Custom Added</option>
               </select>
-            </div>
 
-            <div>
-              <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Duration Limit</label>
-              <select id="mock-config-duration" class="filter-select" style="width:100%;">
-                <option value="30">30 Minutes (Rapid Sprint)</option>
-                <option value="45" selected>45 Minutes (Standard Technical Round)</option>
-                <option value="60">60 Minutes (Deep Dive Round)</option>
-                <option value="90">90 Minutes (Comprehensive On-Site)</option>
+              <select class="filter-select" id="filter-company" aria-label="Filter by company">
+                <option value="all">🏢 All Companies</option>
+                <option value="Google">Google</option>
+                <option value="Amazon">Amazon</option>
+                <option value="Microsoft">Microsoft</option>
+                <option value="Meta">Meta / Facebook</option>
+                <option value="Apple">Apple</option>
+                <option value="Bloomberg">Bloomberg</option>
+                <option value="Goldman Sachs">Goldman Sachs</option>
+                <option value="Uber">Uber</option>
+                <option value="Adobe">Adobe</option>
+                <option value="Flipkart">Flipkart</option>
+                <option value="TCS">TCS / Infosys</option>
               </select>
-            </div>
 
-            <div>
-              <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Hint Policy</label>
-              <select id="mock-config-hints" class="filter-select" style="width:100%;">
-                <option value="practice">Practice Mode (Progressive Hints Allowed)</option>
-                <option value="penalty" selected>Timed Penalty (-10 pts per hint)</option>
-                <option value="strict">Strict Assessment (Zero Hints Allowed)</option>
+              <select class="filter-select" id="filter-topic" aria-label="Filter by topic">
+                <option value="all">All Topics</option>
+                <!-- Populated dynamically -->
               </select>
-            </div>
 
-            <div>
-              <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Topic Filter (Optional)</label>
-              <select id="mock-config-topic" class="filter-select" style="width:100%;">
-                <option value="all">All Topics (Comprehensive Pool)</option>
+              <select class="filter-select" id="filter-difficulty" aria-label="Filter by difficulty">
+                <option value="all">All Difficulties</option>
+                <option value="Easy">Easy</option>
+                <option value="Medium">Medium</option>
+                <option value="Hard">Hard</option>
+              </select>
+
+              <select class="filter-select" id="filter-status" aria-label="Filter by status">
+                <option value="all">All Statuses</option>
+                <option value="due">Due / Overdue</option>
+                <option value="in-progress">In Progress</option>
+                <option value="mastered">Mastered</option>
+                <option value="unsolved">Unsolved</option>
               </select>
             </div>
           </div>
 
-          <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-            <p style="font-size:12px; color:var(--text-dim); margin:0;">
-              <i class="fa-solid fa-lock"></i> Session is safely persisted in localStorage. Even if you accidentally refresh or close the tab, your timer and scratchpad resume seamlessly.
-            </p>
-            <button class="btn btn-primary btn-lg" id="btn-start-mock-interview" style="font-weight:700;">
-              <i class="fa-solid fa-play"></i> Start Timed Mock Interview
-            </button>
+          <!-- Live Count Summary Bar -->
+          <div class="problem-count-summary-bar" id="problem-count-summary-bar" style="display:flex; justify-content:space-between; align-items:center; margin: 14px 0 16px; padding: 10px 16px; background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:var(--radius-md); font-size:12.5px; color:var(--text-muted); flex-wrap:wrap; gap:8px;">
+            <div>
+              <span>Showing <strong id="explorer-filtered-total" style="color:#f8fafc;">0</strong> problems</span>
+            </div>
+            <div style="display:flex; gap:16px; align-items:center; font-weight:600;">
+              <span style="color:#34d399;"><i class="fa-solid fa-circle-check"></i> <strong id="explorer-filtered-solved">0</strong> Solved</span>
+              <span style="color:#94a3b8;"><i class="fa-regular fa-circle"></i> <strong id="explorer-filtered-unsolved">0</strong> Unsolved</span>
+              <span style="color:var(--accent-amber);"><i class="fa-solid fa-bell"></i> <strong id="explorer-filtered-due">0</strong> Due</span>
+            </div>
           </div>
-        </div>
 
-        <!-- Mock Past Rounds History -->
-        <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:20px;">
-          <h3 style="font-size:15px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
-            <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-blue);"></i> Completed Mock Interview History
-          </h3>
-          <div style="overflow-x:auto;">
-            <table class="problems-table" style="width:100%;">
+          <!-- Problem Table -->
+          <div class="table-container">
+            <table class="problem-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Track</th>
-                  <th>Duration</th>
-                  <th>Score</th>
-                  <th>Grade</th>
-                  <th>Questions Evaluated</th>
+                  <th style="width: 50px;">Solve</th>
+                  <th>Problem Title</th>
+                  <th>Topic & Pattern</th>
+                  <th>Difficulty</th>
+                  <th>Confidence</th>
+                  <th>Sheet</th>
+                  <th>Next Revision</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
-              <tbody id="mock-history-tbody">
-                <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim);">No mock interview rounds completed yet. Start your first session above!</td></tr>
+              <tbody id="all-problems-tbody">
+                <!-- Dynamically populated -->
               </tbody>
             </table>
+          </div>
+        </div>
+
+        <!-- Subview 2: Patterns Handbook (Preserves id="view-patterns") -->
+        <div id="view-patterns" class="subview-section" data-parent-view="practice" data-subview="patterns">
+          <div class="section-title-wrap">
+            <div>
+              <h2><i class="fa-solid fa-code-fork" style="color:var(--accent-cyan);"></i> Algorithmic Patterns Handbook</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">
+                Essential mental models, decision triggers, and boilerplate code templates for 20+ canonical interview patterns.
+              </span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span class="badge" style="background:rgba(6,182,212,0.15); color:#38bdf8; border:1px solid rgba(6,182,212,0.3); font-size:12px; padding:6px 12px;">
+                <i class="fa-solid fa-layer-group"></i> 20+ Master Templates
+              </span>
+            </div>
+          </div>
+
+          <!-- Pattern Search & Category Filter Pills -->
+          <div class="filter-bar" style="margin-bottom:16px;">
+            <div style="flex:1; position:relative; min-width:240px;">
+              <i class="fa-solid fa-magnifying-glass" style="position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-dim); font-size:12px;"></i>
+              <input type="text" id="pattern-search-input" placeholder="Search pattern name, triggers, or problems (e.g. Sliding Window, Knapsack, Dijkstra)..." style="width:100%; padding:8px 12px 8px 34px; background:var(--bg-input); border:1px solid var(--border-color); border-radius:var(--radius-md); color:#fff; font-size:13px;">
+            </div>
+          </div>
+
+          <div class="sheet-pills-bar" id="pattern-category-pills" style="margin-bottom:20px;">
+            <button class="sheet-pill active" data-cat="all"><i class="fa-solid fa-border-all"></i> All Patterns</button>
+            <button class="sheet-pill" data-cat="Pointers & Sliding Window"><i class="fa-solid fa-arrows-left-right"></i> Pointers & Window</button>
+            <button class="sheet-pill" data-cat="Stacks & Heaps"><i class="fa-solid fa-layer-group"></i> Stacks & Heaps</button>
+            <button class="sheet-pill" data-cat="Trees & Graphs"><i class="fa-solid fa-network-wired"></i> Trees & Graphs</button>
+            <button class="sheet-pill" data-cat="Dynamic Programming"><i class="fa-solid fa-table-cells"></i> Dynamic Programming</button>
+            <button class="sheet-pill" data-cat="Arrays & Strings"><i class="fa-solid fa-cubes"></i> Arrays & Strings</button>
+            <button class="sheet-pill" data-cat="Advanced Data Structures"><i class="fa-solid fa-microchip"></i> Advanced DS</button>
+          </div>
+
+          <!-- Patterns Cards Grid -->
+          <div class="patterns-grid" id="patterns-cards-container">
+            <!-- Populated dynamically by js/app.js -->
+          </div>
+        </div>
+
+        <!-- Subview 3: Flashcard Intuition (Preserves id="view-flashcards") -->
+        <div id="view-flashcards" class="subview-section" data-parent-view="practice" data-subview="flashcards">
+          <div class="section-title-wrap">
+            <div>
+              <h2><i class="fa-solid fa-bolt" style="color:var(--accent-cyan);"></i> Flashcard Intuition Mode</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">Test your quick algorithmic intuition and recall before flipping the card to check optimal complexity & gotchas</span>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <select class="filter-select" id="flashcard-filter-topic">
+                <option value="due">Problems Due for Review</option>
+                <option value="all">All Master Problems</option>
+              </select>
+              <button class="btn btn-secondary btn-sm" id="btn-flashcard-prev" aria-label="Previous flashcard"><i class="fa-solid fa-arrow-left"></i> Prev</button>
+              <button class="btn btn-secondary btn-sm" id="btn-flashcard-next" aria-label="Next flashcard">Next <i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+          </div>
+
+          <div style="margin-top:20px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; max-width:680px; margin:0 auto 12px; font-size:12.5px; color:var(--text-muted);">
+              <span>Card <strong id="flashcard-current-index" style="color:#fff;">1</strong> of <strong id="flashcard-total-count" style="color:#fff;">0</strong></span>
+              <span id="flashcard-deck-name" class="badge badge-srs-due">Due for Review Deck</span>
+            </div>
+
+            <div class="flashcard-wrap" id="flashcard-container">
+              <div class="flashcard-inner" id="flashcard-card">
+                <!-- Front Face -->
+                <div class="flashcard-face flashcard-front">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <span class="badge" id="fc-front-diff">Medium</span>
+                    <div class="company-chip-wrap" id="fc-front-companies"></div>
+                  </div>
+                  <div style="text-align:center; padding: 24px 0;">
+                    <span style="font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--accent-violet); font-weight:700;" id="fc-front-topic">Dynamic Programming</span>
+                    <h2 style="font-size:24px; margin-top:8px; font-weight:700; color:#f8fafc;" id="fc-front-title">Problem Title</h2>
+                    <p style="font-size:13.5px; color:var(--text-muted); margin-top:10px;" id="fc-front-pattern">Pattern: 2D Grid DP</p>
+                  </div>
+                  <div class="flashcard-hint">
+                    <i class="fa-solid fa-hand-pointer"></i> Click anywhere on this card to flip & reveal optimal solution
+                  </div>
+                </div>
+
+                <!-- Back Face -->
+                <div class="flashcard-face flashcard-back">
+                  <div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.08); padding-bottom:10px;">
+                      <strong style="color:var(--primary); font-size:15px;" id="fc-back-title">Problem Title</strong>
+                      <a id="fc-back-link" href="#" target="_blank" class="btn btn-secondary btn-sm" style="font-size:11px;" onclick="event.stopPropagation();"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open Problem</a>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:14px 0;">
+                      <div style="background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:11px; color:var(--text-dim);">Time Complexity</div>
+                        <div style="font-weight:700; color:#38bdf8; font-size:13.5px;" id="fc-back-time">O(N)</div>
+                      </div>
+                      <div style="background:rgba(255,255,255,0.03); padding:10px 14px; border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+                        <div style="font-size:11px; color:var(--text-dim);">Space Complexity</div>
+                        <div style="font-weight:700; color:#c084fc; font-size:13.5px;" id="fc-back-space">O(1)</div>
+                      </div>
+                    </div>
+                    <div style="background:rgba(16,185,129,0.06); border:1px solid rgba(16,185,129,0.2); border-radius:8px; padding:12px; font-size:13px; line-height:1.5; color:#e2e8f0; max-height:140px; overflow-y:auto;" id="fc-back-notes">
+                      Key intuition and algorithmic approach details...
+                    </div>
+                  </div>
+
+                  <div style="display:flex; flex-direction:column; gap:8px; margin-top:12px;" onclick="event.stopPropagation();">
+                    <div style="font-size:11.5px; color:var(--text-dim); text-align:center;">Rate your recall to update Spaced Repetition:</div>
+                    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:6px;">
+                      <button class="btn btn-sm btn-fc-rate" data-fc-rating="simple" style="background:rgba(16,185,129,0.2); color:#34d399; border:1px solid #10b981;">Easy (+7d)</button>
+                      <button class="btn btn-sm btn-fc-rate" data-fc-rating="medium" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid #f59e0b;">Med (+3d)</button>
+                      <button class="btn btn-sm btn-fc-rate" data-fc-rating="hard" style="background:rgba(244,63,94,0.2); color:#fb7185; border:1px solid #f43f5e;">Hard (+1d)</button>
+                      <button class="btn btn-sm btn-fc-rate" data-fc-rating="failed" style="background:rgba(239,68,68,0.2); color:#fca5a5; border:1px solid #ef4444;">Blank (24h)</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= DESTINATION 3: REVISION ================= -->
+      <section id="view-revision" class="view-section">
+        <!-- View Sub-Navigation -->
+        <div class="view-subtabs-bar" role="tablist" aria-label="Revision Sub-views">
+          <button type="button" class="view-subtab-btn active" data-parent-view="revision" data-subtab="queue" role="tab" aria-selected="true">
+            <i class="fa-solid fa-clock-rotate-left"></i> Spaced Review Queue
+          </button>
+          <button type="button" class="view-subtab-btn" data-parent-view="revision" data-subtab="monthly" role="tab" aria-selected="false">
+            <i class="fa-solid fa-award"></i> Monthly Retention Assessment
+          </button>
+        </div>
+
+        <!-- Subview 1: Spaced Repetition Review Queue -->
+        <div id="revision-subview-queue" class="subview-section active" data-parent-view="revision" data-subview="queue">
+          <div class="section-title-wrap">
+            <div>
+              <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-amber);"></i> Spaced Repetition Review Queue</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">Scientifically timed intervals to prevent forgetting curve decay</span>
+            </div>
+            <div class="filter-group">
+              <button class="filter-chip active" data-revision-filter="due">Due & Overdue</button>
+              <button class="filter-chip" data-revision-filter="weak">Retention-Risk & Weak</button>
+              <button class="filter-chip" data-revision-filter="upcoming">Upcoming (Next 7 Days)</button>
+              <button class="filter-chip" data-revision-filter="mastered">Mastered Archive</button>
+            </div>
+          </div>
+
+          <!-- Next Recommended Revision Callout Banner -->
+          <div id="revision-next-recommended-banner" style="display:none; margin-bottom:16px;"></div>
+
+          <div class="table-container">
+            <table class="problem-table">
+              <thead>
+                <tr>
+                  <th>Status</th>
+                  <th>Problem Title</th>
+                  <th>Topic</th>
+                  <th>Difficulty</th>
+                  <th>Confidence</th>
+                  <th>Stage & Interval</th>
+                  <th>Due Date</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="revision-queue-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Subview 2: Monthly Revision Assessment (Preserves id="view-monthly-assessment") -->
+        <div id="view-monthly-assessment" class="subview-section" data-parent-view="revision" data-subview="monthly">
+          <div class="section-title-wrap">
+            <div>
+              <h2><i class="fa-solid fa-award" style="color:var(--accent-violet);"></i> Monthly Revision Assessment</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">Comprehensive 60-minute retention exam testing both covered questions and unseen problem patterns</span>
+            </div>
+            <button class="btn btn-monthly" id="btn-start-monthly-test">
+              <i class="fa-solid fa-play"></i> Start New 5-Question Exam
+            </button>
+          </div>
+
+          <div class="stats-grid">
+            <div class="stat-card violet-top">
+              <div class="stat-label">Tests Completed</div>
+              <div class="stat-value" id="test-stat-completed">0</div>
+            </div>
+            <div class="stat-card emerald-top">
+              <div class="stat-label">Average Score</div>
+              <div class="stat-value" id="test-stat-avg">0%</div>
+            </div>
+            <div class="stat-card amber-top">
+              <div class="stat-label">Last Grade</div>
+              <div class="stat-value" id="test-stat-last-grade">-</div>
+            </div>
+          </div>
+
+          <div class="section-title-wrap" style="margin-top:28px;">
+            <h2><i class="fa-solid fa-history" style="color:var(--accent-cyan);"></i> Previous Assessment History</h2>
+          </div>
+
+          <div class="table-container">
+            <table class="problem-table">
+              <thead>
+                <tr>
+                  <th>Test Date</th>
+                  <th>Score</th>
+                  <th>Grade</th>
+                  <th>Summary</th>
+                </tr>
+              </thead>
+              <tbody id="monthly-test-history-tbody">
+                <!-- Dynamically populated -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= DESTINATION 4: PROGRESS ================= -->
+      <section id="view-progress" class="view-section">
+        <!-- View Sub-Navigation -->
+        <div class="view-subtabs-bar" role="tablist" aria-label="Progress Sub-views">
+          <button type="button" class="view-subtab-btn active" data-parent-view="progress" data-subtab="readiness" role="tab" aria-selected="true">
+            <i class="fa-solid fa-chart-radar"></i> Readiness & Analytics
+          </button>
+          <button type="button" class="view-subtab-btn" data-parent-view="progress" data-subtab="graph" role="tab" aria-selected="false">
+            <i class="fa-solid fa-diagram-project"></i> Prerequisite Graph
+          </button>
+          <button type="button" class="view-subtab-btn" data-parent-view="progress" data-subtab="mock" role="tab" aria-selected="false">
+            <i class="fa-solid fa-stopwatch-20"></i> Mock Interviews
+          </button>
+          <button type="button" class="view-subtab-btn" data-parent-view="progress" data-subtab="roadmap" role="tab" aria-selected="false">
+            <i class="fa-solid fa-calendar-days"></i> Study Roadmap
+          </button>
+        </div>
+
+        <!-- Subview 1: Topic Mastery & Analytics (Preserves id="view-analytics") -->
+        <div id="view-analytics" class="subview-section active" data-parent-view="progress" data-subview="readiness">
+          <!-- Top Title & Time Filtering -->
+          <div class="section-title-wrap" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px;">
+            <div>
+              <h2><i class="fa-solid fa-chart-line" style="color:var(--primary);"></i> Analytics, Insights & Reporting</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">Durable learning activity, cognitive independence, and retention metrics</span>
+            </div>
+            <!-- Time Window Filter -->
+            <div class="analytics-time-filters" id="analytics-time-filters" role="group" aria-label="Analytics Time Window">
+              <button type="button" class="analytics-filter-btn active" data-window="all">All Time</button>
+              <button type="button" class="analytics-filter-btn" data-window="90d">90 Days</button>
+              <button type="button" class="analytics-filter-btn" data-window="30d">30 Days</button>
+              <button type="button" class="analytics-filter-btn" data-window="7d">7 Days</button>
+            </div>
+          </div>
+
+          <!-- Key Metrics Grid: 4 Stat Cards -->
+          <div class="analytics-stat-grid" id="analytics-stat-grid">
+            <div class="analytics-stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title"><i class="fa-solid fa-bullseye" style="color:var(--primary);"></i> Unique Solved</span>
+                <span class="badge badge-easy" id="analytics-coverage-badge">0% of Catalog</span>
+              </div>
+              <div class="stat-card-val-row">
+                <span class="stat-card-value" id="analytics-unique-solved">0</span>
+                <span class="stat-card-denom">/ <span id="analytics-catalog-total">0</span></span>
+              </div>
+              <span class="stat-card-caption"><span id="analytics-unique-attempted">0</span> distinct problems attempted</span>
+            </div>
+
+            <div class="analytics-stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title"><i class="fa-solid fa-circle-check" style="color:var(--accent-blue);"></i> Completed Solves</span>
+                <span class="badge badge-secondary" id="analytics-attempts-badge">Evaluated</span>
+              </div>
+              <div class="stat-card-val-row">
+                <span class="stat-card-value" id="analytics-terminal-attempts">0</span>
+                <span class="stat-card-denom">attempts</span>
+              </div>
+              <span class="stat-card-caption">Across <span id="analytics-sessions-initiated">0</span> total sessions initiated</span>
+            </div>
+
+            <div class="analytics-stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title"><i class="fa-solid fa-brain" style="color:var(--accent-amber);"></i> Cognitive Independence</span>
+                <span class="badge badge-warning" id="analytics-provenance-tag">Self-Reported</span>
+              </div>
+              <div class="stat-card-val-row">
+                <span class="stat-card-value" id="analytics-independence-rate">--%</span>
+              </div>
+              <span class="stat-card-caption" id="analytics-independence-caption">Independent solve rate (unassisted)</span>
+            </div>
+
+            <div class="analytics-stat-card">
+              <div class="stat-card-header">
+                <span class="stat-card-title"><i class="fa-solid fa-stopwatch" style="color:#8b5cf6;"></i> Reliable Learning Time</span>
+                <span class="badge badge-srs-due" id="analytics-time-status">Logged</span>
+              </div>
+              <div class="stat-card-val-row">
+                <span class="stat-card-value" id="analytics-learning-time">0h 0m</span>
+              </div>
+              <span class="stat-card-caption"><span id="analytics-time-events-count">0</span> sessions with reliable active timing</span>
+            </div>
+          </div>
+
+          <!-- Outcome Distribution & Effectiveness Details Grid -->
+          <div class="analytics-details-grid" style="display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap:16px; margin: 16px 0;">
+            <!-- Left Card: Outcome Distribution Doughnut Chart & Accessible Breakdown -->
+            <div class="chart-card">
+              <div class="chart-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <h3><i class="fa-solid fa-chart-pie" style="color:var(--primary); margin-right:8px;"></i> Outcome Distribution</h3>
+                <span style="font-size:11px; color:var(--text-dim);" id="analytics-outcome-sample-size">0 evaluated attempts</span>
+              </div>
+              <div class="chart-container-box" style="height:220px; position:relative;">
+                <canvas id="analytics-outcome-chart"></canvas>
+              </div>
+              <!-- Accessible Text Fallback / Breakdown Table -->
+              <div class="analytics-outcome-list" id="analytics-outcome-list" style="margin-top:12px; display:flex; flex-direction:column; gap:6px;">
+                <div class="analytics-outcome-row" style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span><i class="fa-solid fa-circle" style="color:#10b981; font-size:9px; margin-right:6px;"></i> Independent Solves:</span>
+                  <span style="font-family:'JetBrains Mono', monospace;"><strong id="analytics-ind-count">0</strong> (<span id="analytics-ind-pct">0%</span>)</span>
+                </div>
+                <div class="analytics-outcome-row" style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span><i class="fa-solid fa-circle" style="color:#3b82f6; font-size:9px; margin-right:6px;"></i> Assisted Solves:</span>
+                  <span style="font-family:'JetBrains Mono', monospace;"><strong id="analytics-ast-count">0</strong> (<span id="analytics-ast-pct">0%</span>)</span>
+                </div>
+                <div class="analytics-outcome-row" style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span><i class="fa-solid fa-circle" style="color:#f59e0b; font-size:9px; margin-right:6px;"></i> Solution Reveals:</span>
+                  <span style="font-family:'JetBrains Mono', monospace;"><strong id="analytics-rev-count">0</strong> (<span id="analytics-rev-pct">0%</span>)</span>
+                </div>
+                <div class="analytics-outcome-row" style="display:flex; justify-content:space-between; font-size:12px;">
+                  <span><i class="fa-solid fa-circle" style="color:#f43f5e; font-size:9px; margin-right:6px;"></i> Failed Attempts:</span>
+                  <span style="font-family:'JetBrains Mono', monospace;"><strong id="analytics-fail-count">0</strong> (<span id="analytics-fail-pct">0%</span>)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Card: Learning Effectiveness, Spaced Revision & Session Flow -->
+            <div class="chart-card" style="display:flex; flex-direction:column; justify-content:space-between;">
+              <div class="chart-header">
+                <h3><i class="fa-solid fa-sliders" style="color:var(--accent-blue); margin-right:8px;"></i> Learning Effectiveness & Retention</h3>
+              </div>
+              <div class="effectiveness-metrics-body" style="display:flex; flex-direction:column; gap:12px; margin-top:8px;">
+                <div class="effectiveness-row" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:8px;">
+                  <div>
+                    <div style="font-size:12.5px; font-weight:600; color:var(--text-main);">Hint Dependency Index</div>
+                    <div style="font-size:11px; color:var(--text-dim);">Estimated avg hints needed per attempt</div>
+                  </div>
+                  <span class="badge badge-secondary" id="analytics-hint-dependency" style="font-size:13px; font-family:'JetBrains Mono', monospace;">0.0 hints</span>
+                </div>
+
+                <div class="effectiveness-row" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:8px;">
+                  <div>
+                    <div style="font-size:12.5px; font-weight:600; color:var(--text-main);">Revision Adherence Rate</div>
+                    <div style="font-size:11px; color:var(--text-dim);">Reviews conducted on-time vs scheduled</div>
+                  </div>
+                  <span class="badge badge-easy" id="analytics-adherence-rate" style="font-size:13px; font-family:'JetBrains Mono', monospace;">--%</span>
+                </div>
+
+                <div class="effectiveness-row" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:8px;">
+                  <div>
+                    <div style="font-size:12.5px; font-weight:600; color:var(--text-main);">30-Day Practice Consistency</div>
+                    <div style="font-size:11px; color:var(--text-dim);">Active problem/SRS days over last month</div>
+                  </div>
+                  <span class="badge badge-medium" id="analytics-consistency-score" style="font-size:13px; font-family:'JetBrains Mono', monospace;">0%</span>
+                </div>
+
+                <div class="effectiveness-row" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid rgba(255,255,255,0.06); padding-bottom:8px;">
+                  <div>
+                    <div style="font-size:12.5px; font-weight:600; color:var(--text-main);">In-Flight / Non-Terminal Sessions</div>
+                    <div style="font-size:11px; color:var(--text-dim);">Explicitly excluded from completed metrics</div>
+                  </div>
+                  <span style="font-size:11.5px; color:var(--text-muted); font-family:'JetBrains Mono', monospace;">
+                    <span id="analytics-paused-count">0</span> paused &bull; <span id="analytics-abandoned-count">0</span> abandoned &bull; <span id="analytics-drafts-count">0</span> drafts
+                  </span>
+                </div>
+              </div>
+
+              <!-- Top Strengths & Focus Areas Row -->
+              <div style="margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.08); display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px;">
+                  <span style="color:var(--text-dim);"><i class="fa-solid fa-trophy" style="color:#10b981; margin-right:4px;"></i> Top Strengths:</span>
+                  <span id="analytics-top-strengths" style="font-weight:600; color:var(--text-main);">None recorded yet</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px;">
+                  <span style="color:var(--text-dim);"><i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b; margin-right:4px;"></i> Growth Focus:</span>
+                  <span id="analytics-top-weaknesses" style="font-weight:600; color:var(--text-main);">None recorded yet</span>
+                </div>
+              </div>
+
+              <!-- Integrity & Isolation Footer -->
+              <div class="analytics-provenance-banner" style="margin-top:12px; padding:8px 12px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:6px; font-size:11px; color:var(--text-dim); display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fa-solid fa-shield-halved" style="color:var(--primary); margin-right:5px;"></i> Local-First Privacy Isolated</span>
+                <span id="analytics-account-scope-badge" style="font-family:'JetBrains Mono', monospace; font-size:10px;">Guest Scope</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-title-wrap">
+            <div>
+              <h2><i class="fa-solid fa-scale-balanced" style="color:var(--primary);"></i> Evidence-Based Mastery Calibration</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">Scientifically separating tentative attempts from genuine, delayed-recall retention</span>
+            </div>
+          </div>
+
+          <!-- Mastery Calibration 4-Tier Grid -->
+          <div class="mastery-calibration-grid" id="mastery-calibration-grid">
+            <div class="calibration-card tier-attempted">
+              <span class="calibration-tier-badge tier-attempted"><i class="fa-regular fa-circle-dot"></i> Attempted</span>
+              <span class="calibration-count" id="calib-count-attempted">0</span>
+              <p class="calibration-desc">Solved or attempted at least once; unproven retention.</p>
+            </div>
+            <div class="calibration-card tier-provisional">
+              <span class="calibration-tier-badge tier-provisional"><i class="fa-solid fa-clock"></i> Provisional</span>
+              <span class="calibration-count" id="calib-count-provisional">0</span>
+              <p class="calibration-desc">Solved with confidence; awaiting spaced interval proof.</p>
+            </div>
+            <div class="calibration-card tier-retained">
+              <span class="calibration-tier-badge tier-retained"><i class="fa-solid fa-rotate-left"></i> Retained</span>
+              <span class="calibration-count" id="calib-count-retained">0</span>
+              <p class="calibration-desc">Delayed recall proven after 18h+ spacing with 0 hints.</p>
+            </div>
+            <div class="calibration-card tier-mastered">
+              <span class="calibration-tier-badge tier-mastered"><i class="fa-solid fa-crown"></i> Mastered</span>
+              <span class="calibration-count" id="calib-count-mastered">0</span>
+              <p class="calibration-desc">Anti-inflation certified: 3+ reviews spanning 21+ days.</p>
+            </div>
+          </div>
+
+          <!-- Readiness Uncertainty Explanation Banner -->
+          <div class="calibration-uncertainty-banner" id="calibration-uncertainty-banner">
+            <div class="uncertainty-left">
+              <i class="fa-solid fa-circle-info" id="uncertainty-icon"></i>
+              <div class="uncertainty-info">
+                <h4 id="uncertainty-heading">Readiness Uncertainty Analysis</h4>
+                <p id="uncertainty-explanation">Evaluating statistical confidence across your problem attempts...</p>
+              </div>
+            </div>
+            <div class="uncertainty-badge-pill" id="uncertainty-status-pill">
+              Provisional (±15 pts)
+            </div>
+          </div>
+
+          <div class="charts-grid">
+            <div class="chart-card">
+              <div class="chart-header">
+                <h3><i class="fa-solid fa-chart-radar" style="color:var(--primary); margin-right:8px;"></i> Multi-Topic Radar Strength</h3>
+              </div>
+              <div class="chart-container-box">
+                <canvas id="analytics-radar-chart"></canvas>
+              </div>
+            </div>
+
+            <div class="chart-card">
+              <div class="chart-header">
+                <h3><i class="fa-solid fa-pie-chart" style="color:var(--accent-amber); margin-right:8px;"></i> Difficulty Solved Ratio</h3>
+              </div>
+              <div class="chart-container-box">
+                <canvas id="analytics-doughnut-chart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="section-title-wrap">
+            <h2><i class="fa-solid fa-shield-halved" style="color:var(--accent-cyan);"></i> Topic Health & Decay Status</h2>
+          </div>
+          <div class="topic-matrix-grid" id="topic-matrix-container">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+
+        <!-- Subview 2: Prerequisite Learning Graph (Preserves id="view-graph") -->
+        <div id="view-graph" class="subview-section" data-parent-view="progress" data-subview="graph">
+          <div class="section-title-wrap">
+            <div>
+              <h2><i class="fa-solid fa-diagram-project" style="color:#8b5cf6;"></i> Prerequisite-Aware Learning Graph</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">
+                Configurable dependency network connecting foundational topics to advanced interview algorithms.
+              </span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span class="badge" style="background:rgba(139,92,246,0.15); color:#c084fc; border:1px solid rgba(139,92,246,0.3); font-size:12px; padding:6px 12px;">
+                <i class="fa-solid fa-stairs"></i> Adaptive Progression
+              </span>
+            </div>
+          </div>
+
+          <!-- Status Legend Bar -->
+          <div style="display:flex; flex-wrap:wrap; gap:12px; margin-bottom:16px; background:var(--bg-card); padding:12px 16px; border-radius:var(--radius-md); border:1px solid var(--border-color); font-size:12px;">
+            <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(16,185,129,0.15); color:#34d399; border:1px solid #10b981;">Mastered (75%+)</span> Highly retained & independent</span>
+            <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(6,182,212,0.15); color:#38bdf8; border:1px solid #06b6d4;">Proficient (40%+)</span> Solid foundational base</span>
+            <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(245,158,11,0.15); color:#fbbf24; border:1px solid #f59e0b;">Learning</span> In active practice</span>
+            <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(139,92,246,0.15); color:#c084fc; border:1px solid #8b5cf6;">Available</span> Prerequisites satisfied</span>
+            <span style="display:flex; align-items:center; gap:6px;"><span class="prereq-status-badge" style="background:rgba(100,116,139,0.15); color:#94a3b8; border:1px solid #64748b;">Locked</span> Finish prerequisites first</span>
+          </div>
+
+          <div class="prereq-flow-grid" id="prereq-graph-container">
+            <!-- Populated dynamically by GraphEngine -->
+          </div>
+        </div>
+
+        <!-- Subview 3: Mock Interviews (Preserves id="view-mock") -->
+        <div id="view-mock" class="subview-section" data-parent-view="progress" data-subview="mock">
+          <div class="section-title-wrap">
+            <div>
+              <h2><i class="fa-solid fa-stopwatch-20" style="color:#f43f5e;"></i> Realistic Mock Interview Simulator</h2>
+              <span style="font-size:12.5px; color:var(--text-dim);">
+                Timed technical rounds testing execution speed, space-time analysis, edge-case coverage, and hint independence.
+              </span>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span class="badge" style="background:rgba(244,63,94,0.15); color:#fda4af; border:1px solid rgba(244,63,94,0.3); font-size:12px; padding:6px 12px;">
+                <i class="fa-solid fa-shield-halved"></i> Interview Calibration
+              </span>
+            </div>
+          </div>
+
+          <!-- Setup Configuration Card -->
+          <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:24px; margin-bottom:24px;">
+            <h3 style="font-size:16px; font-weight:700; margin-bottom:14px; display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-sliders" style="color:var(--primary);"></i> Configure New Interview Session
+            </h3>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:16px; margin-bottom:20px;">
+              <div>
+                <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Target Interview Track</label>
+                <select id="mock-config-track" class="filter-select" style="width:100%;">
+                  <option value="faang_standard">💼 FAANG Standard (1 Med + 1 Hard)</option>
+                  <option value="blind_sprint">⚡ Blind 75 Sprint (1 Easy + 1 Med)</option>
+                  <option value="full_interview">🏆 Senior SDE Comprehensive (3 Problems)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Duration Limit</label>
+                <select id="mock-config-duration" class="filter-select" style="width:100%;">
+                  <option value="30">30 Minutes (Rapid Sprint)</option>
+                  <option value="45" selected>45 Minutes (Standard Technical Round)</option>
+                  <option value="60">60 Minutes (Deep Dive Round)</option>
+                  <option value="90">90 Minutes (Comprehensive On-Site)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Hint Policy</label>
+                <select id="mock-config-hints" class="filter-select" style="width:100%;">
+                  <option value="practice">Practice Mode (Progressive Hints Allowed)</option>
+                  <option value="penalty" selected>Timed Penalty (-10 pts per hint)</option>
+                  <option value="strict">Strict Assessment (Zero Hints Allowed)</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-size:12px; font-weight:600; color:var(--text-muted); display:block; margin-bottom:6px;">Topic Filter (Optional)</label>
+                <select id="mock-config-topic" class="filter-select" style="width:100%;">
+                  <option value="all">All Topics (Comprehensive Pool)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+              <p style="font-size:12px; color:var(--text-dim); margin:0;">
+                <i class="fa-solid fa-lock"></i> Session is safely persisted in localStorage. Even if you accidentally refresh or close the tab, your timer and scratchpad resume seamlessly.
+              </p>
+              <button class="btn btn-primary btn-lg" id="btn-start-mock-interview" style="font-weight:700;">
+                <i class="fa-solid fa-play"></i> Start Timed Mock Interview
+              </button>
+            </div>
+          </div>
+
+          <!-- Mock Past Rounds History -->
+          <div style="background:var(--bg-card); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:20px;">
+            <h3 style="font-size:15px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+              <i class="fa-solid fa-clock-rotate-left" style="color:var(--accent-blue);"></i> Completed Mock Interview History
+            </h3>
+            <div style="overflow-x:auto;">
+              <table class="problems-table" style="width:100%;">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Track</th>
+                    <th>Duration</th>
+                    <th>Score</th>
+                    <th>Grade</th>
+                    <th>Questions Evaluated</th>
+                  </tr>
+                </thead>
+                <tbody id="mock-history-tbody">
+                  <tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim);">No mock interview rounds completed yet. Start your first session above!</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Subview 4: Study Roadmap Track (Preserves id="view-roadmap") -->
+        <div id="view-roadmap" class="subview-section" data-parent-view="progress" data-subview="roadmap">
+          <!-- Daily Plan Hero Header -->
+          <div class="roadmap-hero-card">
+            <div class="roadmap-hero-main">
+              <div class="roadmap-hero-badge">
+                <i class="fa-solid fa-calendar-check"></i>
+                <span>Daily Problem Pacing & Weekend Test Hub</span>
+              </div>
+              <h2 id="roadmap-track-title">🎯 Daily Practice & Weekend Test</h2>
+              <p id="roadmap-track-subtitle">Adaptive confidence-powered daily DSA target problems, automated spaced revisions, and weekly diagnostic retention exams.</p>
+
+              <div class="roadmap-stats-row">
+                <div class="roadmap-stat-item">
+                  <span class="stat-num" id="roadmap-stat-progress">0%</span>
+                  <span class="stat-txt">Cycle Progress</span>
+                </div>
+                <div class="roadmap-stat-item">
+                  <span class="stat-num" id="roadmap-stat-days-done">0 / 7</span>
+                  <span class="stat-txt">Days Complete</span>
+                </div>
+                <div class="roadmap-stat-item">
+                  <span class="stat-num" id="roadmap-stat-solved-count" style="color:#34d399;">0</span>
+                  <span class="stat-txt">Solved Problems</span>
+                </div>
+                <div class="roadmap-stat-item">
+                  <span class="stat-num" id="roadmap-stat-unsolved-count" style="color:#cbd5e1;">0</span>
+                  <span class="stat-txt">Unsolved Remaining</span>
+                </div>
+                <div class="roadmap-stat-item">
+                  <span class="stat-num" id="roadmap-stat-active-focus">Basics & Math</span>
+                  <span class="stat-txt">Active Focus</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="roadmap-hero-actions">
+              <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Quick Focus Pacing:</label>
+              <select class="filter-select" id="roadmap-track-select" style="width:100%;">
+                <option value="striver_hero">🚀 Full Coverage Track (479 Master Problems)</option>
+                <option value="faang_60">💼 FAANG High-Frequency Sprint</option>
+                <option value="blind_30">⚡ Blind 75 Essentials</option>
+              </select>
+              <div class="roadmap-track-progress-bar">
+                <div class="roadmap-track-progress-fill" id="roadmap-track-progress-fill" style="width:0%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 7-Day Cycle Selector Strip -->
+          <div class="roadmap-days-strip-card" style="margin-top:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+              <div style="font-size:14px; font-weight:700; color:#f8fafc;" id="roadmap-selected-week-heading">
+                <i class="fa-solid fa-calendar-day" style="color:var(--primary); margin-right:6px;"></i> Weekly Practice & Assessment Schedule
+              </div>
+              <div style="font-size:12px; color:var(--text-dim);" id="roadmap-week-progress-txt">
+                0 / 7 Days Complete
+              </div>
+            </div>
+            <div class="roadmap-days-pills" id="roadmap-days-pills-container">
+              <!-- Dynamically populated 7-Day Pills (Days 1-5 Practice, Day 6 Super Rev, Day 7 Exam) -->
+            </div>
+          </div>
+
+          <!-- Active Day Practice & Weekend Test Container -->
+          <div id="roadmap-active-day-content" style="margin-top:20px;">
+            <!-- Dynamically populated daily target problems, due revisions, or weekend test cards -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= DESTINATION 5: SETTINGS ================= -->
+      <section id="view-settings" class="view-section">
+        <div class="section-title-wrap">
+          <div>
+            <h2><i class="fa-solid fa-gear" style="color:var(--primary);"></i> Platform Settings & Data Hub</h2>
+            <span style="font-size:12.5px; color:var(--text-dim);">Centralized configuration for interface themes, progressive AI scaffolding, and full offline data portability</span>
+          </div>
+        </div>
+
+        <div class="settings-view-grid">
+          <!-- Card 1: Appearance & Theme -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <i class="fa-solid fa-palette" style="color:var(--accent-cyan);"></i>
+              <div>
+                <h3>Appearance & Theme</h3>
+                <p>Switch between the signature Obsidian Dark theme and Clean Light theme.</p>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:14px;">
+              <button type="button" class="btn btn-secondary btn-sm active" id="btn-theme-dark-opt"><i class="fa-solid fa-moon"></i> Obsidian Dark</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-theme-light-opt"><i class="fa-solid fa-sun"></i> Clean Light</button>
+            </div>
+          </div>
+
+          <!-- Card 2: AI Hint & Feedback Provider -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <i class="fa-solid fa-brain" style="color:var(--accent-violet);"></i>
+              <div>
+                <h3>AI Hint & Feedback Provider</h3>
+                <p>The built-in progressive scaffolding heuristic runs 100% offline with zero external network calls or keys. Optionally connect an upstream API.</p>
+              </div>
+            </div>
+            <div style="margin-top:12px;">
+              <select id="settings-ai-provider" class="filter-select" style="width:100%; margin-bottom:8px;">
+                <option value="offline">Built-in Offline Heuristic (Zero Setup / 100% Private / No API Key)</option>
+                <option value="openai">OpenAI / OpenRouter API (Bring Your Own Key)</option>
+                <option value="gemini">Google Gemini API</option>
+              </select>
+              <div id="settings-api-key-wrap" style="display:none; margin-top:8px;">
+                <label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:4px;">API Key (Stored strictly locally in browser LocalStorage):</label>
+                <input type="password" id="settings-ai-key" class="filter-select" placeholder="sk-..." style="width:100%;">
+              </div>
+              <div style="display:flex; justify-content:flex-end; margin-top:12px;">
+                <button class="btn btn-primary btn-sm" id="btn-save-settings"><i class="fa-solid fa-floppy-disk"></i> Save AI Settings</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 3: Data Reliability & Portability -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <i class="fa-solid fa-shield-halved" style="color:var(--primary);"></i>
+              <div>
+                <h3>Data Reliability & Backup</h3>
+                <p>Export sanitized JSON backups or restore existing review history without data loss.</p>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+              <button type="button" class="btn btn-primary btn-sm" id="btn-settings-export-backup"><i class="fa-solid fa-download"></i> Download Full Backup JSON</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-settings-restore-trigger"><i class="fa-solid fa-upload"></i> Restore Backup JSON</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-settings-copy-sync"><i class="fa-solid fa-link"></i> Generate Safe Sync Code</button>
+            </div>
+          </div>
+
+          <!-- Card 4: Curated Presets & Database Tools -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <i class="fa-solid fa-database" style="color:var(--accent-amber);"></i>
+              <div>
+                <h3>Curated Presets & Database</h3>
+                <p>Cleanly re-synchronize and deduplicate master problem catalogs (479 master problems) or import external sheets.</p>
+              </div>
+            </div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-sync-clean-sheets"><i class="fa-solid fa-broom"></i> Clean & Deduplicate Database</button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-open-bulk-modal-from-settings"><i class="fa-solid fa-cloud-arrow-down"></i> Import Presets / URL</button>
+            </div>
+          </div>
+
+          <!-- Card 5: System Verification & Diagnostics -->
+          <div class="settings-card">
+            <div class="settings-card-header">
+              <i class="fa-solid fa-circle-check" style="color:#10b981;"></i>
+              <div>
+                <h3>System & Engine Diagnostics</h3>
+                <p>Verified local-first platform specifications and test coverage.</p>
+              </div>
+            </div>
+            <div style="margin-top:12px; font-size:12.5px; color:var(--text-muted); line-height:1.8;">
+              <div>• <strong>Platform Architecture:</strong> AlgoRecall 2.2 (Single-Page Application)</div>
+              <div>• <strong>Storage Schema:</strong> v2.0.0 with automatic v1 backward migration</div>
+              <div>• <strong>Problem Catalog:</strong> 479 curated questions across 16 canonical DSA topics</div>
+              <div>• <strong>Automated Verification:</strong> 110/110 regression tests passing across 18 suites</div>
+              <div>• <strong>Zero Runtime Dependencies:</strong> Pure client-side HTML5, CSS3, & Vanilla JavaScript</div>
+            </div>
+          </div>
+
+          <!-- Card 6: Adaptive Decision Audit & Diagnostic Hub -->
+          <div class="settings-card" id="settings-adaptive-audit-card">
+            <div class="settings-card-header">
+              <i class="fa-solid fa-microscope" style="color:var(--accent-purple, #a855f7);"></i>
+              <div>
+                <h3>Adaptive Decision Audit & Diagnostic Hub</h3>
+                <p>Transparent internal inspection of adaptive learning decisions, evidence chains, and policy benchmarking.</p>
+              </div>
+            </div>
+
+            <div class="adaptive-audit-content" style="margin-top:14px; font-size:12.5px;">
+              <!-- Current Recommendation Inspector -->
+              <div class="audit-section-panel" style="background:rgba(255,255,255,0.02); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:12px 14px; margin-bottom:12px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                  <strong style="color:var(--text-main);"><i class="fa-solid fa-compass" style="color:var(--primary);"></i> Current Adaptive Recommendation</strong>
+                  <span id="audit-rec-status-badge" class="badge-rev-status status-due">Active</span>
+                </div>
+                <div id="audit-rec-details">
+                  <div style="font-size:13.5px; font-weight:700; color:var(--text-main);" id="audit-rec-title">Analyzing learning loop state...</div>
+                  <div style="color:var(--text-dim); margin-top:4px;" id="audit-rec-reason">Evaluating attempt history and spaced revision schedules.</div>
+                  <div style="margin-top:8px; display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px;" id="audit-rec-meta">
+                    <div><strong>Action Type:</strong> <span id="audit-rec-action">-</span></div>
+                    <div><strong>Reason Code:</strong> <span id="audit-rec-code">-</span></div>
+                    <div><strong>Supporting Evidence:</strong> <span id="audit-rec-source">-</span></div>
+                    <div><strong>Missing Evidence:</strong> <span id="audit-rec-missing">-</span></div>
+                  </div>
+                  <div id="audit-competing-diagnoses-wrap" style="margin-top:8px; color:var(--text-muted); display:none;">
+                    <strong>Competing Diagnoses:</strong> <span id="audit-competing-diagnoses">None</span>
+                  </div>
+                </div>
+
+                <!-- Dismissal Safe Action -->
+                <div style="margin-top:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-top:1px solid rgba(255,255,255,0.05); padding-top:10px;">
+                  <span style="font-size:11px; color:var(--text-dim);"><i class="fa-solid fa-shield"></i> Safe dismissal: does not alter readiness or mastery.</span>
+                  <button type="button" class="btn btn-secondary btn-sm" id="btn-dismiss-active-intervention" style="color:var(--accent-amber);"><i class="fa-solid fa-xmark"></i> Dismiss Recommendation</button>
+                </div>
+              </div>
+
+              <!-- Diagnostic Tools Controls -->
+              <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-run-diagnostic-benchmark"><i class="fa-solid fa-chart-line"></i> Run Policy Benchmark</button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-run-replay-simulator"><i class="fa-solid fa-clock-rotate-left"></i> Run Time-Travel Replay Verification</button>
+              </div>
+
+              <!-- Diagnostic Output Container -->
+              <div id="diagnostic-output-box" style="display:none; margin-top:12px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:10px 14px; font-family:var(--font-mono, monospace); font-size:11.5px; max-height:220px; overflow-y:auto;">
+                <div id="diagnostic-output-text" style="white-space:pre-wrap; color:var(--text-muted);"></div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -884,7 +1526,7 @@
           </label>
           <span id="rating-modal-confidence-label" class="badge badge-easy" style="font-size:11px;">Solved independently (4/5)</span>
         </div>
-        
+
         <div class="confidence-pill-group" id="modal-confidence-options">
           <button type="button" class="confidence-pill-btn" data-confidence="1" title="Couldn't solve (Need to review concept and practice similar problems)">
             <span class="conf-pill-score">1</span>
@@ -1151,7 +1793,7 @@
           <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px; display:flex; flex-direction:column; gap:10px;">
             <strong style="font-size:14px; color:#f8fafc;"><i class="fa-solid fa-arrow-up-from-bracket" style="color:var(--primary);"></i> Send Progress to Another Device</strong>
             <span style="font-size:12px; color:var(--text-muted);">Generate an instant sync code or copy a shareable link to open on your phone:</span>
-            
+
             <button type="button" class="btn btn-primary btn-sm" id="btn-copy-sync-code" style="width:100%; margin-top:auto;">
               <i class="fa-solid fa-copy"></i> Copy 1-Click Sync Code
             </button>
@@ -1164,7 +1806,7 @@
           <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:16px; display:flex; flex-direction:column; gap:10px;">
             <strong style="font-size:14px; color:#f8fafc;"><i class="fa-solid fa-arrow-down-to-bracket" style="color:var(--accent-cyan);"></i> Receive Progress on This Device</strong>
             <span style="font-size:12px; color:var(--text-muted);">Paste the sync code from your other device below:</span>
-            
+
             <input type="text" id="input-sync-code-paste" class="filter-select" placeholder="Paste sync code here..." style="width:100%; font-size:12px; font-family:'JetBrains Mono', monospace;">
             <button type="button" class="btn btn-monthly btn-sm" id="btn-apply-sync-code" style="width:100%;">
               <i class="fa-solid fa-bolt"></i> Apply & Sync Progress
@@ -1423,11 +2065,93 @@
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px; border-top:1px solid var(--border-color); padding-top:12px;">
-        <button class="btn btn-secondary btn-sm" id="btn-detail-close-bottom">Close</button>
-        <button class="btn btn-primary btn-sm" id="btn-detail-trigger-review"><i class="fa-solid fa-rotate"></i> Log New Review / Confidence</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-close-bottom">Close</button>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-detail-launch-trainer" style="border-color:var(--primary); color:var(--primary);">
+          <i class="fa-solid fa-compass"></i> Discovery Trainer
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-detail-trigger-review"><i class="fa-solid fa-rotate"></i> Log New Review / Confidence</button>
       </div>
     </div>
   </div>
+
+  <!-- ================= MODAL: SOLUTION DISCOVERY TRAINER ================= -->
+  <div class="modal-backdrop" id="solution-discovery-modal" role="dialog" aria-modal="true" aria-labelledby="trainer-modal-problem-title">
+    <div class="modal-box modal-box-trainer" style="max-height:92vh; overflow-y:auto;">
+      <!-- Modal Header -->
+      <div class="modal-header trainer-header" style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+            <span class="trainer-tag-live"><i class="fa-solid fa-compass" style="margin-right:4px;"></i> Solution Discovery</span>
+            <span id="trainer-modal-problem-meta" style="font-size:12px; color:var(--text-dim);">Array • Medium</span>
+          </div>
+          <h3 id="trainer-modal-problem-title" style="font-size:17px; font-weight:700; margin:0;">Problem Title</h3>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <a id="trainer-header-external-link" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-xs" style="display:none;" title="Open problem on platform">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Practice Online
+          </a>
+          <button type="button" class="btn btn-secondary btn-xs" id="btn-trainer-pause" title="Pause session and preserve draft">
+            <i class="fa-solid fa-pause"></i> Pause
+          </button>
+          <button type="button" class="btn btn-secondary btn-xs" id="btn-trainer-abandon" style="color:var(--error);" title="Discard draft and abandon session">
+            <i class="fa-solid fa-trash-can"></i> Discard
+          </button>
+          <button type="button" class="modal-close" id="btn-close-trainer-modal" aria-label="Close dialog">&times;</button>
+        </div>
+      </div>
+
+      <!-- Stepper Track -->
+      <div class="trainer-stepper-wrap">
+        <div class="trainer-stepper-track" id="trainer-stepper-container">
+          <!-- Populated dynamically by SolutionDiscoveryController -->
+        </div>
+      </div>
+
+      <!-- Main Layout: Workspace + Progressive Hints Sidebar -->
+      <div class="trainer-main-layout">
+        <!-- Left: Current Step Workspace -->
+        <div class="trainer-workspace">
+          <div id="trainer-step-content-area">
+            <!-- Populated dynamically by SolutionDiscoveryController -->
+          </div>
+
+          <!-- Bottom Action Buttons Row -->
+          <div class="trainer-actions-row" id="trainer-actions-row">
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-trainer-prev" disabled>
+                <i class="fa-solid fa-arrow-left"></i> Previous
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-trainer-skip" style="display:none;">
+                <i class="fa-solid fa-forward"></i> Skip Step
+              </button>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" class="btn btn-primary btn-sm" id="btn-trainer-next">
+                Next Step <i class="fa-solid fa-arrow-right"></i>
+              </button>
+              <button type="button" class="btn btn-success btn-sm" id="btn-trainer-complete" style="display:none; background:#10b981; border-color:#10b981; color:#fff;">
+                <i class="fa-solid fa-circle-check"></i> Complete Attempt
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Scaffolding Hints Sidebar Drawer -->
+        <aside class="trainer-hints-sidebar">
+          <div class="trainer-hints-header">
+            <h4 style="font-size:13px; font-weight:700; margin:0; display:flex; align-items:center; gap:6px;">
+              <i class="fa-solid fa-lightbulb" style="color:#f59e0b;"></i> Progressive Scaffolding
+            </h4>
+            <span style="font-size:11px; color:var(--text-dim);">Revealing hints limits recall score</span>
+          </div>
+          <div class="trainer-hints-list" id="trainer-hints-container">
+            <!-- Populated dynamically by SolutionDiscoveryController -->
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+
 
   <!-- ================= MODAL: SETTINGS & DATA MANAGEMENT ================= -->
   <div class="modal-backdrop" id="settings-modal">
@@ -1641,10 +2365,242 @@
     </div>
   </div>
 
+
+  <!-- ================= MODAL: AUTHENTICATION & IDENTITY (Stage 1) ================= -->
+  <div class="modal-backdrop" id="auth-modal">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div class="modal-icon-badge" style="width:36px; height:36px; border-radius:var(--radius-md); background:rgba(139, 124, 255, 0.15); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:16px;">
+            <i class="fa-solid fa-user-shield"></i>
+          </div>
+          <div>
+            <h3 style="font-size:16px; font-weight:700; margin:0;" id="auth-modal-title">AlgoRecall Account</h3>
+            <span style="font-size:12px; color:var(--text-dim);">Team & Personal Learning Account</span>
+          </div>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-auth-modal" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:16px; margin-top:8px;">
+        <!-- Status Banner -->
+        <div class="auth-status-banner" id="auth-status-banner">
+          <i class="fa-solid fa-circle-info auth-status-icon"></i>
+          <div class="auth-status-content" id="auth-status-message">
+            You are currently preparing in <strong>Guest Mode</strong>. All problems, ratings, and SRS retention intervals are safely preserved in this browser.
+          </div>
+        </div>
+
+        <!-- Guest / Sign-In Action Area -->
+        <div id="auth-signin-action-box" style="display:flex; flex-direction:column; gap:14px;">
+          <!-- Mode Tabs -->
+          <div style="display:flex; background:rgba(255,255,255,0.04); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:3px; gap:4px;">
+            <button type="button" id="tab-auth-login" class="btn btn-sm btn-primary" style="flex:1; padding:7px 12px; font-weight:600;">Sign In</button>
+            <button type="button" id="tab-auth-register" class="btn btn-sm btn-secondary" style="flex:1; padding:7px 12px; font-weight:600;">Create Account (Max 5)</button>
+          </div>
+
+          <!-- Credentials Form -->
+          <form id="auth-credentials-form" onsubmit="return false;" style="display:flex; flex-direction:column; gap:12px;">
+            <div>
+              <label for="auth-input-username" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:5px;">Username</label>
+              <input type="text" id="auth-input-username" autocomplete="username" placeholder="e.g. learner1" style="width:100%; box-sizing:border-box; padding:9px 12px; border-radius:var(--radius-md); background:var(--bg-input); border:1px solid var(--border-color); color:var(--text-main); font-size:13px;">
+            </div>
+
+            <div id="auth-displayname-group" style="display:none;">
+              <label for="auth-input-displayname" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:5px;">Display Name</label>
+              <input type="text" id="auth-input-displayname" autocomplete="name" placeholder="e.g. Alex" style="width:100%; box-sizing:border-box; padding:9px 12px; border-radius:var(--radius-md); background:var(--bg-input); border:1px solid var(--border-color); color:var(--text-main); font-size:13px;">
+            </div>
+
+            <div>
+              <label for="auth-input-password" style="display:block; font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:5px;">Password</label>
+              <input type="password" id="auth-input-password" autocomplete="current-password" placeholder="••••••••" style="width:100%; box-sizing:border-box; padding:9px 12px; border-radius:var(--radius-md); background:var(--bg-input); border:1px solid var(--border-color); color:var(--text-main); font-size:13px;">
+            </div>
+
+            <div id="auth-credentials-error" style="display:none; padding:10px 12px; border-radius:var(--radius-md); background:var(--error-light); border:1px solid var(--error-border); color:var(--error); font-size:12px; line-height:1.4;"></div>
+
+            <button type="submit" class="btn btn-primary" id="btn-auth-credentials-submit" style="width:100%; min-height:42px; font-size:14px; font-weight:600; margin-top:4px;">
+              <i class="fa-solid fa-arrow-right-to-bracket" style="margin-right:6px;"></i> <span id="auth-submit-label">Sign In</span>
+            </button>
+          </form>
+
+        </div>
+
+        <!-- Authenticated Profile Details Area -->
+        <div id="auth-account-details" style="display:none; flex-direction:column; gap:12px;">
+          <div style="background:rgba(255, 255, 255, 0.03); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:14px; display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px;">
+              <span style="color:var(--text-muted);">Authentication Status</span>
+              <span class="auth-status-badge authenticated" style="display:inline-flex; align-items:center; gap:5px; color:#34d399; font-weight:700;">
+                <i class="fa-solid fa-circle-check"></i> Authenticated
+              </span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px;">
+              <span style="color:var(--text-muted);">Signed in as</span>
+              <span id="auth-modal-user-email" style="color:var(--text-main); font-weight:600; font-family:'JetBrains Mono', monospace; font-size:12px;">-</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px;">
+              <span style="color:var(--text-muted);">Session Persistence</span>
+              <span style="color:var(--primary); font-weight:600;">Active Session</span>
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:12.5px;">
+              <span style="color:var(--text-muted);">Data Storage</span>
+              <span style="color:var(--text-muted);">Local-First Browser Engine</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary auth-modal-signout-btn" id="btn-modal-signout" style="width:100%; min-height:40px;">
+            <i class="fa-solid fa-arrow-right-from-bracket" style="margin-right:6px;"></i> Sign out
+          </button>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px; border-top:1px solid var(--border-color); padding-top:12px;">
+        <span style="font-size:11.5px; color:var(--text-dim);">5-User Embedded Team Store</span>
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-auth-continue-guest">Continue as Guest</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= REFRESH CONFIRMATION MODAL ================= -->
+  <div class="modal-backdrop" id="refresh-confirm-modal" role="dialog" aria-modal="true" aria-labelledby="refresh-modal-title" style="display:none;">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div id="refresh-modal-stream-icon" style="width:36px; height:36px; border-radius:10px; background:rgba(139,124,255,0.15); display:flex; align-items:center; justify-content:center; color:var(--primary);">
+            <i class="fa-solid fa-arrows-rotate" style="font-size:18px;"></i>
+          </div>
+          <div>
+            <h3 id="refresh-modal-title" style="font-size:16px; font-weight:700; margin:0;">Refresh Questions</h3>
+            <span id="refresh-modal-subtitle" style="font-size:12px; color:var(--text-dim);">Learn · Focus Topic</span>
+          </div>
+        </div>
+        <button type="button" class="modal-close" id="btn-close-refresh-modal" aria-label="Close dialog">&times;</button>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:14px; margin-top:14px;">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin:0;" id="refresh-modal-desc">
+          Replace eligible completed and skipped questions in today's active set with new questions from the catalog.
+        </p>
+
+        <!-- Preview Stats Grid -->
+        <div style="background:var(--bg-elevated, #1B2540); border:1px solid var(--border-color, #28334D); border-radius:var(--radius-md, 8px); padding:14px;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim); margin-bottom:10px; font-weight:700; display:flex; justify-content:space-between; align-items:center;">
+            <span>Plan Impact Preview</span>
+            <span id="refresh-modal-badge" class="plan-section-badge" style="font-size:10px; padding:2px 8px;">LEARN</span>
+          </div>
+
+          <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:10px;" id="refresh-preview-grid">
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px;">
+              <div style="font-size:11px; color:var(--text-dim); margin-bottom:2px;">Marked to Remove</div>
+              <div style="font-size:18px; font-weight:700; color:var(--error, #FF7385);" id="refresh-modal-marked-count">0</div>
+              <div style="font-size:10px; color:var(--text-dim);">Completed or skipped</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px;">
+              <div style="font-size:11px; color:var(--text-dim); margin-bottom:2px;">Pending Preserved</div>
+              <div style="font-size:18px; font-weight:700; color:var(--secondary, #42D6C5);" id="refresh-modal-preserved-count">0</div>
+              <div style="font-size:10px; color:var(--text-dim);">Remain in today's plan</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px;">
+              <div style="font-size:11px; color:var(--text-dim); margin-bottom:2px;">Available Candidates</div>
+              <div style="font-size:18px; font-weight:700; color:var(--primary, #8B7CFF);" id="refresh-modal-available-count">0</div>
+              <div style="font-size:10px; color:var(--text-dim);">Eligible in catalog</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:10px;">
+              <div style="font-size:11px; color:var(--text-dim); margin-bottom:2px;">Expected New Questions</div>
+              <div style="font-size:18px; font-weight:700; color:var(--warning, #F5BE65);" id="refresh-modal-expected-count">0</div>
+              <div style="font-size:10px; color:var(--text-dim);">Will be added</div>
+            </div>
+          </div>
+
+          <!-- Alert / Shortfall notice banner -->
+          <div id="refresh-modal-alert" style="display:none; margin-top:10px; padding:8px 12px; border-radius:6px; font-size:12px; line-height:1.4; align-items:center; gap:8px;">
+            <i class="fa-solid fa-triangle-exclamation" id="refresh-modal-alert-icon"></i>
+            <span id="refresh-modal-alert-text"></span>
+          </div>
+
+          <!-- Zero Data Loss Invariant Notice -->
+          <div style="margin-top:12px; font-size:11.5px; color:var(--text-dim); display:flex; align-items:flex-start; gap:8px; line-height:1.4; border-top:1px solid rgba(255,255,255,0.06); padding-top:10px;">
+            <i class="fa-solid fa-shield-halved" style="color:var(--secondary); margin-top:2px;"></i>
+            <span>Learning history, attempt logs, mastery, notes, XP, streaks, and SRS schedules are 100% preserved. Only active today's set assignments are updated.</span>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:6px;">
+          <button type="button" class="btn btn-secondary" id="btn-refresh-cancel" style="min-height:38px; min-width:90px; font-size:13px;">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary" id="btn-refresh-confirm" style="min-height:38px; min-width:140px; font-size:13px; font-weight:600;">
+            <i class="fa-solid fa-arrows-rotate" style="margin-right:6px;"></i> <span id="refresh-confirm-btn-label">Confirm Refresh</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MIGRATION CONFIRMATION MODAL ================= -->
+  <div class="modal-backdrop" id="migration-modal" role="dialog" aria-modal="true" aria-labelledby="migration-modal-title">
+    <div class="modal-box" style="max-width: 540px;">
+      <div class="modal-header">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:36px; height:36px; border-radius:10px; background:rgba(139,124,255,0.15); display:flex; align-items:center; justify-content:center; color:var(--primary);">
+            <i class="fa-solid fa-cloud-arrow-up" style="font-size:18px;"></i>
+          </div>
+          <div>
+            <h3 id="migration-modal-title" style="font-size:16px; font-weight:700; margin:0;">Detected Existing Progress</h3>
+            <span style="font-size:12px; color:var(--text-dim);">Multi-User Local Isolation (Stage 2)</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:14px; margin-top:14px;">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+          We detected existing local DSA learning progress on this device. Would you like to link this progress to your account (<strong id="migration-modal-user-email" style="color:var(--text-main);">-</strong>), or start with a fresh, clean account?
+        </p>
+
+        <!-- Detected Progress Stats Card -->
+        <div style="background:var(--bg-elevated, #1B2540); border:1px solid var(--border-color, #28334D); border-radius:var(--radius-md, 8px); padding:14px;">
+          <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim); margin-bottom:8px; font-weight:700;">
+            Detected Learner Records
+          </div>
+          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:10px;" id="migration-stats-grid">
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px; text-align:center;">
+              <div style="font-size:18px; font-weight:700; color:var(--primary);" id="migration-stat-problems">0</div>
+              <div style="font-size:11px; color:var(--text-dim);">Practiced</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px; text-align:center;">
+              <div style="font-size:18px; font-weight:700; color:var(--secondary, #42D6C5);" id="migration-stat-mastered">0</div>
+              <div style="font-size:11px; color:var(--text-dim);">Mastered</div>
+            </div>
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:8px; text-align:center;">
+              <div style="font-size:18px; font-weight:700; color:var(--warning, #F5BE65);" id="migration-stat-xp">0 XP</div>
+              <div style="font-size:11px; color:var(--text-dim);">Level <span id="migration-stat-level">1</span></div>
+            </div>
+          </div>
+          <div style="margin-top:10px; font-size:12px; color:var(--text-dim); display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-shield-halved" style="color:var(--primary);"></i>
+            <span>A validated pre-migration backup will be generated automatically before copying.</span>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+          <button type="button" class="btn btn-primary" id="btn-migration-claim" style="width:100%; min-height:42px; font-size:13.5px; font-weight:600;">
+            <i class="fa-solid fa-link" style="margin-right:6px;"></i> Claim & Link Progress to Account
+          </button>
+          <button type="button" class="btn btn-secondary" id="btn-migration-fresh" style="width:100%; min-height:40px; font-size:13px;">
+            <i class="fa-solid fa-sparkles" style="margin-right:6px;"></i> Start Fresh (Clean Account)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="js/data/default-sheets.js"></script>
   <script src="js/data/patterns-data.js"></script>
   <script src="js/data/prerequisite-graph.js"></script>
+  <script src="js/learner-repository.js"></script>
+  <script src="js/migration-manager.js"></script>
   <script src="js/storage-engine.js"></script>
   <script src="js/srs-engine.js"></script>
   <script src="js/failure-engine.js"></script>
@@ -1657,7 +2613,17 @@
   <script src="js/recommendation-engine.js"></script>
   <script src="js/roadmap-engine.js"></script>
   <script src="js/monthly-test.js"></script>
+  <script src="js/adaptive-learning-engine.js"></script>
+  <script src="js/time-travel-simulator.js"></script>
+  <script src="js/adaptive-benchmark.js"></script>
   <script src="js/charts.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth-engine.js"></script>
+  <script src="js/cloud-repository.js"></script>
+  <script src="js/cloud-sync-engine.js"></script>
+  <script src="js/solution-discovery-engine.js"></script>
+  <script src="js/solution-discovery-controller.js"></script>
+  <script src="js/analytics-engine.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

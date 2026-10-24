@@ -6,7 +6,12 @@
   "scripts": {
     "start": "node server.js",
     "test": "node test/run-all-tests.js",
-    "audit": "python scripts/audit_topics.py"
+    "test:unit": "node test/run-all-tests.js",
+    "test:browser": "node scripts/qa-browser-e2e.js",
+    "test:ux": "node scripts/verify-2-4-ux.js",
+    "test:eval": "node scripts/run-intelligence-eval.js",
+    "audit": "python scripts/audit_topics.py",
+    "catalog:build": "python scripts/build_catalog.py"
   },
   "keywords": [
     "dsa",

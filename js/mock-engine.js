@@ -21,6 +21,14 @@
     return null;
   };
 
+  const getRepo = () => {
+    try {
+      if (typeof window !== 'undefined' && window.LearnerRepository) return window.LearnerRepository;
+      if (typeof require !== 'undefined') return require('./learner-repository');
+    } catch (_) {}
+    return null;
+  };
+
   const STORAGE_KEY_ACTIVE_MOCK = 'algorecall_active_mock_session_v2';
   const STORAGE_KEY_MOCK_HISTORY = 'algorecall_mock_history_v2';
 
@@ -140,10 +148,19 @@
     },
 
     /**
-     * Save active session to localStorage
+     * Save active session to localStorage or LearnerRepository
      */
-    saveActiveSession(session) {
+    saveActiveSession(session, ctx) {
       try {
+        const repo = getRepo();
+        if (repo) {
+          if (!session) {
+            repo.clearActiveMockSession(ctx);
+          } else {
+            repo.saveActiveMockSession(session, ctx);
+          }
+          return;
+        }
         const storage = getLocalStorage();
         if (!storage) return;
         if (!session) {
@@ -159,14 +176,20 @@
     /**
      * Restore active session recalculating remaining time strictly from targetEndTime timestamp
      */
-    getActiveSession() {
+    getActiveSession(ctx) {
       try {
-        const storage = getLocalStorage();
-        if (!storage) return null;
-        const raw = storage.getItem(STORAGE_KEY_ACTIVE_MOCK);
-        if (!raw) return null;
-
-        const session = JSON.parse(raw);
+        const repo = getRepo();
+        let session = null;
+        if (repo) {
+          session = repo.getActiveMockSession(ctx);
+        } else {
+          const storage = getLocalStorage();
+          if (!storage) return null;
+          const raw = storage.getItem(STORAGE_KEY_ACTIVE_MOCK);
+          if (!raw) return null;
+          session = JSON.parse(raw);
+        }
+        if (!session) return null;
         if (session.status !== 'in_progress') return null;
 
         const now = Date.now();
@@ -184,7 +207,12 @@
     /**
      * Clear active session
      */
-    clearActiveSession() {
+    clearActiveSession(ctx) {
+      const repo = getRepo();
+      if (repo) {
+        repo.clearActiveMockSession(ctx);
+        return;
+      }
       const storage = getLocalStorage();
       if (storage) {
         storage.removeItem(STORAGE_KEY_ACTIVE_MOCK);
@@ -281,12 +309,19 @@
 
       // Save to mock history
       try {
-        const storage = getLocalStorage();
-        if (storage) {
-          const rawHistory = storage.getItem(STORAGE_KEY_MOCK_HISTORY);
-          const historyList = rawHistory ? JSON.parse(rawHistory) : [];
+        const repo = getRepo();
+        if (repo) {
+          const historyList = repo.getMockHistory() || [];
           historyList.push(report);
-          storage.setItem(STORAGE_KEY_MOCK_HISTORY, JSON.stringify(historyList));
+          repo.saveMockHistory(historyList);
+        } else {
+          const storage = getLocalStorage();
+          if (storage) {
+            const rawHistory = storage.getItem(STORAGE_KEY_MOCK_HISTORY);
+            const historyList = rawHistory ? JSON.parse(rawHistory) : [];
+            historyList.push(report);
+            storage.setItem(STORAGE_KEY_MOCK_HISTORY, JSON.stringify(historyList));
+          }
         }
       } catch (e) {
         console.error('Error saving mock history:', e);

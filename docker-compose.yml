@@ -1,0 +1,31 @@
+# ==============================================================================
+# AlgoRecall — Production & Staging Docker Compose Manifest
+# ==============================================================================
+version: '3.8'
+
+services:
+  algorecall:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: algorecall:2.0.0
+    container_name: algorecall-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - APP_ENV=${APP_ENV:-production}
+      - PORT=3000
+      - MAX_USERS=5
+      - DATA_DIR=/app/data
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/status').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s

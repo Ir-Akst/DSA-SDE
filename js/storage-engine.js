@@ -56,6 +56,14 @@
     };
   };
 
+  const getRepo = () => {
+    try {
+      if (typeof window !== 'undefined' && window.LearnerRepository) return window.LearnerRepository;
+      if (typeof require !== 'undefined') return require('./learner-repository');
+    } catch (_) {}
+    return null;
+  };
+
   const StorageEngine = {
     SCHEMA_VERSION,
     KEYS: STORAGE_KEYS,
@@ -148,8 +156,13 @@
     /**
      * Get Settings
      */
-    getSettings() {
+    getSettings(ctx) {
       try {
+        const repo = getRepo();
+        if (repo) {
+          const stored = repo.getSettings(ctx);
+          return stored ? { ...DEFAULT_SETTINGS, ...stored } : { ...DEFAULT_SETTINGS };
+        }
         const storage = getLocalStorage();
         const raw = storage ? storage.getItem(STORAGE_KEYS.SETTINGS) : null;
         return raw ? { ...DEFAULT_SETTINGS, ...JSON.parse(raw) } : { ...DEFAULT_SETTINGS };
@@ -161,11 +174,16 @@
     /**
      * Save Settings
      */
-    saveSettings(newSettings) {
+    saveSettings(newSettings, ctx) {
       try {
-        const storage = getLocalStorage();
-        const current = this.getSettings();
+        const current = this.getSettings(ctx);
         const merged = { ...current, ...newSettings };
+        const repo = getRepo();
+        if (repo) {
+          repo.saveSettings(merged, ctx);
+          return merged;
+        }
+        const storage = getLocalStorage();
         if (storage) storage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(merged));
         return merged;
       } catch (e) {
@@ -177,8 +195,12 @@
     /**
      * Load User States
      */
-    getUserStates() {
+    getUserStates(ctx) {
       try {
+        const repo = getRepo();
+        if (repo) {
+          return repo.getUserStates(ctx) || {};
+        }
         const storage = getLocalStorage();
         const raw = storage ? storage.getItem(STORAGE_KEYS.USER_STATES) : null;
         return raw ? JSON.parse(raw) : {};
@@ -191,8 +213,12 @@
     /**
      * Save User States
      */
-    saveUserStates(states) {
+    saveUserStates(states, ctx) {
       try {
+        const repo = getRepo();
+        if (repo) {
+          return repo.saveUserStates(states || {}, ctx);
+        }
         const storage = getLocalStorage();
         if (storage) storage.setItem(STORAGE_KEYS.USER_STATES, JSON.stringify(states || {}));
         return true;
@@ -205,16 +231,37 @@
     /**
      * Generate Comprehensive Export Bundle
      */
-    createExportBundle(options = {}) {
-      const storage = getLocalStorage() || { getItem: () => null };
-      const problems = storage.getItem(STORAGE_KEYS.PROBLEMS);
-      const userStates = storage.getItem(STORAGE_KEYS.USER_STATES);
-      const examHistory = storage.getItem(STORAGE_KEYS.EXAM_HISTORY);
-      const mockHistory = storage.getItem(STORAGE_KEYS.MOCK_HISTORY);
-      const failures = storage.getItem(STORAGE_KEYS.FAILURES);
-      const gamification = storage.getItem(STORAGE_KEYS.GAMIFICATION);
-      const roadmap = storage.getItem(STORAGE_KEYS.ROADMAP);
-      const settings = this.getSettings();
+    createExportBundle(options = {}, ctx) {
+      const repo = getRepo();
+      let problems, userStates, examHistory, mockHistory, failures, gamification, roadmap, settings;
+
+      if (repo) {
+        problems = repo.getProblems(ctx);
+        userStates = repo.getUserStates(ctx);
+        examHistory = repo.getExamHistory(ctx);
+        mockHistory = repo.getMockHistory(ctx);
+        failures = repo.getFailures(ctx);
+        gamification = repo.getGamification(ctx);
+        roadmap = repo.getRoadmapProgress(ctx);
+        settings = this.getSettings(ctx);
+      } else {
+        const storage = getLocalStorage() || { getItem: () => null };
+        const pRaw = storage.getItem(STORAGE_KEYS.PROBLEMS);
+        problems = pRaw ? JSON.parse(pRaw) : [];
+        const uRaw = storage.getItem(STORAGE_KEYS.USER_STATES);
+        userStates = uRaw ? JSON.parse(uRaw) : {};
+        const eRaw = storage.getItem(STORAGE_KEYS.EXAM_HISTORY);
+        examHistory = eRaw ? JSON.parse(eRaw) : [];
+        const mRaw = storage.getItem(STORAGE_KEYS.MOCK_HISTORY);
+        mockHistory = mRaw ? JSON.parse(mRaw) : [];
+        const fRaw = storage.getItem(STORAGE_KEYS.FAILURES);
+        failures = fRaw ? JSON.parse(fRaw) : {};
+        const gRaw = storage.getItem(STORAGE_KEYS.GAMIFICATION);
+        gamification = gRaw ? JSON.parse(gRaw) : null;
+        const rRaw = storage.getItem(STORAGE_KEYS.ROADMAP);
+        roadmap = rRaw ? JSON.parse(rRaw) : null;
+        settings = this.getSettings();
+      }
 
       // Don't export raw API keys in backup for security!
       const sanitizedSettings = { ...settings, aiApiKey: '' };
@@ -224,13 +271,13 @@
         version: SCHEMA_VERSION,
         exportedAt: new Date().toISOString(),
         data: {
-          problems: problems ? JSON.parse(problems) : [],
-          userStates: userStates ? JSON.parse(userStates) : {},
-          examHistory: examHistory ? JSON.parse(examHistory) : [],
-          mockHistory: mockHistory ? JSON.parse(mockHistory) : [],
-          failures: failures ? JSON.parse(failures) : {},
-          gamification: gamification ? JSON.parse(gamification) : null,
-          roadmapProgress: roadmap ? JSON.parse(roadmap) : null,
+          problems: problems || [],
+          userStates: userStates || {},
+          examHistory: examHistory || [],
+          mockHistory: mockHistory || [],
+          failures: failures || {},
+          gamification: gamification || null,
+          roadmapProgress: roadmap || null,
           settings: sanitizedSettings
         }
       };
@@ -340,10 +387,11 @@
     /**
      * Apply validated import bundle with conflict preservation
      */
-    applyImportBundle(bundleData, mergeMode = 'merge') {
+    applyImportBundle(bundleData, mergeMode = 'merge', ctx) {
       try {
+        const repo = getRepo();
         const storage = getLocalStorage();
-        if (!storage) return { success: false, error: 'Storage unavailable' };
+        if (!storage && !repo) return { success: false, error: 'Storage unavailable' };
 
         // Ensure bundle is validated before modifying existing state
         const inspection = bundleData.stats ? bundleData : this.inspectImportBundle(bundleData);
@@ -356,9 +404,10 @@
         // 1. User States
         if (payload.userStates) {
           if (mergeMode === 'replace') {
-            storage.setItem(STORAGE_KEYS.USER_STATES, JSON.stringify(payload.userStates));
+            if (repo) repo.saveUserStates(payload.userStates, ctx);
+            else storage.setItem(STORAGE_KEYS.USER_STATES, JSON.stringify(payload.userStates));
           } else {
-            const existing = this.getUserStates();
+            const existing = this.getUserStates(ctx);
             const merged = { ...existing };
             Object.keys(payload.userStates).forEach(id => {
               const incoming = payload.userStates[id];
@@ -381,7 +430,8 @@
                 };
               }
             });
-            storage.setItem(STORAGE_KEYS.USER_STATES, JSON.stringify(merged));
+            if (repo) repo.saveUserStates(merged, ctx);
+            else storage.setItem(STORAGE_KEYS.USER_STATES, JSON.stringify(merged));
           }
         }
 
@@ -389,10 +439,10 @@
         if (payload.examHistory || payload.monthlyTestHistory) {
           const incomingExams = payload.examHistory || payload.monthlyTestHistory;
           if (mergeMode === 'replace') {
-            storage.setItem(STORAGE_KEYS.EXAM_HISTORY, JSON.stringify(incomingExams));
+            if (repo) repo.saveExamHistory(incomingExams, ctx);
+            else storage.setItem(STORAGE_KEYS.EXAM_HISTORY, JSON.stringify(incomingExams));
           } else {
-            const rawCur = storage.getItem(STORAGE_KEYS.EXAM_HISTORY);
-            const curExams = rawCur ? JSON.parse(rawCur) : [];
+            const curExams = repo ? (repo.getExamHistory(ctx) || []) : (storage.getItem(STORAGE_KEYS.EXAM_HISTORY) ? JSON.parse(storage.getItem(STORAGE_KEYS.EXAM_HISTORY)) : []);
             const seenIds = new Set(curExams.map(e => e.testId || e.id));
             const mergedExams = [...curExams];
             incomingExams.forEach(e => {
@@ -402,7 +452,8 @@
                 seenIds.add(eId);
               }
             });
-            storage.setItem(STORAGE_KEYS.EXAM_HISTORY, JSON.stringify(mergedExams));
+            if (repo) repo.saveExamHistory(mergedExams, ctx);
+            else storage.setItem(STORAGE_KEYS.EXAM_HISTORY, JSON.stringify(mergedExams));
           }
         }
 
@@ -410,10 +461,10 @@
         if (payload.mockHistory) {
           const incomingMocks = payload.mockHistory;
           if (mergeMode === 'replace') {
-            storage.setItem(STORAGE_KEYS.MOCK_HISTORY, JSON.stringify(incomingMocks));
+            if (repo) repo.saveMockHistory(incomingMocks, ctx);
+            else storage.setItem(STORAGE_KEYS.MOCK_HISTORY, JSON.stringify(incomingMocks));
           } else {
-            const rawCur = storage.getItem(STORAGE_KEYS.MOCK_HISTORY);
-            const curMocks = rawCur ? JSON.parse(rawCur) : [];
+            const curMocks = repo ? (repo.getMockHistory(ctx) || []) : (storage.getItem(STORAGE_KEYS.MOCK_HISTORY) ? JSON.parse(storage.getItem(STORAGE_KEYS.MOCK_HISTORY)) : []);
             const seenIds = new Set(curMocks.map(m => m.id || m.sessionId));
             const mergedMocks = [...curMocks];
             incomingMocks.forEach(m => {
@@ -423,24 +474,28 @@
                 seenIds.add(mId);
               }
             });
-            storage.setItem(STORAGE_KEYS.MOCK_HISTORY, JSON.stringify(mergedMocks));
+            if (repo) repo.saveMockHistory(mergedMocks, ctx);
+            else storage.setItem(STORAGE_KEYS.MOCK_HISTORY, JSON.stringify(mergedMocks));
           }
         }
 
         // 4. Failures
         if (payload.failures) {
-          storage.setItem(STORAGE_KEYS.FAILURES, JSON.stringify(payload.failures));
+          if (repo) repo.saveFailures(payload.failures, ctx);
+          else storage.setItem(STORAGE_KEYS.FAILURES, JSON.stringify(payload.failures));
         }
 
         // 5. Gamification
         if (payload.gamification) {
-          storage.setItem(STORAGE_KEYS.GAMIFICATION, JSON.stringify(payload.gamification));
+          if (repo) repo.saveGamification(payload.gamification, ctx);
+          else storage.setItem(STORAGE_KEYS.GAMIFICATION, JSON.stringify(payload.gamification));
         }
 
         // 6. Roadmap
         if (payload.roadmapProgress || payload.roadmap) {
           const rm = payload.roadmapProgress || payload.roadmap;
-          storage.setItem(STORAGE_KEYS.ROADMAP, JSON.stringify(rm));
+          if (repo) repo.saveRoadmapProgress(rm, ctx);
+          else storage.setItem(STORAGE_KEYS.ROADMAP, JSON.stringify(rm));
         }
 
         return { success: true };
