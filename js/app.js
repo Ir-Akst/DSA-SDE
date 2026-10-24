@@ -6104,7 +6104,47 @@
     // Open Auth Modal from Header Sign-In Pill
     btnHeaderAuth?.addEventListener('click', () => {
       authModal?.classList.add('open');
+      loadQuickAccounts();
+      const savedUser = localStorage.getItem('algorecall_saved_username');
+      if (savedUser && usernameInput && !usernameInput.value) {
+        usernameInput.value = savedUser;
+      }
     });
+
+    async function loadQuickAccounts() {
+      const box = document.getElementById('auth-quick-accounts-box');
+      const list = document.getElementById('auth-quick-accounts-list');
+      const countBadge = document.getElementById('auth-quick-count');
+      if (!box || !list) return;
+
+      try {
+        const res = await fetch('/api/auth/users');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success || !Array.isArray(data.users) || data.users.length === 0) {
+          box.style.display = 'none';
+          return;
+        }
+
+        if (countBadge) countBadge.textContent = `${data.users.length}/${data.maxUsers || 5}`;
+        list.innerHTML = '';
+        data.users.forEach(u => {
+          const pill = document.createElement('button');
+          pill.type = 'button';
+          pill.className = 'btn btn-sm btn-secondary';
+          pill.style.cssText = 'font-size:12px; padding:4px 10px; border-radius:20px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:var(--text-main); transition:all 0.15s ease;';
+          pill.innerHTML = `<i class="fa-solid fa-circle-user" style="color:var(--primary); font-size:12px;"></i> <span>${escapeHtml(u.displayName || u.username)}</span>`;
+          pill.title = `Click to log in as ${u.username}`;
+          pill.addEventListener('click', () => {
+            if (usernameInput) usernameInput.value = u.username;
+            setAuthMode(false);
+            if (passwordInput) passwordInput.focus();
+          });
+          list.appendChild(pill);
+        });
+        box.style.display = 'block';
+      } catch (_) {}
+    }
 
     // Close Auth Modal
     btnCloseAuthModal?.addEventListener('click', () => {
@@ -6261,11 +6301,19 @@
             credError.style.display = 'block';
           }
         } else {
-          // Success! Clear inputs and close modal
-          if (usernameInput) usernameInput.value = '';
+          // Success! Save username if Remember Me is checked
+          const rememberMe = document.getElementById('auth-remember-me');
+          if (rememberMe && rememberMe.checked && username) {
+            localStorage.setItem('algorecall_saved_username', username);
+          } else if (rememberMe && !rememberMe.checked) {
+            localStorage.removeItem('algorecall_saved_username');
+          }
+
+          // Clear inputs and close modal
           if (passwordInput) passwordInput.value = '';
           if (displayNameInput) displayNameInput.value = '';
           authModal?.classList.remove('open');
+          loadQuickAccounts();
         }
       } catch (err) {
         if (credError) {

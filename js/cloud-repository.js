@@ -244,7 +244,8 @@
             const resp = await fetch('/api/sync/snapshot', {
               headers: { 'Authorization': 'Bearer ' + token }
             });
-            if (resp.ok) {
+            const ct = resp.headers.get('content-type') || '';
+            if (resp.ok && ct.includes('application/json')) {
               const resData = await resp.json();
               if (resData.success) {
                 return {
@@ -533,7 +534,8 @@
               },
               body: JSON.stringify({ snapshot: clean })
             });
-            if (resp.ok) {
+            const ct = resp.headers.get('content-type') || '';
+            if (resp.ok && ct.includes('application/json')) {
               const resData = await resp.json();
               if (resData.success) {
                 return {

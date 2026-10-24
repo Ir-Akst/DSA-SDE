@@ -655,6 +655,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Catch-all for unhandled /api/* endpoints (always return JSON, never HTML)
+  if (pathname.startsWith('/api/')) {
+    sendJson(404, { success: false, error: `API endpoint not found: ${pathname}` });
+    return;
+  }
+
   // Method restriction for static files: allow GET, HEAD, OPTIONS
   if (req.method === 'OPTIONS') {
     sendResponse(res, 204, { 'Allow': 'GET, HEAD, OPTIONS', 'Cache-Control': 'no-store' });

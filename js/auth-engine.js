@@ -148,7 +148,7 @@
                   headers: { 'Authorization': 'Bearer ' + storedToken }
                 });
                 if (meRes.ok) {
-                  const meData = await meRes.json();
+                  const meData = await parseJsonResponse(meRes, 'Invalid session response');
                   if (meData && meData.success && meData.user) {
                     currentUser = {
                       id: meData.user.id,
@@ -313,6 +313,38 @@
   }
 
   /**
+   * Safely parses JSON responses from server fetch calls.
+   * Gracefully handles HTML responses (e.g. Render cold start, 502/503 errors, or static fallbacks)
+   * without crashing with "Unexpected token <".
+   */
+  async function parseJsonResponse(res, defaultError) {
+    const contentType = (res.headers && res.headers.get('content-type')) || '';
+    if (contentType.includes('application/json')) {
+      try {
+        return await res.json();
+      } catch (_) {
+        return { success: false, error: 'Malformed JSON received from server.' };
+      }
+    }
+    // Server returned HTML or non-JSON (e.g. 502/503 from Render spin-up, or 404 from static host)
+    try {
+      const text = await res.text();
+      if (text.includes('<!DOCTYPE') || text.includes('<html') || text.includes('<head')) {
+        if (res.status === 502 || res.status === 503 || res.status === 504) {
+          return { success: false, error: 'Backend server is starting up or temporarily unavailable. Please wait 10 seconds and try again.' };
+        }
+        if (res.status === 404) {
+          return { success: false, error: 'API route not found (HTTP 404). Make sure you are connecting to the active Node web server.' };
+        }
+        return { success: false, error: `Backend server returned an HTML error page (HTTP ${res.status}). Ensure the web service is deployed as a Web Service, not a Static Site.` };
+      }
+      return { success: false, error: text || defaultError };
+    } catch (_) {
+      return { success: false, error: defaultError };
+    }
+  }
+
+  /**
    * Signs in with local credentials (up to 5 users).
    */
   async function signInWithCredentials(username, password) {
@@ -326,7 +358,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password })
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res, 'Invalid credentials');
       if (!res.ok || !data.success) {
         return { success: false, error: data.error || 'Invalid credentials' };
       }
@@ -369,7 +401,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password, displayName })
       });
-      const data = await res.json();
+      const data = await parseJsonResponse(res, 'Registration failed');
       if (!res.ok || !data.success) {
         return { success: false, error: data.error || 'Registration failed' };
       }

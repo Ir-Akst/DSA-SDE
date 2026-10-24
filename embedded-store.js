@@ -16,11 +16,54 @@ const crypto = require('crypto');
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const SNAPSHOTS_DIR = path.join(DATA_DIR, 'snapshots');
+const SECRET_FILE = path.join(DATA_DIR, 'session_secret.key');
+const REVOKED_FILE = path.join(DATA_DIR, 'revoked_tokens.json');
 const MAX_USERS = parseInt(process.env.MAX_USERS, 10) || 5;
 
-// In-memory active session tokens: token -> { user, expiresAt }
-const activeSessions = new Map();
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+let cachedSecret = process.env.SESSION_SECRET || '';
+
+function getSessionSecret() {
+  if (cachedSecret) return cachedSecret;
+  ensureDirectories();
+  if (fs.existsSync(SECRET_FILE)) {
+    try {
+      const read = fs.readFileSync(SECRET_FILE, 'utf8').trim();
+      if (read) {
+        cachedSecret = read;
+        return cachedSecret;
+      }
+    } catch (_) {}
+  }
+  cachedSecret = crypto.randomBytes(32).toString('hex');
+  try {
+    fs.writeFileSync(SECRET_FILE, cachedSecret, 'utf8');
+  } catch (_) {}
+  return cachedSecret;
+}
+
+function readRevokedTokens() {
+  ensureDirectories();
+  if (!fs.existsSync(REVOKED_FILE)) return new Set();
+  try {
+    const list = JSON.parse(fs.readFileSync(REVOKED_FILE, 'utf8'));
+    return new Set(Array.isArray(list) ? list : []);
+  } catch (_) {
+    return new Set();
+  }
+}
+
+function revokeToken(token) {
+  if (!token) return;
+  const set = readRevokedTokens();
+  set.add(token);
+  const arr = Array.from(set).slice(-500); // Retain up to 500 recently revoked tokens
+  try {
+    const tmp = `${REVOKED_FILE}.tmp.${Date.now()}`;
+    fs.writeFileSync(tmp, JSON.stringify(arr), 'utf8');
+    fs.renameSync(tmp, REVOKED_FILE);
+  } catch (_) {}
+}
 
 function ensureDirectories() {
   if (!fs.existsSync(DATA_DIR)) {
@@ -65,13 +108,11 @@ function cleanUser(u) {
 }
 
 function createSession(user) {
-  const token = crypto.randomBytes(32).toString('hex');
-  const session = {
-    user: cleanUser(user),
-    expiresAt: Date.now() + SESSION_TTL_MS
-  };
-  activeSessions.set(token, session);
-  return token;
+  const secret = getSessionSecret();
+  const expiresAt = Date.now() + SESSION_TTL_MS;
+  const rawPayload = `${user.id}:${expiresAt}`;
+  const sig = crypto.createHmac('sha256', secret).update(rawPayload).digest('hex');
+  return `${rawPayload}:${sig}`;
 }
 
 const EmbeddedStore = {
@@ -163,18 +204,33 @@ const EmbeddedStore = {
 
   validateToken(token) {
     if (!token || typeof token !== 'string') return null;
-    const session = activeSessions.get(token);
-    if (!session) return null;
-    if (Date.now() > session.expiresAt) {
-      activeSessions.delete(token);
+    const parts = token.split(':');
+    if (parts.length !== 3) return null;
+    const [userId, expiresAtStr, providedSig] = parts;
+    const expiresAt = parseInt(expiresAtStr, 10);
+    if (!expiresAt || isNaN(expiresAt) || Date.now() > expiresAt) {
       return null;
     }
-    return session.user;
+    const secret = getSessionSecret();
+    const expectedSig = crypto.createHmac('sha256', secret).update(`${userId}:${expiresAtStr}`).digest('hex');
+    const bufA = Buffer.from(providedSig, 'hex');
+    const bufB = Buffer.from(expectedSig, 'hex');
+    if (bufA.length !== bufB.length || !crypto.timingSafeEqual(bufA, bufB)) {
+      return null;
+    }
+    const revoked = readRevokedTokens();
+    if (revoked.has(token)) {
+      return null;
+    }
+    const users = readUsers();
+    const user = users.find(u => u.id === userId);
+    if (!user) return null;
+    return cleanUser(user);
   },
 
   logout(token) {
     if (token) {
-      activeSessions.delete(token);
+      revokeToken(token);
     }
     return { success: true };
   },
