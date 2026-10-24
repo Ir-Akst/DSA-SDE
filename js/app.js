@@ -8,10 +8,12 @@
 
   // --- STORAGE KEYS ---
   const STORAGE_KEYS = {
-    PROBLEMS: 'algorecall_problems_v1',
+    PROBLEMS: 'algorecall_problems_v2',
     USER_STATES: 'algorecall_user_states_v2',
-    TEST_HISTORY: 'algorecall_test_history_v1',
-    ACTIVE_EXAM_SESSION: 'algorecall_active_exam_v1'
+    TEST_HISTORY: 'algorecall_exam_history_v2',
+    MOCK_HISTORY: 'algorecall_mock_history_v2',
+    ACTIVE_EXAM_SESSION: 'algorecall_active_exam_session_v2',
+    ACTIVE_MOCK_SESSION: 'algorecall_active_mock_session_v2'
   };
 
   // --- STATE ---
@@ -22,6 +24,7 @@
   let activeRatingProblemId = null;
   let activeRatingConfidence = 4;
   let activeDetailProblemId = null;
+  let currentAdaptiveRecommendation = null;
 
   // Monthly Exam State
   let activeTestSession = null;
@@ -32,15 +35,38 @@
 
   // --- INITIALIZATION ---
   function init() {
+    if (window.StorageEngine) {
+      StorageEngine.init();
+      const settings = StorageEngine.getSettings();
+      if (settings && settings.theme) {
+        document.documentElement.setAttribute('data-theme', settings.theme);
+        const icon = document.getElementById('theme-toggle-icon');
+        if (icon) {
+          icon.className = settings.theme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+        }
+      }
+    }
+
     loadData();
     if (window.RoadmapEngine) {
       RoadmapEngine.initProgress();
     }
     populateTopicDropdown();
     setupEventListeners();
+    if (window.SolutionDiscoveryController && typeof window.SolutionDiscoveryController.setupDOMListeners === 'function') {
+      window.SolutionDiscoveryController.setupDOMListeners();
+    }
+    setupCrossTabSync();
+    setupMobileNav();
+    setupSettingsModalListeners();
+    setupAnalyticsTimeFilterListeners();
+    setupDetailModalSubTabs();
+    updateGamificationHeader();
     renderAll();
     checkAndRestoreActiveExamSession();
+    checkAndRestoreActiveMockSession();
     checkUrlHashSync();
+    initAuth();
   }
 
   // Smart Normalization & Deduplication Helper
@@ -118,29 +144,39 @@
     return result;
   }
 
-  // Load from LocalStorage or fall back to defaults
+  // Load from LearnerRepository or fall back to defaults
   function loadData() {
     try {
-      const storedStates = localStorage.getItem(STORAGE_KEYS.USER_STATES);
-      userStates = storedStates ? JSON.parse(storedStates) : {};
+      const repo = window.LearnerRepository;
+      let storedProblems = null;
 
-      const storedTests = localStorage.getItem(STORAGE_KEYS.TEST_HISTORY);
-      monthlyTestHistory = storedTests ? JSON.parse(storedTests) : [];
+      if (repo) {
+        userStates = repo.getUserStates() || {};
+        monthlyTestHistory = repo.getExamHistory() || [];
+        storedProblems = repo.getProblems();
+      } else {
+        const storedStates = localStorage.getItem(STORAGE_KEYS.USER_STATES);
+        userStates = storedStates ? JSON.parse(storedStates) : {};
 
-      const storedProblems = localStorage.getItem(STORAGE_KEYS.PROBLEMS);
+        const storedTests = localStorage.getItem(STORAGE_KEYS.TEST_HISTORY);
+        monthlyTestHistory = storedTests ? JSON.parse(storedTests) : [];
+
+        const rawProbs = localStorage.getItem(STORAGE_KEYS.PROBLEMS);
+        storedProblems = rawProbs ? JSON.parse(rawProbs) : null;
+      }
+
       const defaultList = window.DEFAULT_DSA_SHEETS ? [...window.DEFAULT_DSA_SHEETS] : [];
 
-      if (storedProblems) {
-        const parsed = JSON.parse(storedProblems);
-        // Smart merge & deduplicate against master 433 dataset
-        allProblems = smartDeduplicateAndSync(parsed, defaultList, userStates);
+      if (storedProblems && Array.isArray(storedProblems) && storedProblems.length > 0) {
+        // Smart merge & deduplicate against master catalog
+        allProblems = smartDeduplicateAndSync(storedProblems, defaultList, userStates);
       } else {
         allProblems = defaultList;
       }
       saveProblems();
       saveUserStates();
     } catch (e) {
-      console.error('Error loading LocalStorage data:', e);
+      console.error('Error loading data:', e);
       allProblems = window.DEFAULT_DSA_SHEETS ? [...window.DEFAULT_DSA_SHEETS] : [];
       userStates = {};
       monthlyTestHistory = [];
@@ -148,15 +184,85 @@
   }
 
   function saveProblems() {
-    localStorage.setItem(STORAGE_KEYS.PROBLEMS, JSON.stringify(allProblems));
+    if (window.LearnerRepository) {
+      window.LearnerRepository.saveProblems(allProblems);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.PROBLEMS, JSON.stringify(allProblems));
+    }
+  }
+
+  let _cloudSyncDebounceTimer = null;
+  let _isBackgroundSyncInProgress = false;
+
+  async function flushBackgroundSync() {
+    if (typeof window === 'undefined' || !window.CloudSyncEngine || !window.AuthEngine) return;
+    const user = window.AuthEngine.getUser();
+    if (!user || !user.id) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+
+    if (_cloudSyncDebounceTimer) {
+      clearTimeout(_cloudSyncDebounceTimer);
+      _cloudSyncDebounceTimer = null;
+    }
+
+    if (_isBackgroundSyncInProgress) return;
+    _isBackgroundSyncInProgress = true;
+    const currentUserId = user.id;
+
+    try {
+      await window.CloudSyncEngine.checkpoint(currentUserId, { user });
+      // Validate that account context didn't switch during the asynchronous cloud checkpoint
+      const activeUser = window.AuthEngine.getUser();
+      if (!activeUser || activeUser.id !== currentUserId) {
+        return; // Switched account while in flight, safely ignore
+      }
+    } catch (err) {
+      console.warn('[AlgoRecall] Background cloud sync deferred:', err.message);
+    } finally {
+      _isBackgroundSyncInProgress = false;
+    }
+  }
+
+  function scheduleBackgroundSync() {
+    if (typeof window === 'undefined' || !window.CloudSyncEngine || !window.AuthEngine) return;
+    const user = window.AuthEngine.getUser();
+    if (!user || !user.id) return;
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+
+    if (_cloudSyncDebounceTimer) clearTimeout(_cloudSyncDebounceTimer);
+    _cloudSyncDebounceTimer = setTimeout(() => {
+      flushBackgroundSync();
+    }, 2500);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', () => {
+      if (_cloudSyncDebounceTimer) flushBackgroundSync();
+    });
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden' && _cloudSyncDebounceTimer) {
+          flushBackgroundSync();
+        }
+      });
+    }
   }
 
   function saveUserStates() {
-    localStorage.setItem(STORAGE_KEYS.USER_STATES, JSON.stringify(userStates));
+    if (window.LearnerRepository) {
+      window.LearnerRepository.saveUserStates(userStates);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.USER_STATES, JSON.stringify(userStates));
+    }
+    scheduleBackgroundSync();
   }
 
   function saveTestHistory() {
-    localStorage.setItem(STORAGE_KEYS.TEST_HISTORY, JSON.stringify(monthlyTestHistory));
+    if (window.LearnerRepository) {
+      window.LearnerRepository.saveExamHistory(monthlyTestHistory);
+    } else {
+      localStorage.setItem(STORAGE_KEYS.TEST_HISTORY, JSON.stringify(monthlyTestHistory));
+    }
   }
 
   // --- TOPIC & FILTER DROPDOWNS POPULATOR ---
@@ -289,7 +395,10 @@
     renderActivityHeatmap();
     renderRoadmapView();
     renderPatternsHandbook();
+    renderPrerequisiteGraph();
+    renderMockInterviewView();
     updateSidebarBadges();
+    updateGamificationHeader();
   }
 
   // --- SIDEBAR BADGES & STATS ---
@@ -370,6 +479,111 @@
     if (statMasteredEl) statMasteredEl.textContent = masteredCount;
     if (statRetentionEl) statRetentionEl.textContent = `${avgMastery}%`;
 
+    // Feature A: Interview Readiness Engine
+    let readiness = { overallScore: 0, grade: 'Not Ready', dimensions: [], isProvisional: true, evidenceProgress: 0 };
+    if (window.ReadinessEngine) {
+      let mockList = [];
+      try {
+        if (window.LearnerRepository) {
+          mockList = window.LearnerRepository.getMockHistory() || [];
+        } else {
+          const rawMocks = localStorage.getItem('algorecall_mock_history_v2');
+          if (rawMocks) mockList = JSON.parse(rawMocks);
+        }
+      } catch (_) {}
+
+      readiness = ReadinessEngine.calculateReadiness(allProblems, userStates, mockList);
+
+      const scoreEl = document.getElementById('readiness-overall-score');
+      const gradeEl = document.getElementById('readiness-grade-label');
+      const provEl = document.getElementById('readiness-provisional-badge');
+      const indepStat = document.getElementById('readiness-independent-stat');
+      const delayedStat = document.getElementById('readiness-delayed-stat');
+      const weakStat = document.getElementById('readiness-weakness-stat');
+
+      if (scoreEl) {
+        scoreEl.textContent = readiness.overallScore;
+        scoreEl.style.color = readiness.statusColor;
+      }
+      if (gradeEl) gradeEl.textContent = readiness.grade;
+      if (provEl) {
+        if (readiness.isProvisional) {
+          provEl.style.display = 'inline-flex';
+          provEl.innerHTML = `<i class="fa-solid fa-circle-info"></i> Provisional (${readiness.evidenceProgress}% Evidence)`;
+        } else {
+          provEl.style.display = 'none';
+        }
+      }
+
+      if (indepStat && readiness.dimensions[0]) indepStat.innerHTML = `<i class="fa-solid fa-check" style="color:#10b981;"></i> ${readiness.dimensions[0].evidence}`;
+      if (delayedStat && readiness.dimensions[1]) delayedStat.innerHTML = `<i class="fa-solid fa-clock" style="color:#8b5cf6;"></i> ${readiness.dimensions[1].evidence}`;
+
+      if (weakStat && window.FailureEngine) {
+        const weakness = FailureEngine.computeWeaknessProfile(allProblems, userStates);
+        if (weakness && weakness.topFailure && weakness.topFailure.count > 0) {
+          weakStat.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b;"></i> Top Struggle: ${weakness.topFailure.label} (${weakness.topFailure.count})`;
+        } else {
+          weakStat.innerHTML = `<i class="fa-solid fa-shield-halved" style="color:#38bdf8;"></i> Clean solve history`;
+        }
+      }
+
+      const dimsContainer = document.getElementById('readiness-dimensions-container');
+      if (dimsContainer) {
+        dimsContainer.innerHTML = readiness.dimensions.map(d => `
+          <div class="dimension-card">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:12.5px; font-weight:600; color:var(--text-main);">${d.label}</span>
+              <strong style="font-size:13px; color:${d.score >= 70 ? '#10b981' : d.score >= 50 ? '#38bdf8' : '#f59e0b'};">${d.score}%</strong>
+            </div>
+            <div class="dimension-bar-track">
+              <div class="dimension-bar-fill" style="width:${d.score}%; background:${d.score >= 70 ? '#10b981' : d.score >= 50 ? '#38bdf8' : '#f59e0b'};"></div>
+            </div>
+            <span style="font-size:11px; color:var(--text-dim);">${d.evidence}</span>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Prescribed Next Learning Action Hero
+    const nextActionTitle = document.getElementById('dashboard-next-action-title');
+    const nextActionSubtitle = document.getElementById('dashboard-next-action-subtitle');
+    const btnNextAction = document.getElementById('btn-dashboard-start-session');
+
+    if (nextActionTitle && nextActionSubtitle && btnNextAction) {
+      const scrollToPlan = () => {
+        const planSec = document.getElementById('today-dsa-plan-section');
+        if (planSec) planSec.scrollIntoView({ behavior: 'smooth' });
+        else switchView('roadmap');
+      };
+
+      if (dueCount > 0) {
+        nextActionTitle.textContent = `Clear ${dueCount} Due Revision Problem${dueCount > 1 ? 's' : ''}`;
+        nextActionSubtitle.textContent = `Scientific Leitner memory intervals show retention decay. Cement your active patterns now.`;
+        btnNextAction.onclick = scrollToPlan;
+      } else {
+        let missingPrereq = null;
+        if (window.GraphEngine) {
+          const sampleStruggle = allProblems.find(p => {
+            const s = userStates[p.id];
+            return s && (s.lastRating === 'failed' || (s.confidence && s.confidence <= 2));
+          });
+          if (sampleStruggle) {
+            missingPrereq = GraphEngine.findMissingPrerequisite(sampleStruggle, allProblems, userStates);
+          }
+        }
+
+        if (missingPrereq) {
+          nextActionTitle.textContent = `Strengthen Prerequisite: ${missingPrereq.weakPrerequisiteNode.title}`;
+          nextActionSubtitle.textContent = missingPrereq.reason;
+          btnNextAction.onclick = () => switchView('graph');
+        } else {
+          nextActionTitle.textContent = `Continue Daily Structured Roadmap Workout`;
+          nextActionSubtitle.textContent = `Progress through your active curriculum track and maintain your daily problem streak.`;
+          btnNextAction.onclick = scrollToPlan;
+        }
+      }
+    }
+
     // Revision Banner
     const banner = document.getElementById('dashboard-revision-banner');
     const bannerDueCount = document.getElementById('banner-due-count');
@@ -392,7 +606,7 @@
     priorityTbody.innerHTML = '';
 
     const dueProblems = allProblems.filter(p => SRSEngine.isDue(userStates[p.id]));
-    
+
     // Sort due problems: lower confidence / overdue gets highest priority
     dueProblems.sort((a, b) => {
       const aConf = SRSEngine.getConfidence(userStates[a.id]) || 3;
@@ -409,6 +623,7 @@
       return;
     }
 
+    const priorityFragment = document.createDocumentFragment();
     displayList.forEach(p => {
       const state = userStates[p.id];
       const dueInfo = SRSEngine.getDueStatus(state);
@@ -418,7 +633,7 @@
         tr.classList.add('due-row');
       }
 
-      const confBadgeHtml = conf 
+      const confBadgeHtml = conf
         ? `<span class="conf-badge conf-${conf}" style="font-size:10.5px;" title="${SRSEngine.getConfidenceMeta(conf).label}">⭐ ${conf}/5</span> `
         : '';
 
@@ -447,8 +662,1232 @@
           </div>
         </td>
       `;
-      priorityTbody.appendChild(tr);
+      priorityFragment.appendChild(tr);
     });
+    priorityTbody.appendChild(priorityFragment);
+
+    // Render Today's DSA Plan (12-Week Roadmap + Daily Problem Solver)
+    renderDailyDSAPlan();
+    renderAdaptiveLoopRecommendation();
+  }
+
+  // --- FEATURE: 12-WEEK DSA ROADMAP & DAILY PROBLEM SOLVER ---
+
+  function findNextPlanTask(plan) {
+    if (!plan) return null;
+
+    // 1. Any overdue revision task not completed today and not skipped
+    const overdueRev = (plan.spacedRevision?.problems || []).find(p => !p.isCompletedToday && !p.isSkippedToday && (p.isOverdue || (p.selectionReason || '').toLowerCase().includes('overdue')));
+    if (overdueRev) return { task: overdueRev, isRevision: true, isSpaced: true };
+
+    // 2. Next uncompleted, unskipped Spaced Revision problem (due recall priority)
+    const nextSpaced = (plan.spacedRevision?.problems || []).find(p => !p.isCompletedToday && !p.isSkippedToday);
+    if (nextSpaced) return { task: nextSpaced, isRevision: true, isSpaced: true };
+
+    // 3. Next uncompleted, unskipped learn problem
+    const nextLearn = (plan.learn?.problems || []).find(p => !p.isCompletedToday && !p.isSkippedToday);
+    if (nextLearn) return { task: nextLearn, isRevision: false, isSpaced: false };
+
+    // 4. Next uncompleted, unskipped topic revision problem
+    const nextTopicRev = (plan.topicRevision?.problems || []).find(p => !p.isCompletedToday && !p.isSkippedToday);
+    if (nextTopicRev) return { task: nextTopicRev, isRevision: true, isSpaced: false };
+
+    // 5. Fallback: legacy revise
+    const nextRev = (plan.revise?.problems || []).find(p => !p.isCompletedToday && !p.isSkippedToday);
+    if (nextRev) return { task: nextRev, isRevision: true, isSpaced: false };
+
+    // 6. Check if any uncompleted tasks were skipped and can now be revisited
+    const allPlanned = [
+      ...(plan.spacedRevision?.problems || []),
+      ...(plan.learn?.problems || []),
+      ...(plan.topicRevision?.problems || [])
+    ];
+    const skippedTask = allPlanned.find(p => !p.isCompletedToday && p.isSkippedToday);
+    if (skippedTask) {
+      return { task: skippedTask, isRevision: Boolean(skippedTask.isRevision), isSpaced: Boolean(skippedTask.isSpacedRevision), isSkipped: true };
+    }
+
+    return null;
+  }
+
+  let _planFeedbackTimer = null;
+  function showPlanConfirmation(msg) {
+    const banner = document.getElementById('dsa-plan-feedback-banner');
+    const text = document.getElementById('dsa-plan-feedback-text');
+    if (!banner || !text) return;
+    text.textContent = msg;
+    banner.style.display = 'flex';
+
+    if (_planFeedbackTimer) clearTimeout(_planFeedbackTimer);
+    _planFeedbackTimer = setTimeout(() => {
+      banner.style.display = 'none';
+    }, 4500);
+  }
+
+  function renderDailyDSAPlan() {
+    if (!window.RoadmapEngine) return;
+    if (window.StorageEngine) {
+      userStates = StorageEngine.getUserStates();
+    }
+    window.renderDailyDSAPlan = renderDailyDSAPlan;
+
+    const planSection = document.getElementById('today-dsa-plan-section');
+    if (!planSection) return;
+
+    setupDailyPlanControls();
+
+    const budgetPill = document.getElementById('dsa-plan-budget-pill');
+    const headerSummary = document.getElementById('dsa-plan-header-summary');
+
+    const currentMins = (RoadmapEngine.get12WeekTargetMinutes && RoadmapEngine.get12WeekTargetMinutes()) || 120;
+
+    const plan = RoadmapEngine.getDailyDSAPlan(currentMins, allProblems, userStates);
+
+    if (budgetPill && plan.timeAllocation) {
+      budgetPill.innerHTML = `<span><i class="fa-solid fa-clock"></i> ${plan.timeAllocation.learnMinutes}m Learn • ${plan.timeAllocation.topicRevisionMinutes}m Topic Revise • ${plan.timeAllocation.spacedRevisionMinutes}m Spaced Revise • ${plan.timeAllocation.recallBufferMinutes}m Active Recall</span>`;
+    }
+
+    if (headerSummary) {
+      headerSummary.textContent = `Workload-aware learning, topic practice & spaced recall workflow`;
+    }
+
+    // Populate and sync Independent Topic Preferences (Section 2)
+    const learningTopicSelect = document.getElementById('dsa-plan-learning-topic-select');
+    const revisionTopicSelect = document.getElementById('dsa-plan-revision-topic-select');
+
+    if (learningTopicSelect) {
+      const curLearn = RoadmapEngine.getCurrentLearningTopic(allProblems, userStates);
+      const isFocused = document.activeElement === learningTopicSelect;
+      if (!isFocused || !learningTopicSelect.children.length) {
+        const topicStats = RoadmapEngine.getTopicCatalogStats(allProblems, userStates);
+        const optionsHtml = topicStats.map(t =>
+          `<option value="${escapeHtml(t.topic)}"${t.topic === curLearn ? ' selected' : ''}>${escapeHtml(t.topic)} (${t.unattempted} new)</option>`
+        ).join('');
+        learningTopicSelect.innerHTML = optionsHtml;
+        learningTopicSelect.value = curLearn;
+      }
+    }
+
+    if (revisionTopicSelect) {
+      const curRev = RoadmapEngine.getRevisionTopic(allProblems, userStates);
+      const isFocused = document.activeElement === revisionTopicSelect;
+      if (!isFocused || !revisionTopicSelect.children.length) {
+        const topicStats = RoadmapEngine.getTopicCatalogStats(allProblems, userStates);
+        const allDueOpt = `<option value="all_due"${curRev === 'all_due' ? ' selected' : ''}>All Due Topics (${topicStats.totalDue || 0} due)</option>`;
+        const topicOpts = topicStats.map(t =>
+          `<option value="${escapeHtml(t.topic)}"${t.topic === curRev ? ' selected' : ''}>${escapeHtml(t.topic)} (${t.due || 0} due)</option>`
+        ).join('');
+        revisionTopicSelect.innerHTML = allDueOpt + topicOpts;
+        revisionTopicSelect.value = curRev;
+      }
+    }
+
+    // Hero Overview Banner Elements
+    const weekDisplay = document.getElementById('dsa-plan-current-week-display');
+    const mainTopicDisplay = document.getElementById('dsa-plan-main-topic-display');
+    const revTopicDisplay = document.getElementById('dsa-plan-rev-topic-display');
+    const dueReviewsDisplay = document.getElementById('dsa-plan-due-reviews-display');
+    const studyTimeDisplay = document.getElementById('dsa-plan-study-time-display');
+    const horizonDisplay = document.getElementById('dsa-plan-horizon-display');
+    const tasksProgressText = document.getElementById('dsa-plan-tasks-progress-text');
+    const btnStartNext = document.getElementById('btn-start-next-problem');
+
+    if (weekDisplay) weekDisplay.textContent = 'Active Roadmap';
+    if (mainTopicDisplay) mainTopicDisplay.textContent = `${plan.learn.topic}`;
+    if (revTopicDisplay) revTopicDisplay.textContent = `${plan.topicRevision?.topicDisplay || plan.revise.topicDisplay}`;
+    if (dueReviewsDisplay) {
+      const dueCount = plan.spacedRevision?.dueTotal || 0;
+      const backlogCount = plan.spacedRevision?.backlogCount || 0;
+      dueReviewsDisplay.textContent = `${dueCount} due${backlogCount > 0 ? ' (' + backlogCount + ' backlog)' : ''}`;
+    }
+    if (studyTimeDisplay) studyTimeDisplay.textContent = `${plan.timeAllocation.totalMinutes} minutes`;
+    if (horizonDisplay && plan.dynamicRoadmap) {
+      const dr = plan.dynamicRoadmap;
+      if (dr.isImpossibleAllocation) {
+        horizonDisplay.textContent = 'Indefinite';
+        horizonDisplay.title = dr.disclaimer || 'Insufficient study allocation';
+      } else if (dr.isAllCompleted) {
+        horizonDisplay.textContent = 'Completed!';
+        horizonDisplay.title = 'All roadmap problems completed';
+      } else if (dr.weeksRange && Array.isArray(dr.weeksRange)) {
+        horizonDisplay.textContent = `~${dr.weeksRemaining} wks (${dr.weeksRange[0]}-${dr.weeksRange[1]} wks Est.)`;
+        horizonDisplay.title = `Estimated completion around ${dr.estimatedCompletionDate || 'N/A'}`;
+      } else if (dr.weeksRemaining !== undefined) {
+        horizonDisplay.textContent = `~${dr.weeksRemaining} wks (Est.)`;
+        horizonDisplay.title = `Estimated completion around ${dr.estimatedCompletionDate || 'N/A'}`;
+      }
+    }
+    if (tasksProgressText) {
+      const plannedTotal = (plan.progress.plannedTasksTotal !== undefined)
+        ? plan.progress.plannedTasksTotal
+        : (plan.progress.totalPlannedTasks || 0);
+      const completedTasks = plan.progress.completedPlannedTasks || 0;
+      tasksProgressText.textContent = `${completedTasks} of ${plannedTotal} tasks completed`;
+    }
+
+    // Prominent "Start Next Problem" action
+    const nextItem = findNextPlanTask(plan);
+    if (btnStartNext) {
+      if (plan.progress.isAllCompleted) {
+        btnStartNext.innerHTML = `<i class="fa-solid fa-circle-check"></i> Today's Plan Completed!`;
+        btnStartNext.classList.remove('btn-primary');
+        btnStartNext.classList.add('btn-success');
+        btnStartNext.onclick = () => {
+          document.getElementById('dsa-plan-progress-section')?.scrollIntoView({ behavior: 'smooth' });
+        };
+      } else if (nextItem) {
+        btnStartNext.innerHTML = `<i class="fa-solid fa-play"></i> Start Next Problem`;
+        btnStartNext.classList.remove('btn-success');
+        btnStartNext.classList.add('btn-primary');
+        btnStartNext.onclick = () => {
+          const cardEl = document.getElementById(`plan-task-${nextItem.task.id}`);
+          if (cardEl) {
+            cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            cardEl.classList.add('pulse-focus-card');
+            setTimeout(() => cardEl.classList.remove('pulse-focus-card'), 2200);
+          }
+          if (nextItem.task.url) {
+            window.open(nextItem.task.url, '_blank', 'noopener,noreferrer');
+          }
+        };
+      } else {
+        btnStartNext.innerHTML = `<i class="fa-solid fa-play"></i> Start Next Problem`;
+        btnStartNext.classList.remove('btn-success');
+        btnStartNext.classList.add('btn-primary');
+        btnStartNext.onclick = () => {
+          document.getElementById('dsa-plan-learn-section')?.scrollIntoView({ behavior: 'smooth' });
+        };
+      }
+    }
+
+    // =========================================================================
+    // SECTION 2: LEARN — NEW QUESTIONS
+    // =========================================================================
+    const learnTopicTitle = document.getElementById('dsa-plan-learn-topic-title');
+    const learnTimeBadge = document.getElementById('dsa-plan-learn-time-badge');
+    const learnConceptSub = document.getElementById('dsa-plan-learn-concept-sub');
+    const learnList = document.getElementById('dsa-plan-learn-task-list');
+
+    if (learnTopicTitle) learnTopicTitle.textContent = `${plan.learn.topic}`;
+    if (learnTimeBadge) learnTimeBadge.textContent = `~${plan.timeAllocation.learnMinutes}m target`;
+    if (learnConceptSub) learnConceptSub.textContent = `New questions · ${plan.learn.topic} · Adaptive difficulty progression`;
+
+    if (learnList) {
+      if (!plan.learn.problems || plan.learn.problems.length === 0) {
+        let emptyIcon = 'fa-solid fa-circle-check';
+        let emptyIconColor = '#10b981';
+        let emptyTitle = `All eligible questions for ${escapeHtml(plan.learn.topic)} are completed!`;
+        let emptyDesc = `You have solved all recommended new problems in this topic. Pick another topic to learn or strengthen your skills with Topic Revision.`;
+
+        if (plan.learn.emptyReason === 'all_mastered') {
+          emptyIcon = 'fa-solid fa-trophy';
+          emptyIconColor = '#eab308';
+          emptyTitle = `Topic Mastered: ${escapeHtml(plan.learn.topic)}!`;
+          emptyDesc = `You have mastered all questions in ${escapeHtml(plan.learn.topic)}. Excellent work! Choose your next topic from the dropdown above.`;
+        } else if (plan.learn.emptyReason === 'topic_exhausted') {
+          emptyIcon = 'fa-solid fa-check-double';
+          emptyIconColor = '#38bdf8';
+          emptyTitle = `Topic Practiced Today: ${escapeHtml(plan.learn.topic)}`;
+          emptyDesc = `All available problems in ${escapeHtml(plan.learn.topic)} have been practiced in today's session. Continue with Topic Revision or select another learning topic.`;
+        }
+        learnList.innerHTML = `
+          <div class="plan-empty-state">
+            <i class="${emptyIcon}" style="color:${emptyIconColor};"></i>
+            <strong>${emptyTitle}</strong>
+            <span>${emptyDesc}</span>
+            <div class="plan-empty-actions">
+              <button class="btn btn-secondary btn-sm btn-browse-catalog" type="button"><i class="fa-solid fa-layer-group"></i> Browse Catalog</button>
+            </div>
+          </div>
+        `;
+      } else {
+        let foundFirstUncompleted = false;
+        const totalLearnTasks = plan.learn.problems.length;
+        let cardsHtml = plan.learn.problems.map((p, idx) => {
+          const isNextUp = !p.isCompletedToday && !p.isSkippedToday && !foundFirstUncompleted && (!nextItem || nextItem.task.id === p.id);
+          if (isNextUp) foundFirstUncompleted = true;
+          return renderPlanTaskCard(p, false, isNextUp, idx, totalLearnTasks);
+        }).join('');
+
+        if (plan.learn.problems.every(p => p.isCompletedToday) && plan.learn.hasNextEligibleQuestion) {
+          cardsHtml += `
+            <div class="plan-replenish-banner">
+              <div class="replenish-info">
+                <i class="fa-solid fa-circle-check" style="color:#10b981; font-size:18px;"></i>
+                <div>
+                  <strong>All planned questions for ${escapeHtml(plan.learn.topic)} completed!</strong>
+                  <span>Next eligible question in this topic is available immediately without any wait.</span>
+                </div>
+              </div>
+              <button class="btn btn-sm btn-primary btn-replenish-stream" data-stream="learn" type="button">
+                <i class="fa-solid fa-bolt"></i> Next Question Available — Continue Learning
+              </button>
+            </div>
+          `;
+        }
+        learnList.innerHTML = cardsHtml;
+      }
+    }
+
+    // =========================================================================
+    // SECTION 3: TOPIC REVISION — TOPIC PRACTICE
+    // =========================================================================
+    const topicRevTitle = document.getElementById('dsa-plan-topic-revise-topic-title') || document.getElementById('dsa-plan-revise-topic-title');
+    const topicRevTimeBadge = document.getElementById('dsa-plan-topic-revise-time-badge') || document.getElementById('dsa-plan-revise-time-badge');
+    const topicRevConceptSub = document.getElementById('dsa-plan-topic-revise-concept-sub') || document.getElementById('dsa-plan-revise-concept-sub');
+    const topicRevList = document.getElementById('dsa-plan-topic-revise-task-list') || document.getElementById('dsa-plan-revise-task-list');
+
+    const topicRevProblems = plan.topicRevision?.problems || [];
+    const topicRevTopicName = plan.topicRevision?.topicDisplay || plan.topicRevision?.topic || plan.revise.topicDisplay;
+
+    if (topicRevTitle) topicRevTitle.textContent = `${topicRevTopicName}`;
+    if (topicRevTimeBadge) topicRevTimeBadge.textContent = `~${plan.timeAllocation.topicRevisionMinutes}m target`;
+    if (topicRevConceptSub) topicRevConceptSub.textContent = `Topic-focused practice · ${topicRevTopicName} · Adaptive difficulty`;
+
+    if (topicRevList) {
+      if (!topicRevProblems || topicRevProblems.length === 0) {
+        topicRevList.innerHTML = `
+          <div class="plan-empty-state">
+            <i class="fa-solid fa-sliders" style="color:#f59e0b;"></i>
+            <strong>No suitable topic practice questions available for ${escapeHtml(topicRevTopicName)}.</strong>
+            <span>All practice items in this topic are current, or select another topic from the Revise Topic dropdown above.</span>
+          </div>
+        `;
+      } else {
+        const totalTopicTasks = topicRevProblems.length;
+        let cardsHtml = topicRevProblems.map((p, idx) => {
+          const isNextUp = !p.isCompletedToday && !p.isSkippedToday && nextItem && nextItem.task.id === p.id;
+          return renderPlanTaskCard(p, true, isNextUp, idx, totalTopicTasks);
+        }).join('');
+
+        if (topicRevProblems.every(p => p.isCompletedToday) && plan.topicRevision?.hasNextEligibleQuestion) {
+          cardsHtml += `
+            <div class="plan-replenish-banner">
+              <div class="replenish-info">
+                <i class="fa-solid fa-circle-check" style="color:#10b981; font-size:18px;"></i>
+                <div>
+                  <strong>Planned practice in ${escapeHtml(topicRevTopicName)} completed!</strong>
+                  <span>Practice another question in this topic right now.</span>
+                </div>
+              </div>
+              <button class="btn btn-sm btn-secondary btn-replenish-stream" data-stream="topicRevision" type="button">
+                <i class="fa-solid fa-dumbbell"></i> Practice Next Question
+              </button>
+            </div>
+          `;
+        }
+        topicRevList.innerHTML = cardsHtml;
+      }
+    }
+
+    // Backwards-compatibility sync for legacy revise task list container if present
+    const legacyRevList = document.getElementById('dsa-plan-revise-task-list');
+    if (legacyRevList && legacyRevList !== topicRevList) {
+      legacyRevList.innerHTML = topicRevList ? topicRevList.innerHTML : '';
+    }
+
+    // =========================================================================
+    // SECTION 4: SPACED REVISION — TIME-BASED SRS RECALL
+    // =========================================================================
+    const spacedRevTitle = document.getElementById('dsa-plan-spaced-revise-topic-title');
+    const spacedRevTimeBadge = document.getElementById('dsa-plan-spaced-revise-time-badge');
+    const spacedBacklogBadge = document.getElementById('dsa-plan-spaced-backlog-badge');
+    const spacedRevList = document.getElementById('dsa-plan-spaced-revise-task-list');
+
+    const spacedProblems = plan.spacedRevision?.problems || [];
+    const dueTotal = plan.spacedRevision?.dueTotal || 0;
+    const backlogTotal = plan.spacedRevision?.backlogCount || 0;
+
+    if (spacedRevTitle) spacedRevTitle.textContent = `All Eligible Topics (${dueTotal} due)`;
+    if (spacedRevTimeBadge) spacedRevTimeBadge.textContent = `~${plan.timeAllocation.spacedRevisionMinutes}m target`;
+    if (spacedBacklogBadge) {
+      if (backlogTotal > 0) {
+        spacedBacklogBadge.style.display = 'inline-flex';
+        spacedBacklogBadge.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> ${backlogTotal} deferred to next session`;
+      } else {
+        spacedBacklogBadge.style.display = 'none';
+      }
+    }
+
+    if (spacedRevList) {
+      if (!spacedProblems || spacedProblems.length === 0) {
+        spacedRevList.innerHTML = `
+          <div class="plan-empty-state">
+            <i class="fa-solid fa-star" style="color:#38bdf8;"></i>
+            <strong>No spaced revisions due right now.</strong>
+            <span>Your spaced repetition schedule is completely up to date. Solve new questions above to build your spaced recall queue!</span>
+          </div>
+        `;
+      } else {
+        const totalSpacedTasks = spacedProblems.length;
+        let cardsHtml = spacedProblems.map((p, idx) => {
+          const isNextUp = !p.isCompletedToday && !p.isSkippedToday && nextItem && nextItem.task.id === p.id;
+          return renderPlanTaskCard(p, true, isNextUp, idx, totalSpacedTasks);
+        }).join('');
+
+        if (spacedProblems.every(p => p.isCompletedToday) && backlogTotal > 0) {
+          cardsHtml += `
+            <div class="plan-replenish-banner">
+              <div class="replenish-info">
+                <i class="fa-solid fa-triangle-exclamation" style="color:#f59e0b; font-size:18px;"></i>
+                <div>
+                  <strong>${backlogTotal} due review(s) deferred in backlog.</strong>
+                  <span>Ready to clear more review debt? You can review the next due item now.</span>
+                </div>
+              </div>
+              <button class="btn btn-sm btn-warning btn-replenish-stream" data-stream="spacedRevision" type="button">
+                <i class="fa-solid fa-clock-rotate-left"></i> Review Next Backlog Item
+              </button>
+            </div>
+          `;
+        }
+        spacedRevList.innerHTML = cardsHtml;
+      }
+    }
+
+    // =========================================================================
+    // SECTION 5: DAILY PROGRESS
+    // =========================================================================
+    const completedTasksEl = document.getElementById('dsa-plan-completed-tasks');
+    const remainingTasksEl = document.getElementById('dsa-plan-remaining-tasks');
+    const studyTimeEl = document.getElementById('dsa-plan-study-time-spent');
+    const overdueRemainingEl = document.getElementById('dsa-plan-overdue-count');
+    const progressBar = document.getElementById('dsa-plan-progress-bar');
+    const completionPill = document.getElementById('dsa-plan-completion-pill');
+    const statusFooter = document.getElementById('dsa-plan-status-footer');
+
+    if (completedTasksEl) completedTasksEl.textContent = plan.progress.completedPlannedTasks;
+    if (remainingTasksEl) remainingTasksEl.textContent = plan.progress.remainingTasks;
+    if (studyTimeEl) studyTimeEl.textContent = `${plan.progress.todayMinutesLogged}m`;
+    if (overdueRemainingEl) overdueRemainingEl.textContent = plan.progress.dueBacklogRemaining || plan.progress.overdueRemaining;
+    if (progressBar) progressBar.style.width = `${plan.progress.completionPercent}%`;
+
+    if (completionPill) {
+      if (plan.progress.isAllCompleted) {
+        completionPill.innerHTML = `<i class="fa-solid fa-check-double"></i> 100% Done`;
+        completionPill.style.background = 'rgba(16, 185, 129, 0.25)';
+        completionPill.style.color = '#34d399';
+      } else {
+        completionPill.textContent = `${plan.progress.completionPercent}% Done`;
+        completionPill.style.background = 'rgba(16, 185, 129, 0.15)';
+        completionPill.style.color = 'var(--primary)';
+      }
+    }
+
+    if (statusFooter) {
+      if (plan.progress.isAllCompleted) {
+        statusFooter.innerHTML = `
+          <i class="fa-solid fa-award" style="color:#10b981;"></i>
+          <span style="color:#34d399; font-weight:700;">Goal Achieved! You finished today's planned DSA session (${plan.progress.completedPlannedTasks} tasks, ${plan.progress.todayMinutesLogged}m logged).</span>
+        `;
+      } else if (plan.progress.completedPlannedTasks > 0) {
+        statusFooter.innerHTML = `
+          <i class="fa-solid fa-fire" style="color:#f59e0b;"></i>
+          <span>Great momentum! ${plan.progress.remainingTasks} task${plan.progress.remainingTasks > 1 ? 's' : ''} left to complete today.</span>
+        `;
+      } else {
+        statusFooter.innerHTML = `
+          <i class="fa-solid fa-circle-play" style="color:var(--primary);"></i>
+          <span>Ready to start: Pick your first problem above or click "Start Next Problem".</span>
+        `;
+      }
+    }
+
+    const recallText = document.getElementById('dsa-plan-recall-text');
+    if (recallText && plan.learn) {
+      recallText.textContent = `Spend 10 minutes explaining core ${plan.learn.topic} invariants or templates out loud before closing.`;
+    }
+
+    // Attach task action listeners across all sections
+    bindDailyPlanTaskEvents(planSection);
+    bindSectionTaskEvents(document.getElementById('dsa-plan-learn-section'));
+    bindSectionTaskEvents(document.getElementById('dsa-plan-topic-revise-section'));
+    bindSectionTaskEvents(document.getElementById('dsa-plan-spaced-revise-section'));
+    bindSectionTaskEvents(document.getElementById('dsa-plan-revise-section'));
+  }
+
+  function renderPlanTaskCard(p, sectionType = 'learn', isNextUp = false, taskIndex = 0, totalTasks = 1) {
+    if (sectionType === true) sectionType = 'topic_revise';
+    if (sectionType === false) sectionType = 'learn';
+    if (p.isSpacedRevision) sectionType = 'spaced_revise';
+    else if (p.isTopicRevision) sectionType = 'topic_revise';
+
+    const diffClass = p.difficulty === 'Easy' ? 'badge-easy' : p.difficulty === 'Medium' ? 'badge-medium' : 'badge-hard';
+    const escapedTitle = escapeHtml(p.title || '');
+    const estMins = p.estimatedMinutes || (p.difficulty === 'Easy' ? 15 : p.difficulty === 'Medium' ? 30 : 45);
+
+    // Status Badge & Reason
+    let statusBadgeHtml = '';
+    let reasonText = '';
+
+    if (sectionType === 'spaced_revise') {
+      const rawReason = (p.selectionReason || '').toLowerCase();
+      if (p.isOverdue || rawReason.includes('overdue')) {
+        statusBadgeHtml = `<span class="badge-rev-status status-overdue"><i class="fa-solid fa-clock-rotate-left"></i> Overdue</span>`;
+      } else {
+        statusBadgeHtml = `<span class="badge-rev-status status-due"><i class="fa-solid fa-bell"></i> Due</span>`;
+      }
+      reasonText = p.selectionReason || 'Due for scheduled spaced recall';
+    } else if (sectionType === 'topic_revise') {
+      const rawReason = (p.selectionReason || '').toLowerCase();
+      if (rawReason.includes('failed')) {
+        statusBadgeHtml = `<span class="badge-rev-status status-weak"><i class="fa-solid fa-triangle-exclamation"></i> Weak</span>`;
+      } else if (rawReason.includes('hint')) {
+        statusBadgeHtml = `<span class="badge-rev-status status-weak"><i class="fa-solid fa-lightbulb"></i> Weak</span>`;
+      } else {
+        statusBadgeHtml = `<span class="badge-rev-status status-due"><i class="fa-solid fa-dumbbell"></i> Practice</span>`;
+      }
+      reasonText = p.selectionReason || `Topic practice in ${p.topic || 'topic'}`;
+    } else {
+      reasonText = p.selectionReason || `Recommended foundation for ${p.topic || 'today'}`;
+    }
+
+    if (p.isSkippedToday) {
+      statusBadgeHtml += ` <span class="badge-rev-status status-skipped"><i class="fa-solid fa-forward-step"></i> Skipped</span>`;
+    }
+
+    // Completed today outcome display
+    const currState = userStates[p.id];
+    let completedOutcomeText = 'Completed Today';
+    if (p.isCompletedToday && currState) {
+      if (currState.lastRating === 'simple' && !currState.hintsUsed) {
+        completedOutcomeText = 'Solved independently';
+      } else if (currState.hintsUsed) {
+        completedOutcomeText = 'Solved with hints';
+      } else if (currState.lastRating === 'failed') {
+        completedOutcomeText = 'Could not solve';
+      }
+    }
+
+    const launchLabel = sectionType === 'spaced_revise' ? 'Recall Now' : (sectionType === 'topic_revise' ? 'Practice Now' : 'Solve Problem');
+    const launchIcon = sectionType === 'spaced_revise' ? 'fa-solid fa-clock-rotate-left' : (sectionType === 'topic_revise' ? 'fa-solid fa-dumbbell' : 'fa-solid fa-play');
+    const cardSectionClass = sectionType === 'spaced_revise' ? 'spaced-revision-card revision-card' : (sectionType === 'topic_revise' ? 'topic-revision-card revision-card' : 'learn-card');
+    const isRevision = sectionType !== 'learn';
+
+    return `
+      <div class="plan-task-card ${cardSectionClass} ${p.isCompletedToday ? 'task-completed' : ''} ${isNextUp ? 'next-up-task' : ''}" data-problem-id="${p.id}" id="plan-task-${p.id}">
+        <div class="plan-task-header">
+          <div class="plan-task-badges">
+            <span class="badge badge-task-position" title="Question position"><i class="fa-solid fa-hashtag"></i> ${taskIndex + 1} of ${totalTasks}</span>
+            <span class="badge ${diffClass}">${p.difficulty}</span>
+            <span class="plan-task-time"><i class="fa-solid fa-clock"></i> ~${estMins}m</span>
+            ${statusBadgeHtml}
+            ${isNextUp ? `<span class="badge-up-next"><i class="fa-solid fa-arrow-right"></i> Up Next</span>` : ''}
+          </div>
+          <div class="plan-task-actions-right">
+            ${p.url ? `<a href="${p.url}" target="_blank" rel="noopener noreferrer" class="card-icon-btn" title="Open problem on platform" aria-label="Open ${escapedTitle}"><i class="fa-solid fa-arrow-up-right-from-square"></i></a>` : ''}
+            <button class="card-icon-btn plan-trainer-btn" data-problem-id="${p.id}" title="Launch Discovery Trainer" aria-label="Launch Discovery Trainer"><i class="fa-solid fa-compass"></i></button>
+            <button class="card-icon-btn plan-detail-btn" data-problem-id="${p.id}" title="Problem Notes & Details" aria-label="View problem details"><i class="fa-solid fa-circle-info"></i></button>
+          </div>
+        </div>
+
+        <div class="plan-task-body">
+          <h4 class="plan-task-title">
+            <a href="${p.url || '#'}" ${p.url ? 'target="_blank" rel="noopener noreferrer"' : ''} class="plan-task-link" data-problem-id="${p.id}" title="${escapedTitle}">
+              ${escapedTitle}
+            </a>
+          </h4>
+          <p class="plan-task-reason">
+            <i class="fa-solid fa-angle-right"></i> ${escapeHtml(reasonText)}
+          </p>
+        </div>
+
+        ${p.isCompletedToday ? `
+          <div class="plan-task-completed-bar">
+            <div class="completed-info">
+              <i class="fa-solid fa-circle-check"></i>
+              <span>${completedOutcomeText}</span>
+            </div>
+            <button class="btn btn-secondary btn-xs plan-relog-btn" data-problem-id="${p.id}" data-section-type="${sectionType}" data-is-revision="${isRevision ? '1' : '0'}" title="Re-log outcome">
+              Change
+            </button>
+          </div>
+        ` : `
+          <div class="plan-task-footer">
+            <div class="plan-primary-btn-row" style="display:flex; gap:8px;">
+              <button class="btn btn-primary btn-plan-launch" style="flex:1;" data-problem-id="${p.id}" data-url="${p.url || ''}" data-section-type="${sectionType}" data-is-revision="${isRevision ? '1' : '0'}">
+                <i class="${launchIcon}"></i> ${launchLabel}
+              </button>
+              <button class="btn btn-secondary btn-plan-trainer" data-problem-id="${p.id}" title="Step-by-step discovery trainer">
+                <i class="fa-solid fa-compass"></i> Discover
+              </button>
+            </div>
+
+            <div class="plan-outcome-container">
+              <span class="plan-outcome-title">Record Outcome:</span>
+              <div class="plan-outcome-btn-group">
+                <button class="outcome-btn outcome-independent" data-problem-id="${p.id}" data-outcome="independent" data-section-type="${sectionType}" data-is-revision="${isRevision ? '1' : '0'}" title="Solved independently without hints">
+                  <i class="fa-solid fa-check"></i> Solved
+                </button>
+                <button class="outcome-btn outcome-hints" data-problem-id="${p.id}" data-outcome="hints" data-section-type="${sectionType}" data-is-revision="${isRevision ? '1' : '0'}" title="Solved with hints, assistance, or editorial">
+                  <i class="fa-solid fa-lightbulb"></i> Hints
+                </button>
+                <button class="outcome-btn outcome-failed" data-problem-id="${p.id}" data-outcome="failed" data-section-type="${sectionType}" data-is-revision="${isRevision ? '1' : '0'}" title="Could not solve today">
+                  <i class="fa-solid fa-xmark"></i> Failed
+                </button>
+                <button class="outcome-btn outcome-skip" data-problem-id="${p.id}" data-action="skip" title="Skip for now (stays in session queue)">
+                  <i class="fa-solid fa-forward-step"></i> ${p.isSkippedToday ? 'Resume' : 'Skip'}
+                </button>
+              </div>
+            </div>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  function handleDailyPlanOutcome(problemId, outcome, sectionType = 'learn') {
+    if (window.StorageEngine) {
+      userStates = StorageEngine.getUserStates();
+    }
+    const p = allProblems.find(item => item.id === problemId);
+    if (!p) return;
+
+    const currState = userStates[problemId] || {};
+    let rating = 'simple';
+    let confidence = 4;
+    let hintsUsed = false;
+    let outcomeLabel = 'Solved independently';
+
+    if (outcome === 'independent') {
+      rating = 'simple';
+      confidence = 4;
+      hintsUsed = false;
+      outcomeLabel = 'Solved independently';
+    } else if (outcome === 'hints') {
+      rating = 'medium';
+      confidence = 3;
+      hintsUsed = true;
+      outcomeLabel = 'Solved with hints';
+    } else if (outcome === 'failed') {
+      rating = 'failed';
+      confidence = 1;
+      hintsUsed = false;
+      outcomeLabel = 'Could not solve';
+    }
+
+    const isRevision = sectionType === 'spaced_revise' || sectionType === 'topic_revise' || sectionType === true || sectionType === '1';
+    const isSpaced = sectionType === 'spaced_revise' || (sectionType === true && p.isSpacedRevision);
+    const isTopicPractice = sectionType === 'topic_revise' || (sectionType === true && p.isTopicRevision);
+
+    const estMinutes = (window.RoadmapEngine && RoadmapEngine.getProblemEstimatedMinutes)
+      ? RoadmapEngine.getProblemEstimatedMinutes(p.difficulty, isRevision)
+      : (p.difficulty === 'Easy' ? 15 : p.difficulty === 'Medium' ? 30 : 45);
+
+    userStates[problemId] = SRSEngine.processReview(
+      currState,
+      rating,
+      estMinutes,
+      `Daily Plan: ${outcomeLabel}`,
+      confidence,
+      {
+        hintsUsed: hintsUsed,
+        isTopicPractice: isTopicPractice
+      }
+    );
+    if (window.RoadmapEngine && RoadmapEngine.isTaskSkippedToday && RoadmapEngine.isTaskSkippedToday(problemId)) {
+      RoadmapEngine.unskipPlanTask(problemId);
+    }
+    saveUserStates();
+
+    // Gamification XP & Badges
+    if (window.GamificationEngine) {
+      if (outcome === 'independent') {
+        GamificationEngine.awardXP('independent_solve');
+      } else if (isSpaced && outcome !== 'failed') {
+        GamificationEngine.awardXP('delayed_recall');
+      } else {
+        GamificationEngine.awardXP('review');
+      }
+      GamificationEngine.evaluateBadges(allProblems, userStates, monthlyTestHistory);
+      updateGamificationHeader();
+    }
+
+    renderDashboard();
+
+    // Show immediate concise confirmation & next recommended task
+    const currentMins = (window.RoadmapEngine && RoadmapEngine.get12WeekTargetMinutes) ? RoadmapEngine.get12WeekTargetMinutes() : 120;
+    const updatedPlan = RoadmapEngine.getDailyDSAPlan(currentMins, allProblems, userStates);
+    const nextTaskObj = findNextPlanTask(updatedPlan);
+
+    let confirmMsg = `✓ Recorded "${outcomeLabel}" for "${p.title}".`;
+    if (nextTaskObj) {
+      confirmMsg += ` Next task: "${nextTaskObj.task.title}".`;
+    } else {
+      confirmMsg += ` 🎉 Great job! All planned tasks completed.`;
+    }
+    showPlanConfirmation(confirmMsg);
+  }
+
+  function bindDailyPlanTaskEvents(container) {
+    if (!container) return;
+    bindSectionTaskEvents(container);
+  }
+
+  function bindSectionTaskEvents(container) {
+    if (!container) return;
+
+    // Launch buttons (Solve Problem / Revise Now)
+    container.querySelectorAll('.btn-plan-launch').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const id = btn.dataset.problemId;
+        const url = btn.dataset.url;
+        const p = allProblems.find(item => item.id === id);
+        if (url) {
+          window.open(url, '_blank', 'noopener,noreferrer');
+        } else if (p) {
+          openDetailModal(id);
+        }
+        const cardEl = document.getElementById(`plan-task-${id}`);
+        if (cardEl) {
+          cardEl.classList.add('pulse-focus-card');
+          setTimeout(() => cardEl.classList.remove('pulse-focus-card'), 2000);
+        }
+      };
+    });
+
+    // Outcome recording and skip buttons
+    container.querySelectorAll('.outcome-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const id = btn.dataset.problemId;
+        const outcome = btn.dataset.outcome;
+        const action = btn.dataset.action;
+        if (action === 'skip') {
+          if (!window.RoadmapEngine) return;
+          if (RoadmapEngine.isTaskSkippedToday(id)) {
+            RoadmapEngine.unskipPlanTask(id);
+            showPlanConfirmation(`✓ Resumed task.`);
+          } else {
+            RoadmapEngine.skipPlanTask(id);
+            showPlanConfirmation(`✓ Skipped task for now (stays in queue).`);
+          }
+          renderDashboard();
+          return;
+        }
+        const sectionType = btn.dataset.sectionType || (btn.dataset.isRevision === '1' ? 'topic_revise' : 'learn');
+        handleDailyPlanOutcome(id, outcome, sectionType);
+      };
+    });
+
+    // Replenishment stream buttons
+    container.querySelectorAll('.btn-replenish-stream').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const stream = btn.dataset.stream || 'learn';
+        if (!window.RoadmapEngine) return;
+        const curMins = (RoadmapEngine.get12WeekTargetMinutes && RoadmapEngine.get12WeekTargetMinutes()) || 120;
+        const res = RoadmapEngine.replenishDailyPlan(stream, curMins, allProblems, userStates);
+        renderDashboard();
+        if (res && res.replenished && res.problem) {
+          showPlanConfirmation(`✓ Added "${res.problem.title}" to session.`);
+          setTimeout(() => {
+            const cardEl = document.getElementById(`plan-task-${res.problem.id}`);
+            if (cardEl) {
+              cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              cardEl.classList.add('pulse-focus-card');
+              setTimeout(() => cardEl.classList.remove('pulse-focus-card'), 2000);
+            }
+          }, 60);
+        } else {
+          showPlanConfirmation(`No additional eligible questions found in catalog.`);
+        }
+      };
+    });
+
+    // Re-log buttons
+    container.querySelectorAll('.plan-relog-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const id = btn.dataset.problemId;
+        openRatingModal(id);
+      };
+    });
+
+    // Discovery Trainer launch buttons
+    container.querySelectorAll('.btn-plan-trainer, .plan-trainer-btn').forEach(btn => {
+      btn.onclick = (e) => {
+        e.preventDefault();
+        const id = btn.dataset.problemId;
+        if (window.SolutionDiscoveryController) {
+          window.SolutionDiscoveryController.openModal(id);
+        }
+      };
+    });
+
+    // Card links and detail buttons
+    container.querySelectorAll('.plan-task-link, .plan-detail-btn').forEach(el => {
+      el.onclick = (e) => {
+        const id = el.dataset.problemId;
+        const p = allProblems.find(item => item.id === id);
+        if (el.classList.contains('plan-detail-btn') || !p?.url) {
+          e.preventDefault();
+          openDetailModal(id);
+        }
+      };
+    });
+
+    // Empty state buttons
+    container.querySelectorAll('.btn-advance-week').forEach(btn => {
+      btn.onclick = () => {
+        if (!window.RoadmapEngine) return;
+        const cur = RoadmapEngine.get12WeekCurrent();
+        RoadmapEngine.set12WeekCurrent(Math.min(12, cur + 1));
+        renderDailyDSAPlan();
+      };
+    });
+
+    container.querySelectorAll('.btn-browse-catalog').forEach(btn => {
+      btn.onclick = () => switchView('problems');
+    });
+
+    container.querySelectorAll('.btn-view-roadmap').forEach(btn => {
+      btn.onclick = () => switchView('roadmap');
+    });
+  }
+
+  let dailyPlanControlsInitialized = false;
+  let activeRefreshStream = null;
+  let activeRefreshPreview = null;
+  let isExecutingRefresh = false;
+
+  function openRefreshConfirmModal(streamName) {
+    if (!window.RoadmapEngine) return;
+    const modal = document.getElementById('refresh-confirm-modal');
+    if (!modal) return;
+
+    activeRefreshStream = streamName;
+    const targetMins = (RoadmapEngine.get12WeekTargetMinutes && RoadmapEngine.get12WeekTargetMinutes()) || 120;
+    const preview = RoadmapEngine.getRefreshPreview(streamName, targetMins, allProblems, userStates);
+    activeRefreshPreview = preview;
+
+    const modalTitle = document.getElementById('refresh-modal-title');
+    const modalSubtitle = document.getElementById('refresh-modal-subtitle');
+    const modalBadge = document.getElementById('refresh-modal-badge');
+    const streamIcon = document.getElementById('refresh-modal-stream-icon');
+    const markedCountEl = document.getElementById('refresh-modal-marked-count');
+    const preservedCountEl = document.getElementById('refresh-modal-preserved-count');
+    const availableCountEl = document.getElementById('refresh-modal-available-count');
+    const expectedCountEl = document.getElementById('refresh-modal-expected-count');
+    const alertBox = document.getElementById('refresh-modal-alert');
+    const alertText = document.getElementById('refresh-modal-alert-text');
+    const btnConfirm = document.getElementById('btn-refresh-confirm');
+    const confirmLabel = document.getElementById('refresh-confirm-btn-label');
+
+    // Configure stream branding
+    if (streamName === 'learn') {
+      if (modalTitle) modalTitle.textContent = 'Refresh Learn Questions';
+      if (modalSubtitle) modalSubtitle.textContent = `Topic: ${preview.targetTopic}`;
+      if (modalBadge) {
+        modalBadge.textContent = 'LEARN';
+        modalBadge.className = 'plan-section-badge learn-badge';
+      }
+      if (streamIcon) {
+        streamIcon.style.background = 'rgba(139,124,255,0.15)';
+        streamIcon.style.color = 'var(--primary, #8B7CFF)';
+        streamIcon.innerHTML = '<i class="fa-solid fa-book-open" style="font-size:18px;"></i>';
+      }
+    } else if (streamName === 'topicRevision') {
+      if (modalTitle) modalTitle.textContent = 'Refresh Topic Revision Questions';
+      if (modalSubtitle) modalSubtitle.textContent = `Topic: ${preview.targetTopic}`;
+      if (modalBadge) {
+        modalBadge.textContent = 'TOPIC REVISION';
+        modalBadge.className = 'plan-section-badge topic-revise-badge';
+      }
+      if (streamIcon) {
+        streamIcon.style.background = 'rgba(66,214,197,0.15)';
+        streamIcon.style.color = 'var(--secondary, #42D6C5)';
+        streamIcon.innerHTML = '<i class="fa-solid fa-rotate-left" style="font-size:18px;"></i>';
+      }
+    } else if (streamName === 'spacedRevision') {
+      if (modalTitle) modalTitle.textContent = 'Refresh Spaced Revision Questions';
+      if (modalSubtitle) modalSubtitle.textContent = 'Due Spaced Recall · All Topics';
+      if (modalBadge) {
+        modalBadge.textContent = 'SPACED REVISION';
+        modalBadge.className = 'plan-section-badge spaced-revise-badge';
+      }
+      if (streamIcon) {
+        streamIcon.style.background = 'rgba(245,190,101,0.15)';
+        streamIcon.style.color = 'var(--warning, #F5BE65)';
+        streamIcon.innerHTML = '<i class="fa-solid fa-clock-rotate-left" style="font-size:18px;"></i>';
+      }
+    }
+
+    if (markedCountEl) markedCountEl.textContent = preview.markedCount;
+    if (preservedCountEl) preservedCountEl.textContent = preview.preservedCount;
+    if (availableCountEl) availableCountEl.textContent = preview.availableCount;
+    if (expectedCountEl) expectedCountEl.textContent = preview.expectedReplacements;
+
+    // Handle alerts and button state
+    if (preview.markedCount === 0) {
+      if (alertBox) {
+        alertBox.style.display = 'flex';
+        alertBox.style.background = 'rgba(255, 115, 133, 0.12)';
+        alertBox.style.border = '1px solid rgba(255, 115, 133, 0.3)';
+        alertBox.style.color = 'var(--error, #FF7385)';
+      }
+      if (alertText) alertText.textContent = 'No completed or skipped questions to refresh. Pending questions are already active in today\'s set.';
+      if (btnConfirm) btnConfirm.disabled = true;
+      if (confirmLabel) confirmLabel.textContent = 'Nothing to Refresh';
+    } else if (preview.availableCount === 0) {
+      if (alertBox) {
+        alertBox.style.display = 'flex';
+        alertBox.style.background = 'rgba(255, 115, 133, 0.12)';
+        alertBox.style.border = '1px solid rgba(255, 115, 133, 0.3)';
+        alertBox.style.color = 'var(--error, #FF7385)';
+      }
+      if (alertText) {
+        alertText.textContent = streamName === 'spacedRevision'
+          ? 'No further due SRS reviews available today. Non-due questions are never forced into the queue.'
+          : 'No additional eligible replacement questions available in the catalog for this topic.';
+      }
+      if (btnConfirm) btnConfirm.disabled = true;
+      if (confirmLabel) confirmLabel.textContent = 'No Replacements';
+    } else if (preview.shortfall > 0) {
+      if (alertBox) {
+        alertBox.style.display = 'flex';
+        alertBox.style.background = 'rgba(245, 190, 101, 0.12)';
+        alertBox.style.border = '1px solid rgba(245, 190, 101, 0.3)';
+        alertBox.style.color = 'var(--warning, #F5BE65)';
+      }
+      if (alertText) alertText.textContent = `Partial replenishment: only ${preview.availableCount} replacement question(s) available (${preview.shortfall} shortfall).`;
+      if (btnConfirm) btnConfirm.disabled = false;
+      if (confirmLabel) confirmLabel.textContent = `Confirm (${preview.expectedReplacements} new)`;
+    } else {
+      if (alertBox) alertBox.style.display = 'none';
+      if (btnConfirm) btnConfirm.disabled = false;
+      if (confirmLabel) confirmLabel.textContent = `Confirm Refresh (${preview.expectedReplacements} new)`;
+    }
+
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    const cancelBtn = document.getElementById('btn-refresh-cancel');
+    if (cancelBtn) cancelBtn.focus();
+  }
+
+  function closeRefreshConfirmModal() {
+    const modal = document.getElementById('refresh-confirm-modal');
+    if (!modal) return;
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+    const lastStream = activeRefreshStream;
+    activeRefreshPreview = null;
+    isExecutingRefresh = false;
+
+    // Restore focus to initiating button
+    if (lastStream === 'learn') {
+      const b = document.getElementById('btn-refresh-learn');
+      if (b) b.focus();
+    } else if (lastStream === 'topicRevision') {
+      const b = document.getElementById('btn-refresh-topic-revise');
+      if (b) b.focus();
+    } else if (lastStream === 'spacedRevision') {
+      const b = document.getElementById('btn-refresh-spaced-revise');
+      if (b) b.focus();
+    }
+  }
+
+  function executeRefreshConfirm() {
+    if (isExecutingRefresh || !activeRefreshStream || !window.RoadmapEngine) return;
+    isExecutingRefresh = true;
+
+    const btnConfirm = document.getElementById('btn-refresh-confirm');
+    const confirmLabel = document.getElementById('refresh-confirm-btn-label');
+    const alertBox = document.getElementById('refresh-modal-alert');
+    const alertText = document.getElementById('refresh-modal-alert-text');
+
+    if (btnConfirm) btnConfirm.disabled = true;
+    if (confirmLabel) confirmLabel.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Refreshing...';
+
+    const targetMins = (RoadmapEngine.get12WeekTargetMinutes && RoadmapEngine.get12WeekTargetMinutes()) || 120;
+    const expectedRev = activeRefreshPreview ? activeRefreshPreview.revision : undefined;
+
+    const result = RoadmapEngine.refreshStreamQuestions(
+      activeRefreshStream,
+      targetMins,
+      allProblems,
+      userStates,
+      { expectedRev }
+    );
+
+    if (!result.success) {
+      if (result.stalePreview) {
+        if (alertBox) {
+          alertBox.style.display = 'flex';
+          alertBox.style.background = 'rgba(255, 115, 133, 0.12)';
+          alertBox.style.border = '1px solid rgba(255, 115, 133, 0.3)';
+          alertBox.style.color = 'var(--error, #FF7385)';
+        }
+        if (alertText) alertText.textContent = result.error || 'Plan was updated. Reviewing refreshed state...';
+        setTimeout(() => openRefreshConfirmModal(activeRefreshStream), 1200);
+      } else {
+        if (alertBox) {
+          alertBox.style.display = 'flex';
+          alertBox.style.background = 'rgba(255, 115, 133, 0.12)';
+          alertBox.style.border = '1px solid rgba(255, 115, 133, 0.3)';
+          alertBox.style.color = 'var(--error, #FF7385)';
+        }
+        if (alertText) alertText.textContent = result.message || result.error || 'Refresh failed';
+      }
+      if (btnConfirm) btnConfirm.disabled = false;
+      if (confirmLabel) confirmLabel.textContent = 'Retry';
+      isExecutingRefresh = false;
+      return;
+    }
+
+    // Success! Close modal and re-render
+    closeRefreshConfirmModal();
+    renderDailyDSAPlan();
+
+    // Show feedback banner
+    const feedbackBanner = document.getElementById('dsa-plan-feedback-banner');
+    const feedbackText = document.getElementById('dsa-plan-feedback-text');
+    if (feedbackBanner && feedbackText) {
+      const streamDisplayName = result.streamName === 'learn' ? 'Learn' : (result.streamName === 'topicRevision' ? 'Topic Revision' : 'Spaced Revision');
+      let msg = `${streamDisplayName} refreshed: ${result.replacedCount} marked question${result.replacedCount === 1 ? '' : 's'} replaced.`;
+      if (result.shortfall > 0) {
+        msg += ` (${result.shortfall} question shortfall due to catalog limit).`;
+      }
+      feedbackText.textContent = msg;
+      feedbackBanner.style.display = 'flex';
+      setTimeout(() => {
+        feedbackBanner.style.display = 'none';
+      }, 5000);
+    }
+  }
+
+  function setupDailyPlanControls() {
+    if (dailyPlanControlsInitialized) return;
+    dailyPlanControlsInitialized = true;
+
+    const learningTopicSelect = document.getElementById('dsa-plan-learning-topic-select');
+    const revisionTopicSelect = document.getElementById('dsa-plan-revision-topic-select');
+    const btnCloseFeedback = document.getElementById('btn-close-plan-feedback');
+    const btnToggleAnalytics = document.getElementById('btn-toggle-secondary-analytics');
+
+    if (learningTopicSelect) {
+      learningTopicSelect.addEventListener('change', (e) => {
+        if (!window.RoadmapEngine) return;
+        RoadmapEngine.setCurrentLearningTopic(e.target.value);
+        renderDailyDSAPlan();
+      });
+    }
+
+    if (revisionTopicSelect) {
+      revisionTopicSelect.addEventListener('change', (e) => {
+        if (!window.RoadmapEngine) return;
+        RoadmapEngine.setRevisionTopic(e.target.value);
+        renderDailyDSAPlan();
+      });
+    }
+
+    // Refresh controls wiring
+    const btnRefreshLearn = document.getElementById('btn-refresh-learn');
+    const btnRefreshTopicRevise = document.getElementById('btn-refresh-topic-revise');
+    const btnRefreshSpacedRevise = document.getElementById('btn-refresh-spaced-revise');
+
+    if (btnRefreshLearn) {
+      btnRefreshLearn.addEventListener('click', () => openRefreshConfirmModal('learn'));
+    }
+    if (btnRefreshTopicRevise) {
+      btnRefreshTopicRevise.addEventListener('click', () => openRefreshConfirmModal('topicRevision'));
+    }
+    if (btnRefreshSpacedRevise) {
+      btnRefreshSpacedRevise.addEventListener('click', () => openRefreshConfirmModal('spacedRevision'));
+    }
+
+    // Refresh modal buttons wiring
+    const btnRefreshCancel = document.getElementById('btn-refresh-cancel');
+    const btnCloseRefreshModal = document.getElementById('btn-close-refresh-modal');
+    const btnRefreshConfirm = document.getElementById('btn-refresh-confirm');
+    const refreshModal = document.getElementById('refresh-confirm-modal');
+
+    if (btnRefreshCancel) btnRefreshCancel.addEventListener('click', closeRefreshConfirmModal);
+    if (btnCloseRefreshModal) btnCloseRefreshModal.addEventListener('click', closeRefreshConfirmModal);
+    if (btnRefreshConfirm) btnRefreshConfirm.addEventListener('click', executeRefreshConfirm);
+
+    if (refreshModal) {
+      refreshModal.addEventListener('click', (e) => {
+        if (e.target === refreshModal) closeRefreshConfirmModal();
+      });
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && refreshModal && refreshModal.style.display === 'flex') {
+        closeRefreshConfirmModal();
+      }
+    });
+
+    if (btnCloseFeedback) {
+      btnCloseFeedback.addEventListener('click', () => {
+        const banner = document.getElementById('dsa-plan-feedback-banner');
+        if (banner) banner.style.display = 'none';
+      });
+    }
+
+    if (btnToggleAnalytics) {
+      btnToggleAnalytics.addEventListener('click', () => {
+        const content = document.getElementById('secondary-analytics-content');
+        if (!content) return;
+        const isExpanded = btnToggleAnalytics.getAttribute('aria-expanded') === 'true';
+        btnToggleAnalytics.setAttribute('aria-expanded', String(!isExpanded));
+        btnToggleAnalytics.classList.toggle('expanded', !isExpanded);
+        content.style.display = isExpanded ? 'none' : 'block';
+      });
+    }
+  }
+
+  // --- FEATURE: ADAPTIVE LEARNING LOOP & MASTERY CALIBRATION (P1 & P2) ---
+
+  function renderAdaptiveLoopRecommendation() {
+    const card = document.getElementById('adaptive-learning-loop-card');
+    if (!card || !window.AdaptiveLearningEngine) return;
+
+    const rec = AdaptiveLearningEngine.selectNextAction(allProblems, userStates);
+    currentAdaptiveRecommendation = rec;
+
+    if (!rec) {
+      card.style.display = 'none';
+      return;
+    }
+
+    card.style.display = 'flex';
+
+    const meta = rec.actionMetadata || AdaptiveLearningEngine.ACTION_METADATA[rec.action] || {
+      label: 'Recommended Action',
+      icon: 'fa-arrows-spin',
+      color: '#38bdf8'
+    };
+
+    const typeEl = document.getElementById('adaptive-loop-action-type');
+    const badgeEl = document.getElementById('adaptive-loop-badge');
+    const titleEl = document.getElementById('adaptive-loop-title');
+    const expEl = document.getElementById('adaptive-loop-explanation');
+    const sourceEl = document.getElementById('adaptive-meta-source');
+    const statusEl = document.getElementById('adaptive-meta-status');
+    const btnTextEl = document.getElementById('btn-adaptive-loop-text');
+
+    if (typeEl) typeEl.textContent = meta.label;
+    if (badgeEl) {
+      badgeEl.innerHTML = `<i class="fa-solid ${meta.icon}"></i> <span>${meta.label}</span>`;
+      if (meta.color) badgeEl.style.color = meta.color;
+    }
+    if (titleEl) {
+      titleEl.textContent = `${rec.problemTitle} (${rec.difficulty} • ${rec.topic})`;
+    }
+    if (expEl) {
+      expEl.textContent = rec.explanation;
+    }
+    if (sourceEl) {
+      const srcLabel = rec.evidence?.source === 'graph-engine' ? 'Prerequisite Graph'
+        : rec.evidence?.source === 'srs-engine' ? 'SRS Retention Interval'
+        : rec.evidence?.source === 'failure-engine' ? 'Failure Diagnosis'
+        : rec.evidence?.source === 'roadmap-engine' ? 'Roadmap Track'
+        : 'Multi-Signal Evidence';
+      sourceEl.innerHTML = `<i class="fa-solid fa-brain"></i> Evidence: ${srcLabel}`;
+    }
+    if (statusEl) {
+      const storedInterventions = AdaptiveLearningEngine.getStoredInterventions();
+      const prevIntervention = storedInterventions.slice().reverse().find(it => it.targetProblemId === rec.targetProblemId);
+      if (prevIntervention) {
+        const verification = AdaptiveLearningEngine.verifyIntervention(prevIntervention, userStates, allProblems);
+        if (verification.status === 'resolved') {
+          statusEl.innerHTML = `<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> Follow-Up: Resolved (${verification.elapsedHours}h)`;
+        } else if (verification.status === 'partially_improved') {
+          statusEl.innerHTML = `<i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> Follow-Up: Partial Recovery`;
+        } else {
+          statusEl.innerHTML = `<i class="fa-solid fa-arrows-spin" style="color:#38bdf8;"></i> Follow-Up: Active`;
+        }
+      } else {
+        statusEl.innerHTML = `<i class="fa-solid fa-check-double" style="color:#10b981;"></i> Closed-Loop: Ready`;
+      }
+    }
+    if (btnTextEl) {
+      if (rec.action === 'prerequisite_practice') {
+        btnTextEl.textContent = 'Practice Stepping-Stone';
+      } else if (rec.action === 'spaced_revision') {
+        btnTextEl.textContent = 'Revise for Retention';
+      } else if (rec.action === 'independent_retry') {
+        btnTextEl.textContent = 'Retry Independently';
+      } else if (rec.action === 'edge_case_drill') {
+        btnTextEl.textContent = 'Solve with Checklist';
+      } else {
+        btnTextEl.textContent = 'Start Recommended Task';
+      }
+    }
+  }
+
+  function handleAdaptiveLoopAction() {
+    if (!currentAdaptiveRecommendation) return;
+
+    if (window.AdaptiveLearningEngine) {
+      AdaptiveLearningEngine.recordIntervention(currentAdaptiveRecommendation, userStates);
+      saveUserStates();
+    }
+
+    const problem = allProblems.find(p => p.id === currentAdaptiveRecommendation.problemId);
+    if (!problem) return;
+
+    if (problem.url) {
+      window.open(problem.url, '_blank', 'noopener,noreferrer');
+    }
+
+    openRatingModal(problem.id);
+    showPlanConfirmation(`Adaptive Loop active: ${currentAdaptiveRecommendation.explanation}`);
+  }
+
+  function renderMasteryCalibration() {
+    if (!window.AdaptiveLearningEngine) return;
+
+    let mockList = [];
+    try {
+      if (window.LearnerRepository) {
+        mockList = window.LearnerRepository.getMockHistory() || [];
+      } else {
+        const rawMocks = localStorage.getItem('algorecall_mock_history_v2');
+        if (rawMocks) mockList = JSON.parse(rawMocks);
+      }
+    } catch (_) {}
+
+    const calib = AdaptiveLearningEngine.evaluateMasteryCalibration(allProblems, userStates, mockList);
+
+    const attemptedEl = document.getElementById('calib-count-attempted');
+    const provEl = document.getElementById('calib-count-provisional');
+    const retainedEl = document.getElementById('calib-count-retained');
+    const masteredEl = document.getElementById('calib-count-mastered');
+
+    if (attemptedEl) attemptedEl.textContent = calib.counts.attempted;
+    if (provEl) provEl.textContent = calib.counts.provisionallyLearned;
+    if (retainedEl) retainedEl.textContent = calib.counts.retained;
+    if (masteredEl) masteredEl.textContent = calib.counts.mastered;
+
+    const headingEl = document.getElementById('uncertainty-heading');
+    const expEl = document.getElementById('uncertainty-explanation');
+    const pillEl = document.getElementById('uncertainty-status-pill');
+
+    if (headingEl) {
+      headingEl.textContent = calib.uncertainty.isProvisional
+        ? 'Readiness Score: Provisional Interval'
+        : 'Readiness Score: Empirical Calibration';
+    }
+    if (expEl) {
+      expEl.textContent = calib.uncertainty.explanation;
+    }
+    if (pillEl) {
+      pillEl.textContent = calib.uncertainty.isProvisional
+        ? `Provisional (±${calib.uncertainty.uncertaintyMargin} pts)`
+        : `Empirical (±${calib.uncertainty.uncertaintyMargin} pts)`;
+      if (calib.uncertainty.isProvisional) {
+        pillEl.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+        pillEl.style.color = '#f59e0b';
+        pillEl.style.background = 'rgba(245, 158, 11, 0.12)';
+      } else {
+        pillEl.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+        pillEl.style.color = '#10b981';
+        pillEl.style.background = 'rgba(16, 185, 129, 0.12)';
+      }
+    }
   }
 
   // --- VIEW 2: PROBLEM SHEETS EXPLORER ---
@@ -533,6 +1972,7 @@
       return;
     }
 
+    const tableFragment = document.createDocumentFragment();
     filtered.forEach(p => {
       const state = userStates[p.id];
       const dueInfo = SRSEngine.getDueStatus(state);
@@ -540,7 +1980,7 @@
       const conf = SRSEngine.getConfidence(state);
       const sheetsList = p.sheets || (p.sheet ? [p.sheet] : ['Custom']);
 
-      const confBadgeHtml = conf 
+      const confBadgeHtml = conf
         ? `<span class="conf-badge conf-${conf}" title="${SRSEngine.getConfidenceMeta(conf).label}">⭐ ${conf}/5</span>`
         : `<span style="color:var(--text-dim); font-size:12px;">—</span>`;
 
@@ -582,12 +2022,122 @@
           </div>
         </td>
       `;
-      tbody.appendChild(tr);
+      tableFragment.appendChild(tr);
     });
+    tbody.appendChild(tableFragment);
   }
 
-  // --- VIEW 3: REVISION QUEUE ---
+  // --- VIEW 3: REVISION QUEUE & NEXT RECOMMENDED REVISION ---
+  function renderRevisionBanner() {
+    const banner = document.getElementById('revision-next-recommended-banner');
+    if (!banner) return;
+
+    // Find all problems with state and lastReviewed
+    const reviewed = allProblems.filter(p => {
+      const st = userStates[p.id];
+      return st && st.lastReviewed;
+    });
+
+    if (reviewed.length === 0) {
+      banner.style.display = 'block';
+      banner.innerHTML = `
+        <div class="revision-recommend-banner">
+          <div class="revision-recommend-left">
+            <div class="revision-recommend-icon">
+              <i class="fa-solid fa-graduation-cap"></i>
+            </div>
+            <div class="revision-recommend-info">
+              <h3><span>Revision Queue Clean</span></h3>
+              <p>You haven't logged any problem reviews yet. Start solving problems in the <strong>Practice</strong> tab to automatically build your scientifically scheduled spaced repetition queue.</p>
+            </div>
+          </div>
+          <div class="revision-recommend-actions">
+            <button class="btn btn-primary btn-sm" onclick="switchView('practice')">
+              <i class="fa-solid fa-arrow-right"></i> Start Practice
+            </button>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    // Prioritize:
+    // 1. Due problems (sorted by most overdue or earliest nextReviewDate)
+    // 2. Retention-risk problems (confidence <= 2)
+    // 3. Next upcoming problem
+    const dueProblems = reviewed.filter(p => SRSEngine.isDue(userStates[p.id]));
+    let recProblem = null;
+    let recReason = '';
+
+    if (dueProblems.length > 0) {
+      dueProblems.sort((a, b) => {
+        const da = new Date(userStates[a.id].nextReviewDate || 0);
+        const db = new Date(userStates[b.id].nextReviewDate || 0);
+        return da - db;
+      });
+      recProblem = dueProblems[0];
+      const state = userStates[recProblem.id];
+      const dueInfo = SRSEngine.getDueStatus(state);
+      recReason = `Immediate Spaced Review Due (${dueInfo.label})`;
+    } else {
+      const weak = reviewed.filter(p => {
+        const conf = SRSEngine.getConfidence(userStates[p.id]);
+        return conf && conf <= 2;
+      });
+      if (weak.length > 0) {
+        recProblem = weak[0];
+        recReason = 'Low Confidence / Retention Risk';
+      } else {
+        reviewed.sort((a, b) => {
+          const da = new Date(userStates[a.id].nextReviewDate || 0);
+          const db = new Date(userStates[b.id].nextReviewDate || 0);
+          return da - db;
+        });
+        recProblem = reviewed[0];
+        recReason = `Next upcoming review: ${userStates[recProblem.id].nextReviewDate || 'Scheduled'}`;
+      }
+    }
+
+    if (!recProblem) {
+      banner.style.display = 'none';
+      return;
+    }
+
+    const state = userStates[recProblem.id] || {};
+    const conf = SRSEngine.getConfidence(state);
+    const confStr = conf ? `Conf ${conf}/5` : 'Stage ' + (state.stage || 1);
+
+    banner.style.display = 'block';
+    banner.innerHTML = `
+      <div class="revision-recommend-banner">
+        <div class="revision-recommend-left">
+          <div class="revision-recommend-icon">
+            <i class="fa-solid fa-bell"></i>
+          </div>
+          <div class="revision-recommend-info">
+            <h3>
+              <span>Top Recommended Revision:</span>
+              <a href="${recProblem.url || '#'}" target="_blank" class="problem-title" style="color:var(--primary); font-weight:700;">${recProblem.title}</a>
+              <span class="badge badge-${recProblem.difficulty.toLowerCase()}">${recProblem.difficulty}</span>
+              <span class="badge badge-srs-due" style="font-size:11px;">${recReason}</span>
+            </h3>
+            <p>Topic: <strong>${recProblem.topic}</strong> • Pattern: <strong>${recProblem.pattern || 'Standard'}</strong> • Memory Status: <strong>${confStr}</strong></p>
+          </div>
+        </div>
+        <div class="revision-recommend-actions">
+          <button class="btn btn-primary btn-sm btn-action-review" data-id="${recProblem.id}">
+            <i class="fa-solid fa-rotate"></i> Revise Now
+          </button>
+          <button class="btn btn-secondary btn-sm btn-action-detail" data-id="${recProblem.id}">
+            <i class="fa-solid fa-file-lines"></i> Details
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   function renderRevisionQueue() {
+    renderRevisionBanner();
     const tbody = document.getElementById('revision-queue-tbody');
     if (!tbody) return;
 
@@ -600,6 +2150,12 @@
 
       if (filterMode === 'due') {
         return SRSEngine.isDue(state);
+      } else if (filterMode === 'weak') {
+        const conf = SRSEngine.getConfidence(state);
+        const isLowConf = conf && conf <= 2;
+        const isFailed = state.lastRating === 'hard' || state.lastRating === 'failed';
+        const isDecayed = typeof SRSEngine.calculateRetention === 'function' ? SRSEngine.calculateRetention(state) < 0.6 : false;
+        return isLowConf || isFailed || isDecayed;
       } else if (filterMode === 'upcoming') {
         return !SRSEngine.isDue(state) && !state.isMastered;
       } else if (filterMode === 'mastered') {
@@ -614,11 +2170,12 @@
       return;
     }
 
+    const revFragment = document.createDocumentFragment();
     list.forEach(p => {
       const state = userStates[p.id];
       const dueInfo = SRSEngine.getDueStatus(state);
       const conf = SRSEngine.getConfidence(state);
-      const confBadgeHtml = conf 
+      const confBadgeHtml = conf
         ? `<span class="conf-badge conf-${conf}" title="${SRSEngine.getConfidenceMeta(conf).label}">⭐ ${conf}/5</span>`
         : `<span style="color:var(--text-dim); font-size:12px;">—</span>`;
 
@@ -645,8 +2202,9 @@
           </div>
         </td>
       `;
-      tbody.appendChild(tr);
+      revFragment.appendChild(tr);
     });
+    tbody.appendChild(revFragment);
   }
 
   // --- VIEW 4: MONTHLY ASSESSMENT & MOCK EXAMS ---
@@ -670,6 +2228,7 @@
       return;
     }
 
+    const testHistFragment = document.createDocumentFragment();
     monthlyTestHistory.slice().reverse().forEach(test => {
       const dateStr = new Date(test.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
       const tr = document.createElement('tr');
@@ -681,12 +2240,143 @@
         <td><span class="badge badge-srs-due">${test.grade}</span></td>
         <td><span style="font-size:12px; color:var(--text-dim);">${test.summary}</span></td>
       `;
-      tbody.appendChild(tr);
+      testHistFragment.appendChild(tr);
+    });
+    tbody.appendChild(testHistFragment);
+  }
+
+  // State for analytics time filtering
+  let currentAnalyticsWindow = 'all';
+
+  function setupAnalyticsTimeFilterListeners() {
+    const filterBtns = document.querySelectorAll('.analytics-filter-btn');
+    filterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const win = btn.getAttribute('data-window') || 'all';
+        currentAnalyticsWindow = win;
+        filterBtns.forEach(b => b.classList.toggle('active', b === btn));
+        renderAnalytics();
+      });
     });
   }
 
   // --- VIEW 5: TOPIC MASTERY & ANALYTICS ---
   function renderAnalytics() {
+    // 1. Stage 9 Authoritative Analytics Computation
+    if (typeof AnalyticsEngine !== 'undefined') {
+      const analytics = AnalyticsEngine.computeComprehensiveAnalytics({
+        timeWindow: currentAnalyticsWindow,
+        useCache: true
+      });
+
+      const act = analytics.activity;
+      const eff = analytics.effectiveness;
+      const adh = analytics.adherence;
+      const top = analytics.topicAnalytics;
+
+      // Update Key Stat Cards
+      const uniqueSolvedEl = document.getElementById('analytics-unique-solved');
+      const catalogTotalEl = document.getElementById('analytics-catalog-total');
+      const uniqueAttemptedEl = document.getElementById('analytics-unique-attempted');
+      const coverageBadgeEl = document.getElementById('analytics-coverage-badge');
+      const terminalAttemptsEl = document.getElementById('analytics-terminal-attempts');
+      const sessionsInitiatedEl = document.getElementById('analytics-sessions-initiated');
+      const independenceRateEl = document.getElementById('analytics-independence-rate');
+      const independenceCaptionEl = document.getElementById('analytics-independence-caption');
+      const learningTimeEl = document.getElementById('analytics-learning-time');
+      const timeEventsCountEl = document.getElementById('analytics-time-events-count');
+
+      if (uniqueSolvedEl) uniqueSolvedEl.textContent = act.uniqueProblemsSolved;
+      if (catalogTotalEl) catalogTotalEl.textContent = act.totalCatalogProblems;
+      if (uniqueAttemptedEl) uniqueAttemptedEl.textContent = act.uniqueProblemsAttempted;
+      if (coverageBadgeEl) {
+        const covPct = act.totalCatalogProblems > 0 ? Math.round((act.uniqueProblemsSolved / act.totalCatalogProblems) * 100) : 0;
+        coverageBadgeEl.textContent = `${covPct}% of Catalog`;
+      }
+
+      if (terminalAttemptsEl) terminalAttemptsEl.textContent = act.totalTerminalAttempts;
+      if (sessionsInitiatedEl) sessionsInitiatedEl.textContent = act.totalSessionsInitiated;
+
+      if (independenceRateEl) {
+        independenceRateEl.textContent = eff.independentSolveRate !== null ? `${eff.independentSolveRate}%` : '--%';
+      }
+      if (independenceCaptionEl) {
+        independenceCaptionEl.textContent = eff.insufficientData
+          ? 'No terminal evaluations in window'
+          : `${act.outcomes.independentSolves} of ${act.totalTerminalAttempts} solves unassisted`;
+      }
+
+      if (learningTimeEl) {
+        const totalMins = act.timeTracking.totalReliableTimeMinutes || 0;
+        const hrs = Math.floor(totalMins / 60);
+        const mins = Math.round(totalMins % 60);
+        learningTimeEl.textContent = `${hrs}h ${mins}m`;
+      }
+      if (timeEventsCountEl) timeEventsCountEl.textContent = act.timeTracking.recordedTimeEventCount;
+
+      // Update Outcome Distribution Breakdown & Chart
+      const sampleSizeEl = document.getElementById('analytics-outcome-sample-size');
+      if (sampleSizeEl) sampleSizeEl.textContent = `${act.totalTerminalAttempts} evaluated attempts`;
+
+      const indCountEl = document.getElementById('analytics-ind-count');
+      const indPctEl = document.getElementById('analytics-ind-pct');
+      const astCountEl = document.getElementById('analytics-ast-count');
+      const astPctEl = document.getElementById('analytics-ast-pct');
+      const revCountEl = document.getElementById('analytics-rev-count');
+      const revPctEl = document.getElementById('analytics-rev-pct');
+      const failCountEl = document.getElementById('analytics-fail-count');
+      const failPctEl = document.getElementById('analytics-fail-pct');
+
+      if (indCountEl) indCountEl.textContent = act.outcomes.independentSolves;
+      if (indPctEl) indPctEl.textContent = `${eff.independentSolveRate || 0}%`;
+      if (astCountEl) astCountEl.textContent = act.outcomes.assistedSolves;
+      if (astPctEl) astPctEl.textContent = `${eff.assistedSolveRate || 0}%`;
+      if (revCountEl) revCountEl.textContent = act.outcomes.solutionReveals;
+      if (revPctEl) revPctEl.textContent = `${eff.solutionRevealRate || 0}%`;
+      if (failCountEl) failCountEl.textContent = act.outcomes.failedAttempts;
+      if (failPctEl) failPctEl.textContent = `${eff.failureRate || 0}%`;
+
+      if (window.DSACharts && typeof window.DSACharts.renderOutcomeDoughnut === 'function') {
+        window.DSACharts.renderOutcomeDoughnut('analytics-outcome-chart', act.outcomes);
+      }
+
+      // Effectiveness & Retention
+      const hintDepEl = document.getElementById('analytics-hint-dependency');
+      const adherenceEl = document.getElementById('analytics-adherence-rate');
+      const consistencyEl = document.getElementById('analytics-consistency-score');
+      const pausedEl = document.getElementById('analytics-paused-count');
+      const abandonedEl = document.getElementById('analytics-abandoned-count');
+      const draftsEl = document.getElementById('analytics-drafts-count');
+
+      if (hintDepEl) hintDepEl.textContent = eff.hintDependencyIndex !== null ? `${eff.hintDependencyIndex} hints` : 'N/A';
+      if (adherenceEl) adherenceEl.textContent = adh.adherenceRate !== null ? `${adh.adherenceRate}%` : 'N/A';
+      if (consistencyEl) consistencyEl.textContent = `${adh.consistencyScore}% (${adh.activeDaysLast30d}/30d)`;
+      if (pausedEl) pausedEl.textContent = act.outcomes.pausedSessions;
+      if (abandonedEl) abandonedEl.textContent = act.outcomes.abandonedSessions;
+      if (draftsEl) draftsEl.textContent = act.outcomes.activeDrafts;
+
+      // Top Strengths & Focus
+      const strengthsEl = document.getElementById('analytics-top-strengths');
+      const weaknessesEl = document.getElementById('analytics-top-weaknesses');
+      if (strengthsEl) {
+        strengthsEl.textContent = top.topStrengths && top.topStrengths.length > 0
+          ? top.topStrengths.map(s => `${s.topic} (${s.masteryScore}%)`).join(', ')
+          : 'None recorded yet';
+      }
+      if (weaknessesEl) {
+        weaknessesEl.textContent = top.topWeaknesses && top.topWeaknesses.length > 0
+          ? top.topWeaknesses.map(w => `${w.topic} (${w.masteryScore}%)`).join(', ')
+          : 'None recorded yet';
+      }
+
+      // Account scope badge
+      const scopeBadgeEl = document.getElementById('analytics-account-scope-badge');
+      if (scopeBadgeEl) {
+        scopeBadgeEl.textContent = analytics.context.isGuest ? 'Guest Scope' : `User: ${analytics.context.userId.substring(0, 8)}...`;
+      }
+    }
+
+    // 2. Traditional SRS Topic Mastery Map & Charts (Preserved)
     const topicMasteryMap = SRSEngine.calculateTopicMastery(allProblems, userStates);
 
     let easySolved = 0, mediumSolved = 0, hardSolved = 0;
@@ -699,40 +2389,47 @@
       }
     });
 
-    DSACharts.renderMasteryRadar('analytics-radar-chart', topicMasteryMap);
-    DSACharts.renderDifficultyDoughnut('analytics-doughnut-chart', { easySolved, mediumSolved, hardSolved });
+    if (window.DSACharts) {
+      DSACharts.renderMasteryRadar('analytics-radar-chart', topicMasteryMap);
+      DSACharts.renderDifficultyDoughnut('analytics-doughnut-chart', { easySolved, mediumSolved, hardSolved });
+    }
 
     // Render Topic Cards Health Matrix
     const container = document.getElementById('topic-matrix-container');
-    if (!container) return;
-    container.innerHTML = '';
+    if (container) {
+      container.innerHTML = '';
+      const matrixFragment = document.createDocumentFragment();
+      Object.values(topicMasteryMap).forEach(t => {
+        const card = document.createElement('div');
+        card.className = 'topic-health-card';
 
-    Object.values(topicMasteryMap).forEach(t => {
-      const card = document.createElement('div');
-      card.className = 'topic-health-card';
+        const healthBadge = t.solved === 0 ? 'badge-srs-unsolved' : (t.score >= 70 ? 'badge-easy' : t.score >= 40 ? 'badge-medium' : 'badge-hard');
+        const healthLabel = t.solved === 0 ? 'Not Started ⚪' : (t.score >= 70 ? 'High Retention 🟢' : t.score >= 40 ? 'Moderate 🟡' : 'Decaying 🔴');
 
-      const healthBadge = t.solved === 0 ? 'badge-srs-unsolved' : (t.score >= 70 ? 'badge-easy' : t.score >= 40 ? 'badge-medium' : 'badge-hard');
-      const healthLabel = t.solved === 0 ? 'Not Started ⚪' : (t.score >= 70 ? 'High Retention 🟢' : t.score >= 40 ? 'Moderate 🟡' : 'Decaying 🔴');
+        card.innerHTML = `
+          <div class="topic-card-top">
+            <span class="topic-card-title">${t.topic}</span>
+            <span class="badge ${healthBadge}">${healthLabel}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted);">
+            <span>Mastery: <strong style="color:var(--text-main);">${t.score}%</strong></span>
+            <span>${t.solved} / ${t.total} Solved</span>
+          </div>
+          <div class="mastery-progress-bar">
+            <div class="mastery-fill" style="width: ${t.score}%;"></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-dim); margin-top:4px;">
+            <span>🏆 ${t.mastered} Mastered</span>
+            ${t.avgConfidence > 0 ? `<span class="conf-badge conf-${Math.round(t.avgConfidence)}" style="font-size:10px;">⭐ ${t.avgConfidence}/5 Conf</span>` : `<span>🔔 ${t.due + t.overdue} Due</span>`}
+          </div>
+        `;
+        matrixFragment.appendChild(card);
+      });
+      container.appendChild(matrixFragment);
+    }
 
-      card.innerHTML = `
-        <div class="topic-card-top">
-          <span class="topic-card-title">${t.topic}</span>
-          <span class="badge ${healthBadge}">${healthLabel}</span>
-        </div>
-        <div style="display:flex; justify-content:space-between; font-size:12px; color:var(--text-muted);">
-          <span>Mastery: <strong style="color:var(--text-main);">${t.score}%</strong></span>
-          <span>${t.solved} / ${t.total} Solved</span>
-        </div>
-        <div class="mastery-progress-bar">
-          <div class="mastery-fill" style="width: ${t.score}%;"></div>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:var(--text-dim); margin-top:4px;">
-          <span>🏆 ${t.mastered} Mastered</span>
-          ${t.avgConfidence > 0 ? `<span class="conf-badge conf-${Math.round(t.avgConfidence)}" style="font-size:10px;">⭐ ${t.avgConfidence}/5 Conf</span>` : `<span>🔔 ${t.due + t.overdue} Due</span>`}
-        </div>
-      `;
-      container.appendChild(card);
-    });
+    // Render Evidence-Based Mastery Calibration & Uncertainty (P2)
+    renderMasteryCalibration();
   }
 
   // Helper for consistent local date keys (YYYY-MM-DD)
@@ -755,13 +2452,13 @@
     // Build date activity map
     const activityMap = {};
     Object.values(userStates).forEach(st => {
-      if (st && st.history) {
+      if (!st) return;
+      if (Array.isArray(st.history) && st.history.length > 0) {
         st.history.forEach(h => {
           const dStr = toLocalDateKey(h.date || h.reviewedAt);
           if (dStr) activityMap[dStr] = (activityMap[dStr] || 0) + 1;
         });
-      }
-      if (st && st.lastReviewed) {
+      } else if (st.lastReviewed) {
         const dStr = toLocalDateKey(st.lastReviewed);
         if (dStr) activityMap[dStr] = (activityMap[dStr] || 0) + 1;
       }
@@ -783,6 +2480,7 @@
     startDate.setDate(startDate.getDate() - (totalDays - 1));
 
     gridEl.innerHTML = '';
+    const heatmapFragment = document.createDocumentFragment();
 
     for (let i = 0; i < totalDays; i++) {
       const cur = new Date(startDate);
@@ -810,8 +2508,9 @@
       const cell = document.createElement('div');
       cell.className = `heatmap-cell ${levelClass}`;
       cell.title = `${count} revision/practice actions on ${cur.toDateString()}`;
-      gridEl.appendChild(cell);
+      heatmapFragment.appendChild(cell);
     }
+    gridEl.appendChild(heatmapFragment);
 
     const curStreakEl = document.getElementById('streak-current-count');
     const maxStreakEl = document.getElementById('streak-max-count');
@@ -935,8 +2634,29 @@
     document.getElementById('modal-rating-subtitle').textContent = `${p.topic} • ${p.difficulty} • ${p.pattern || ''}`;
     document.getElementById('rating-modal-notes').value = '';
 
-    updateRatingModalConfidenceUI(activeRatingConfidence);
+    // Reset Hint Used checkbox & Time Spent
+    const hintCheck = document.getElementById('rating-modal-hint-used');
+    if (hintCheck) hintCheck.checked = false;
+    const timeInput = document.getElementById('rating-modal-time-spent');
+    if (timeInput) timeInput.value = (p.difficulty === 'Easy' ? 12 : (p.difficulty === 'Hard' ? 35 : 20));
 
+    // Populate Failure Intelligence chips
+    const chipsContainer = document.getElementById('rating-modal-failure-chips');
+    if (chipsContainer && window.FailureEngine) {
+      chipsContainer.innerHTML = '';
+      FailureEngine.getAllCategories().forEach(cat => {
+        const chip = document.createElement('div');
+        chip.className = 'failure-chip';
+        chip.dataset.failureId = cat.id;
+        chip.innerHTML = `<i class="fa-solid ${cat.icon}" style="color:${cat.color};"></i> ${cat.label}`;
+        chip.addEventListener('click', () => {
+          chip.classList.toggle('active');
+        });
+        chipsContainer.appendChild(chip);
+      });
+    }
+
+    updateRatingModalConfidenceUI(activeRatingConfidence);
     document.getElementById('srs-rating-modal').classList.add('open');
   }
 
@@ -949,10 +2669,38 @@
     if (!activeRatingProblemId) return;
 
     const notes = document.getElementById('rating-modal-notes').value.trim();
+    const hintsUsed = document.getElementById('rating-modal-hint-used')?.checked || false;
+    const timeSpent = parseInt(document.getElementById('rating-modal-time-spent')?.value, 10) || 15;
+
+    const selectedFailures = [];
+    document.querySelectorAll('#rating-modal-failure-chips .failure-chip.active').forEach(chip => {
+      selectedFailures.push(chip.dataset.failureId);
+    });
+
     const currentState = userStates[activeRatingProblemId] || {};
 
-    userStates[activeRatingProblemId] = SRSEngine.processReview(currentState, rating, 15, notes, activeRatingConfidence);
+    userStates[activeRatingProblemId] = SRSEngine.processReview(
+      currentState,
+      rating,
+      timeSpent,
+      notes,
+      activeRatingConfidence,
+      { hintsUsed: hintsUsed, failureReasons: selectedFailures }
+    );
     saveUserStates();
+
+    // Gamification XP & Badges
+    if (window.GamificationEngine) {
+      if (!hintsUsed && activeRatingConfidence >= 4) {
+        GamificationEngine.awardXP('independent_solve');
+      } else if (currentState.stage >= 2 && rating !== 'failed') {
+        GamificationEngine.awardXP('delayed_recall');
+      } else {
+        GamificationEngine.awardXP('review');
+      }
+      GamificationEngine.evaluateBadges(allProblems, userStates, monthlyTestHistory);
+      updateGamificationHeader();
+    }
 
     closeRatingModal();
     renderAll();
@@ -967,6 +2715,26 @@
 
     document.getElementById('detail-modal-title').textContent = p.title;
     document.getElementById('detail-modal-meta').textContent = `${p.topic} • ${p.difficulty}${p.pattern ? ` • ${p.pattern}` : ''}`;
+
+    // Reset sub-tabs to Overview
+    document.querySelectorAll('#problem-detail-modal button[id^="tab-btn-detail-"]').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-btn-detail-overview')?.classList.add('active');
+    if (document.getElementById('detail-tab-content-overview')) document.getElementById('detail-tab-content-overview').style.display = 'flex';
+    if (document.getElementById('detail-tab-content-hints')) document.getElementById('detail-tab-content-hints').style.display = 'none';
+    if (document.getElementById('detail-tab-content-analysis')) document.getElementById('detail-tab-content-analysis').style.display = 'none';
+    if (document.getElementById('detail-tab-content-history')) document.getElementById('detail-tab-content-history').style.display = 'none';
+
+    const hintContent = document.getElementById('detail-ai-hint-content');
+    if (hintContent) {
+      hintContent.textContent = 'Select a hint level above to get targeted scaffolding without revealing solutions.';
+    }
+    document.querySelectorAll('#detail-ai-hint-tabs .ai-hint-tab-btn').forEach((b, idx) => {
+      if (idx === 0) b.classList.add('active');
+      else b.classList.remove('active');
+    });
+
+    const analysisRes = document.getElementById('analysis-feedback-result');
+    if (analysisRes) analysisRes.style.display = 'none';
 
     const statusBadge = document.getElementById('detail-modal-status-badge');
     const dueInfo = SRSEngine.getDueStatus(state);
@@ -1096,21 +2864,33 @@
       timestamp: Date.now()
     };
     try {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_EXAM_SESSION, JSON.stringify(payload));
+      if (window.LearnerRepository) {
+        window.LearnerRepository.saveActiveExamSession(payload);
+      } else {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_EXAM_SESSION, JSON.stringify(payload));
+      }
     } catch (_) { }
   }
 
   function clearActiveExamState() {
     try {
-      localStorage.removeItem(STORAGE_KEYS.ACTIVE_EXAM_SESSION);
+      if (window.LearnerRepository) {
+        window.LearnerRepository.clearActiveExamSession();
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_EXAM_SESSION);
+      }
     } catch (_) { }
   }
 
   function checkAndRestoreActiveExamSession() {
     try {
-      const stored = localStorage.getItem(STORAGE_KEYS.ACTIVE_EXAM_SESSION);
-      if (!stored) return;
-      const data = JSON.parse(stored);
+      let data = null;
+      if (window.LearnerRepository) {
+        data = window.LearnerRepository.getActiveExamSession();
+      } else {
+        const stored = localStorage.getItem(STORAGE_KEYS.ACTIVE_EXAM_SESSION);
+        data = stored ? JSON.parse(stored) : null;
+      }
       if (!data || !data.testSession || !data.timeRemainingSeconds) return;
 
       const elapsedSeconds = Math.floor((Date.now() - (data.timestamp || Date.now())) / 1000);
@@ -1170,7 +2950,7 @@
       }
     }, 1000);
 
-    document.getElementById('monthly-test-overlay')?.classList.add('open');
+    (document.getElementById('monthly-test-cockpit') || document.getElementById('monthly-test-overlay'))?.classList.add('open');
   }
 
   function startMonthlyExam(questionCount = 4, durationMinutes = 60) {
@@ -1223,13 +3003,13 @@
       }
     }, 1000);
 
-    document.getElementById('monthly-test-overlay').classList.add('open');
+    (document.getElementById('monthly-test-cockpit') || document.getElementById('monthly-test-overlay'))?.classList.add('open');
   }
 
   function updateTimerDisplay() {
     const mins = Math.floor(testTimeRemainingSeconds / 60);
     const secs = testTimeRemainingSeconds % 60;
-    const timerEl = document.getElementById('test-timer-display');
+    const timerEl = document.getElementById('test-countdown-display') || document.getElementById('test-timer-display');
     if (timerEl) {
       timerEl.innerHTML = `<i class="fa-regular fa-clock"></i> ${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     }
@@ -1254,7 +3034,7 @@
     const scratchpad = document.getElementById('test-scratchpad-area')?.value || '';
 
     if (!testAnswers[currentProb.id]) {
-      testAnswers[currentProb.id] = { rating: 'medium', scratchpad: '' };
+      testAnswers[currentProb.id] = { rating: null, scratchpad: '' };
     }
     testAnswers[currentProb.id].scratchpad = scratchpad;
   }
@@ -1264,7 +3044,10 @@
     const p = activeTestSession.problems[activeTestQuestionIndex];
     if (!p) return;
 
-    document.getElementById('test-progress-indicator').textContent = `Question ${activeTestQuestionIndex + 1} of ${activeTestSession.problems.length}`;
+    const progressEl = document.getElementById('test-question-counter') || document.getElementById('test-progress-indicator');
+    if (progressEl) {
+      progressEl.textContent = `Question ${activeTestQuestionIndex + 1} of ${activeTestSession.problems.length}`;
+    }
     document.getElementById('test-active-title').textContent = p.title;
 
     document.getElementById('test-active-badges').innerHTML = `
@@ -1276,31 +3059,44 @@
     const link = document.getElementById('test-active-link');
     link.href = p.url || `https://leetcode.com/problemset/all/?search=${encodeURIComponent(p.title)}`;
 
-    const savedAnswer = testAnswers[p.id] || { rating: 'medium', scratchpad: '' };
+    const savedAnswer = testAnswers[p.id] || { rating: null, scratchpad: '' };
     document.getElementById('test-scratchpad-area').value = savedAnswer.scratchpad || (p.notes ? `// Pattern hint: ${p.pattern}\n` : '');
 
-    // Highlight rating button
+    // Highlight rating button (only if explicitly selected)
     document.querySelectorAll('[data-test-rating]').forEach(btn => {
       const rating = btn.dataset.testRating;
-      btn.style.borderColor = (savedAnswer.rating === rating) ? 'var(--primary)' : 'var(--border-color)';
+      const isSelected = Boolean(savedAnswer.rating && savedAnswer.rating === rating);
+      btn.style.borderColor = isSelected ? 'var(--primary)' : 'var(--border-color)';
+      btn.style.boxShadow = isSelected ? '0 0 0 2px var(--primary)' : 'none';
+      btn.style.background = isSelected ? 'rgba(139, 124, 255, 0.2)' : '';
     });
   }
 
   function finishMonthlyExam() {
     if (!activeTestSession) return;
     saveCurrentQuestionState();
+
+    // Check if there are unrated questions
+    const unratedCount = activeTestSession.problems.filter(p => !testAnswers[p.id] || !testAnswers[p.id].rating).length;
+    if (unratedCount > 0) {
+      const confirmSubmit = confirm(
+        `You have ${unratedCount} unrated question${unratedCount > 1 ? 's' : ''}.\n\nUnrated questions will be scored as "Failed / Blank" (0 points).\n\nDo you want to submit and grade now?`
+      );
+      if (!confirmSubmit) return;
+    }
+
     clearActiveExamState();
 
     if (testTimerInterval) clearInterval(testTimerInterval);
 
     // Build results array
     const results = activeTestSession.problems.map(p => {
-      const ans = testAnswers[p.id] || { rating: 'medium', scratchpad: '' };
+      const ans = testAnswers[p.id] || { rating: 'failed', scratchpad: '' };
       return {
         problemId: p.id,
-        rating: ans.rating || 'medium',
+        rating: ans.rating || 'failed',
         timeSpentMinutes: 15,
-        notes: ans.scratchpad
+        notes: ans.scratchpad || ''
       };
     });
 
@@ -1317,7 +3113,7 @@
     saveUserStates();
 
     // Close Exam overlay
-    document.getElementById('monthly-test-overlay').classList.remove('open');
+    (document.getElementById('monthly-test-cockpit') || document.getElementById('monthly-test-overlay'))?.classList.remove('open');
     activeTestSession = null;
 
     // Show Assessment Evaluation Modal
@@ -1397,21 +3193,39 @@
   }
 
   function checkUrlHashSync() {
-    if (window.location.hash && window.location.hash.includes('sync=')) {
-      try {
-        const hashVal = window.location.hash.split('sync=')[1]?.split('&')[0];
-        if (hashVal) {
-          setTimeout(() => {
-            if (confirm('⚡ A device sync code was detected in this link! Would you like to import all progress onto this device now?')) {
-              importSyncCode(decodeURIComponent(hashVal));
-              window.location.hash = '';
-            }
-          }, 300);
+    if (typeof window === 'undefined' || !window.location) return;
+
+    function handleHashRoute() {
+      if (!window.location.hash) return;
+      if (window.location.hash.includes('sync=')) {
+        try {
+          const hashVal = window.location.hash.split('sync=')[1]?.split('&')[0];
+          if (hashVal) {
+            setTimeout(() => {
+              if (confirm('⚡ A device sync code was detected in this link! Would you like to import all progress onto this device now?')) {
+                importSyncCode(decodeURIComponent(hashVal));
+                window.location.hash = '';
+              }
+            }, 300);
+          }
+        } catch (e) {
+          console.error('URL Hash Sync Error:', e);
         }
-      } catch (e) {
-        console.error('URL Hash Sync Error:', e);
+        return;
+      }
+
+      // Deep link routing to canonical views / subviews
+      const cleanHash = window.location.hash.replace(/^#\/?/, '').trim();
+      if (cleanHash) {
+        const parts = cleanHash.split('/');
+        const primary = parts[0];
+        const sub = parts[1];
+        switchView(primary, sub);
       }
     }
+
+    handleHashRoute();
+    window.addEventListener('hashchange', handleHashRoute);
   }
 
   // --- VIEW 7: DAILY PROBLEMS & WEEKEND TEST ---
@@ -1524,7 +3338,7 @@
         <div class="day-focus-header">
           <div class="day-focus-meta" style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
             <span class="day-badge"><i class="fa-solid fa-calendar-day"></i> Day ${currentDay.dayNumber} of 7</span>
-            
+
             ${customDayTopic ? (
               Array.isArray(customDayTopic)
                 ? `<span class="custom-topic-badge"><i class="fa-solid fa-layer-group"></i> Mixed: ${customDayTopic.join(', ')}</span>`
@@ -1536,7 +3350,7 @@
           </div>
           <h3 class="day-focus-title">${currentDay.title}</h3>
           <p class="day-focus-desc">
-            <i class="fa-solid fa-bullseye" style="color:var(--primary); margin-right:6px;"></i> 
+            <i class="fa-solid fa-bullseye" style="color:var(--primary); margin-right:6px;"></i>
             ${customDayTopic ? (Array.isArray(customDayTopic) ? `Multi-Topic Mixed Workout across ${customDayTopic.join(', ')}` : `Custom Focused Session on ${customDayTopic}`) : currentDay.focus}
           </p>
         </div>
@@ -1983,28 +3797,998 @@
       }
     }, 1000);
 
-    document.getElementById('monthly-test-overlay')?.classList.add('open');
+    (document.getElementById('monthly-test-cockpit') || document.getElementById('monthly-test-overlay'))?.classList.add('open');
   }
 
-  // --- BACKUP & RESTORE ---
-  function exportDataJSON() {
-    const payload = {
-      version: 1.0,
-      exportDate: new Date().toISOString(),
-      problems: allProblems,
-      userStates: userStates,
-      monthlyTestHistory: monthlyTestHistory
-    };
+  // --- CONSOLIDATED 5-DESTINATION CANONICAL ROUTER ---
+  const VIEW_MAP = {
+    // 5 Primary Canonical Destinations
+    'dashboard': { destination: 'dashboard' },
+    'practice': { destination: 'practice', defaultSubtab: 'catalog' },
+    'revision': { destination: 'revision', defaultSubtab: 'queue' },
+    'progress': { destination: 'progress', defaultSubtab: 'readiness' },
+    'settings': { destination: 'settings' },
 
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `algorecall_dsa_backup_${SRSEngine.getLocalDateString(new Date())}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Legacy Aliases & Deep-Link Targets
+    'problems': { destination: 'practice', subtab: 'catalog' },
+    'catalog': { destination: 'practice', subtab: 'catalog' },
+    'patterns': { destination: 'practice', subtab: 'patterns' },
+    'flashcards': { destination: 'practice', subtab: 'flashcards' },
+    'queue': { destination: 'revision', subtab: 'queue' },
+    'monthly-assessment': { destination: 'revision', subtab: 'monthly' },
+    'monthly-test': { destination: 'revision', subtab: 'monthly' },
+    'monthly': { destination: 'revision', subtab: 'monthly' },
+    'analytics': { destination: 'progress', subtab: 'readiness' },
+    'readiness': { destination: 'progress', subtab: 'readiness' },
+    'graph': { destination: 'progress', subtab: 'graph' },
+    'mock': { destination: 'progress', subtab: 'mock' },
+    'roadmap': { destination: 'progress', subtab: 'roadmap' }
+  };
+
+  function switchView(requestedView, explicitSubtab) {
+    if (!requestedView) return;
+    const cleanKey = String(requestedView).toLowerCase().trim();
+    const mapping = VIEW_MAP[cleanKey] || { destination: cleanKey };
+    const destination = mapping.destination;
+    const subtab = explicitSubtab || mapping.subtab || mapping.defaultSubtab;
+
+    // Update Primary Navigation active states and ARIA
+    document.querySelectorAll('.nav-item').forEach(n => {
+      const isMatch = n.getAttribute('data-view') === destination;
+      n.classList.toggle('active', isMatch);
+      n.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+    });
+
+    // Update Primary View Sections
+    document.querySelectorAll('.view-section').forEach(v => {
+      v.classList.toggle('active', v.id === `view-${destination}`);
+    });
+
+    // Activate corresponding subview if applicable
+    if (subtab) {
+      switchSubView(destination, subtab);
+    }
+
+    // Refresh views/charts if needed
+    if (destination === 'dashboard' || destination === 'progress') {
+      renderAll();
+    } else if (destination === 'revision') {
+      renderRevisionQueue();
+    } else if (destination === 'practice') {
+      if (subtab === 'catalog' || !subtab) renderProblemsTable();
+      else if (subtab === 'patterns') renderPatternsHandbook();
+      else if (subtab === 'flashcards') renderFlashcards();
+    } else if (destination === 'settings') {
+      if (typeof syncSettingsFormValues === 'function') {
+        syncSettingsFormValues();
+      }
+      if (typeof renderAdaptiveAuditHub === 'function') {
+        renderAdaptiveAuditHub();
+      }
+    }
+
+    // Update document title for accessibility & context
+    const titles = {
+      dashboard: 'Dashboard | AlgoRecall 2.0',
+      practice: 'Practice & Patterns | AlgoRecall 2.0',
+      revision: 'Spaced Revision & Retention | AlgoRecall 2.0',
+      progress: 'Readiness & Analytics | AlgoRecall 2.0',
+      settings: 'Settings & Data Hub | AlgoRecall 2.0'
+    };
+    if (titles[destination] && typeof document !== 'undefined') {
+      document.title = titles[destination];
+    }
+  }
+
+  function switchSubView(parentView, targetSubtab) {
+    if (!parentView || !targetSubtab) return;
+
+    // Update Subtab buttons
+    document.querySelectorAll(`.view-subtab-btn[data-parent-view="${parentView}"]`).forEach(btn => {
+      const isMatch = btn.getAttribute('data-subtab') === targetSubtab;
+      btn.classList.toggle('active', isMatch);
+      btn.setAttribute('aria-selected', isMatch ? 'true' : 'false');
+    });
+
+    // Update Subview Sections
+    document.querySelectorAll(`.subview-section[data-parent-view="${parentView}"]`).forEach(sub => {
+      const isMatch = sub.getAttribute('data-subview') === targetSubtab;
+      sub.classList.toggle('active', isMatch);
+    });
+
+    // Subview specific rendering triggers
+    if (parentView === 'practice') {
+      if (targetSubtab === 'catalog') renderProblemsTable();
+      else if (targetSubtab === 'patterns') renderPatternsHandbook();
+      else if (targetSubtab === 'flashcards') renderFlashcards();
+    } else if (parentView === 'revision') {
+      if (targetSubtab === 'queue') renderRevisionQueue();
+      else if (targetSubtab === 'monthly') renderMonthlyTestView();
+    } else if (parentView === 'progress') {
+      if (targetSubtab === 'readiness') renderAnalytics();
+      else if (targetSubtab === 'graph') renderPrerequisiteGraph();
+      else if (targetSubtab === 'mock') renderMockInterviewView();
+      else if (targetSubtab === 'roadmap') renderRoadmapView();
+    }
+  }
+
+  // Expose globally for inline buttons & test suite
+  if (typeof window !== 'undefined') {
+    window.switchView = switchView;
+    window.switchSubView = switchSubView;
+    window.VIEW_MAP = VIEW_MAP;
+  }
+
+  // --- GAMIFICATION HEADER UI ---
+  function updateGamificationHeader() {
+    if (!window.GamificationEngine) return;
+    const progress = GamificationEngine.getProgress();
+    const tier = GamificationEngine.getLevelProgress(progress.xp || 0);
+
+    const levelNameEl = document.getElementById('header-level-name');
+    const xpFillEl = document.getElementById('header-xp-fill');
+    const xpTextEl = document.getElementById('header-xp-text');
+    const pillEl = document.getElementById('header-gamification-pill');
+
+    if (levelNameEl) levelNameEl.textContent = `Lvl ${tier.currentLevel}: ${tier.title}`;
+    if (xpFillEl) xpFillEl.style.width = `${tier.percent}%`;
+    if (xpTextEl) xpTextEl.textContent = `${progress.xp || 0} XP`;
+    if (pillEl) pillEl.title = `Mastery Tier: ${tier.title} (${tier.xpCurrent} XP, ${tier.xpToNext} XP to ${tier.nextTitle})`;
+  }
+
+  // --- SETTINGS & DATA MANAGEMENT (MODAL + VIEW) ---
+  function syncSettingsFormValues() {
+    if (!window.StorageEngine) return;
+    const s = StorageEngine.getSettings();
+
+    // Modal elements
+    const lightOptBtn = document.getElementById('btn-theme-light-opt');
+    const darkOptBtn = document.getElementById('btn-theme-dark-opt');
+    const aiProviderSelect = document.getElementById('settings-ai-provider');
+    const apiKeyWrap = document.getElementById('settings-api-key-wrap');
+    const apiKeyInput = document.getElementById('settings-ai-key');
+
+    // Dedicated View elements
+    const lightOptViewBtn = document.getElementById('btn-theme-light-opt-view');
+    const darkOptViewBtn = document.getElementById('btn-theme-dark-opt-view');
+    const aiProviderViewSelect = document.getElementById('settings-ai-provider-view');
+    const apiKeyWrapView = document.getElementById('settings-api-key-wrap-view');
+    const apiKeyInputView = document.getElementById('settings-ai-key-view');
+
+    // Theme active states
+    if (s.theme === 'light') {
+      lightOptBtn?.classList.add('active');
+      darkOptBtn?.classList.remove('active');
+      lightOptViewBtn?.classList.add('active');
+      darkOptViewBtn?.classList.remove('active');
+    } else {
+      darkOptBtn?.classList.add('active');
+      lightOptBtn?.classList.remove('active');
+      darkOptViewBtn?.classList.add('active');
+      lightOptViewBtn?.classList.remove('active');
+    }
+
+    // AI Provider values
+    const provider = s.aiProvider || 'offline';
+    if (aiProviderSelect) aiProviderSelect.value = provider;
+    if (aiProviderViewSelect) aiProviderViewSelect.value = provider;
+
+    const showKey = (provider === 'openai' || provider === 'gemini');
+    if (apiKeyWrap) apiKeyWrap.style.display = showKey ? 'block' : 'none';
+    if (apiKeyWrapView) apiKeyWrapView.style.display = showKey ? 'block' : 'none';
+
+    if (apiKeyInput) apiKeyInput.value = s.aiApiKey || '';
+    if (apiKeyInputView) apiKeyInputView.value = s.aiApiKey || '';
+  }
+
+  function applyAppTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const themeToggleIcon = document.getElementById('theme-toggle-icon');
+    if (themeToggleIcon) {
+      themeToggleIcon.className = theme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+    }
+    if (window.StorageEngine) {
+      StorageEngine.saveSettings({ theme: theme });
+    }
+    syncSettingsFormValues();
+  }
+
+  function setupSettingsModalListeners() {
+    const modal = document.getElementById('settings-modal');
+    const openBtn = document.getElementById('btn-open-settings-modal');
+    const closeBtn = document.getElementById('btn-close-settings-modal');
+    const themeToggleHeaderBtn = document.getElementById('btn-theme-toggle');
+
+    const darkOptBtn = document.getElementById('btn-theme-dark-opt');
+    const lightOptBtn = document.getElementById('btn-theme-light-opt');
+    const aiProviderSelect = document.getElementById('settings-ai-provider');
+    const apiKeyWrap = document.getElementById('settings-api-key-wrap');
+    const apiKeyInput = document.getElementById('settings-ai-key');
+    const saveBtn = document.getElementById('btn-save-settings');
+
+    const btnExportBackup = document.getElementById('btn-settings-export-backup');
+    const btnRestoreTrigger = document.getElementById('btn-settings-restore-trigger');
+    const btnCopySync = document.getElementById('btn-settings-copy-sync');
+
+    // Header Theme Toggle button
+    themeToggleHeaderBtn?.addEventListener('click', () => {
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyAppTheme(nextTheme);
+    });
+
+    // Modal Theme Option Buttons
+    darkOptBtn?.addEventListener('click', () => applyAppTheme('dark'));
+    lightOptBtn?.addEventListener('click', () => applyAppTheme('light'));
+
+    // Settings View Theme Option Buttons
+    document.getElementById('btn-theme-dark-opt-view')?.addEventListener('click', () => applyAppTheme('dark'));
+    document.getElementById('btn-theme-light-opt-view')?.addEventListener('click', () => applyAppTheme('light'));
+
+    // AI Provider change toggles API key input in modal
+    aiProviderSelect?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (apiKeyWrap) {
+        apiKeyWrap.style.display = (val === 'openai' || val === 'gemini') ? 'block' : 'none';
+      }
+    });
+
+    // AI Provider change in view
+    const aiProviderViewSelect = document.getElementById('settings-ai-provider-view');
+    const apiKeyWrapView = document.getElementById('settings-api-key-wrap-view');
+    aiProviderViewSelect?.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (apiKeyWrapView) {
+        apiKeyWrapView.style.display = (val === 'openai' || val === 'gemini') ? 'block' : 'none';
+      }
+    });
+
+    openBtn?.addEventListener('click', () => {
+      syncSettingsFormValues();
+      modal?.classList.add('open');
+    });
+
+    closeBtn?.addEventListener('click', () => {
+      modal?.classList.remove('open');
+    });
+
+    saveBtn?.addEventListener('click', () => {
+      if (!window.StorageEngine) return;
+      const provider = aiProviderSelect?.value || 'offline';
+      const key = apiKeyInput?.value.trim() || '';
+      StorageEngine.saveSettings({
+        aiProvider: provider,
+        aiApiKey: key
+      });
+      syncSettingsFormValues();
+      modal?.classList.remove('open');
+      alert('✅ Settings successfully saved!');
+    });
+
+    // Settings View Save AI Button
+    document.getElementById('btn-save-ai-settings-view')?.addEventListener('click', () => {
+      if (!window.StorageEngine) return;
+      const provider = aiProviderViewSelect?.value || 'offline';
+      const key = document.getElementById('settings-ai-key-view')?.value.trim() || '';
+      StorageEngine.saveSettings({
+        aiProvider: provider,
+        aiApiKey: key
+      });
+      syncSettingsFormValues();
+      alert('✅ AI Scaffolding settings successfully saved!');
+    });
+
+    // Export / Import / Safe Sync Buttons (Modal)
+    btnExportBackup?.addEventListener('click', exportDataJSON);
+    btnRestoreTrigger?.addEventListener('click', () => {
+      document.getElementById('import-file-input')?.click();
+    });
+    btnCopySync?.addEventListener('click', async () => {
+      if (!window.StorageEngine) return;
+      const code = StorageEngine.generateSafeSyncHash();
+      try {
+        await navigator.clipboard.writeText(code);
+        alert('📋 Safe Sync Hash copied to clipboard!\n\nPaste this code on any device to instantly load your progress.');
+      } catch (_) {
+        prompt('Copy Safe Sync Hash:', code);
+      }
+    });
+
+    // Export / Import / Safe Sync Buttons (View)
+    document.getElementById('btn-export-backup-view')?.addEventListener('click', exportDataJSON);
+    document.getElementById('btn-restore-view')?.addEventListener('click', () => {
+      document.getElementById('import-file-input')?.click();
+    });
+    document.getElementById('btn-copy-sync-view')?.addEventListener('click', async () => {
+      if (!window.StorageEngine) return;
+      const code = StorageEngine.generateSafeSyncHash();
+      try {
+        await navigator.clipboard.writeText(code);
+        alert('📋 Safe Sync Hash copied to clipboard!\n\nPaste this code on any device to instantly load your progress.');
+      } catch (_) {
+        prompt('Copy Safe Sync Hash:', code);
+      }
+    });
+
+    // Initial form sync
+    syncSettingsFormValues();
+    setupAdaptiveAuditHub();
+  }
+
+  // --- ADAPTIVE DECISION AUDIT & RELIABILITY HUB ---
+  let activeAuditRec = null;
+
+  function renderAdaptiveAuditHub() {
+    if (!window.AdaptiveLearningEngine) return;
+    const recTitle = document.getElementById('audit-rec-title');
+    const recReason = document.getElementById('audit-rec-reason');
+    const recAction = document.getElementById('audit-rec-action');
+    const recCode = document.getElementById('audit-rec-code');
+    const recSource = document.getElementById('audit-rec-source');
+    const recMissing = document.getElementById('audit-rec-missing');
+    const recBadge = document.getElementById('audit-rec-status-badge');
+    const competingWrap = document.getElementById('audit-competing-diagnoses-wrap');
+    const competingEl = document.getElementById('audit-competing-diagnoses');
+
+    activeAuditRec = window.AdaptiveLearningEngine.selectNextAction(allProblems, userStates);
+    if (!activeAuditRec) {
+      if (recTitle) recTitle.textContent = 'No active intervention required.';
+      if (recReason) recReason.textContent = 'Review queue is clear and curriculum is paced normally.';
+      if (recBadge) {
+        recBadge.textContent = 'Up to Date';
+        recBadge.className = 'badge-rev-status status-mastered';
+      }
+      return;
+    }
+
+    if (recTitle) recTitle.textContent = `${activeAuditRec.problemTitle} (${activeAuditRec.difficulty} • ${activeAuditRec.topic})`;
+    if (recReason) recReason.textContent = activeAuditRec.explanation || 'Adaptive recommendation calculated.';
+    if (recAction) recAction.textContent = activeAuditRec.action || 'explore';
+    if (recCode) recCode.textContent = activeAuditRec.reasonCode || 'CURRICULUM_PROGRESSION';
+    if (recSource) {
+      recSource.textContent = (activeAuditRec.evidence && activeAuditRec.evidence.source)
+        ? `${activeAuditRec.evidence.source}: ${activeAuditRec.evidence.observed || 'Pattern verified'}`
+        : 'SRS Engine Observation';
+    }
+    if (recMissing) {
+      recMissing.textContent = activeAuditRec.action === 'spaced_revision'
+        ? 'Delayed recall pending completion on next calendar day.'
+        : activeAuditRec.action === 'prerequisite_practice'
+        ? 'Prerequisite foundation proficiency < 45%.'
+        : 'None; sufficient baseline evidence recorded.';
+    }
+    if (recBadge) {
+      recBadge.textContent = 'Active';
+      recBadge.className = 'badge-rev-status status-due';
+    }
+
+    // Check competing diagnoses
+    if (activeAuditRec.problemId) {
+      const p = allProblems.find(item => item.id === activeAuditRec.problemId);
+      const st = userStates[activeAuditRec.problemId];
+      if (p && st) {
+        const ev = window.AdaptiveLearningEngine.observeEvidence(p, st, allProblems, userStates);
+        const diag = window.AdaptiveLearningEngine.diagnose(ev, p);
+        if (diag && Array.isArray(diag.competingDiagnoses) && diag.competingDiagnoses.length > 0) {
+          if (competingWrap) competingWrap.style.display = 'block';
+          if (competingEl) competingEl.textContent = diag.competingDiagnoses.join(', ');
+        } else if (competingWrap) {
+          competingWrap.style.display = 'none';
+        }
+      }
+    }
+  }
+
+  function setupAdaptiveAuditHub() {
+    const btnDismiss = document.getElementById('btn-dismiss-active-intervention');
+    const btnBenchmark = document.getElementById('btn-run-diagnostic-benchmark');
+    const btnSimulator = document.getElementById('btn-run-replay-simulator');
+    const outputBox = document.getElementById('diagnostic-output-box');
+    const outputText = document.getElementById('diagnostic-output-text');
+    const recBadge = document.getElementById('audit-rec-status-badge');
+    const recReason = document.getElementById('audit-rec-reason');
+
+    btnDismiss?.addEventListener('click', () => {
+      if (!activeAuditRec || !window.AdaptiveLearningEngine) return;
+      const targetTitle = activeAuditRec.problemTitle || activeAuditRec.targetProblemTitle || 'this problem';
+      if (confirm(`Dismiss recommendation for "${targetTitle}"?\n\nThis will safely archive the active recommendation without penalizing or inflating your readiness scores.`)) {
+        window.AdaptiveLearningEngine.dismissIntervention(activeAuditRec.interventionId, userStates, 'manual_learner_dismissal');
+        if (recBadge) {
+          recBadge.textContent = 'Dismissed';
+          recBadge.className = 'badge-rev-status';
+          recBadge.style.background = 'rgba(255,255,255,0.1)';
+          recBadge.style.color = 'var(--text-muted)';
+        }
+        if (recReason) {
+          recReason.textContent = 'Recommendation dismissed by learner. Safely excluded from learning recovery calculations.';
+        }
+      }
+    });
+
+    btnBenchmark?.addEventListener('click', () => {
+      if (!window.AdaptiveBenchmark) {
+        alert('AdaptiveBenchmark module not loaded.');
+        return;
+      }
+      if (outputBox) outputBox.style.display = 'block';
+      if (outputText) outputText.textContent = 'Running deterministic policy benchmark against baselines & ablations...\n';
+
+      try {
+        const benchmark = window.AdaptiveBenchmark.runBenchmark(allProblems);
+        let log = `=== ADAPTIVE POLICY BENCHMARK RESULTS ===\n`;
+        log += `Timestamp: ${benchmark.timestamp}\n`;
+        log += `Scenarios Evaluated: ${benchmark.totalScenarios} | Policies Compared: ${benchmark.policiesEvaluated}\n\n`;
+
+        Object.keys(benchmark.results).forEach(k => {
+          const res = benchmark.results[k];
+          log += `[Policy: ${res.name}]\n`;
+          log += `  - Repeat Rate: ${res.repeatRatePercent}%\n`;
+          log += `  - Due Review Neglect Rate: ${res.dueNeglectRatePercent}%\n`;
+          log += `  - Recommendation Determinism / Stability: ${res.stabilityPercent}%\n`;
+          log += `  - Total Decisions Logged: ${res.recommendationsCount}\n\n`;
+        });
+
+        log += `NOTE: ${benchmark.disclaimer}\n`;
+        if (outputText) outputText.textContent = log;
+      } catch (err) {
+        if (outputText) outputText.textContent = `Benchmark Error: ${err.message}`;
+      }
+    });
+
+    btnSimulator?.addEventListener('click', () => {
+      if (!window.TimeTravelSimulator) {
+        alert('TimeTravelSimulator module not loaded.');
+        return;
+      }
+      if (outputBox) outputBox.style.display = 'block';
+      if (outputText) outputText.textContent = 'Running Time-Travel Replay Simulator across standard scenario fixtures...\n';
+
+      try {
+        const sim = new window.TimeTravelSimulator({ catalog: allProblems });
+        const scenarios = [
+          'new-learner',
+          'inconsistent-learner',
+          'strong-learner',
+          'retention-decay',
+          'hint-dependent',
+          'recovery-learner',
+          'conflicting-evidence',
+          'missing-corrupted-evidence'
+        ];
+
+        let log = `=== TIME-TRAVEL REPLAY VERIFICATION REPORT ===\n`;
+        scenarios.forEach(scName => {
+          const res = sim.runScenario(scName);
+          const hasVio = res.hasViolations ? `⚠️ ${res.violations.length} violation(s)` : '✓ Clean';
+          log += `• Scenario "${scName}": ${res.totalSteps} steps executed | Virtual Date: ${res.finalVirtualDate.slice(0, 10)} | ${hasVio}\n`;
+          if (res.hasViolations) {
+            res.violations.forEach(v => {
+              log += `    - [${v.type}]: ${v.message}\n`;
+            });
+          }
+        });
+
+        log += `\nVerification completed: All sandboxed trajectories executed without modifying production progress.\n`;
+        if (outputText) outputText.textContent = log;
+      } catch (err) {
+        if (outputText) outputText.textContent = `Simulator Error: ${err.message}`;
+      }
+    });
+
+    renderAdaptiveAuditHub();
+  }
+
+  // --- DETAIL MODAL SUB-TABS (AI HINTS & COMPLEXITY ANALYSIS) ---
+  function setupDetailModalSubTabs() {
+    const tabBtnOverview = document.getElementById('tab-btn-detail-overview');
+    const tabBtnHints = document.getElementById('tab-btn-detail-hints');
+    const tabBtnAnalysis = document.getElementById('tab-btn-detail-analysis');
+    const tabBtnHistory = document.getElementById('tab-btn-detail-history');
+
+    const contentOverview = document.getElementById('detail-tab-content-overview');
+    const contentHints = document.getElementById('detail-tab-content-hints');
+    const contentAnalysis = document.getElementById('detail-tab-content-analysis');
+    const contentHistory = document.getElementById('detail-tab-content-history');
+
+    const tabs = [
+      { btn: tabBtnOverview, pane: contentOverview },
+      { btn: tabBtnHints, pane: contentHints },
+      { btn: tabBtnAnalysis, pane: contentAnalysis },
+      { btn: tabBtnHistory, pane: contentHistory }
+    ];
+
+    tabs.forEach(t => {
+      t.btn?.addEventListener('click', () => {
+        tabs.forEach(item => {
+          item.btn?.classList.remove('active');
+          if (item.pane) item.pane.style.display = 'none';
+        });
+        t.btn?.classList.add('active');
+        if (t.pane) t.pane.style.display = 'flex';
+
+        // Auto-load Hint level 1 when opening Hints tab
+        if (t.btn === tabBtnHints && activeDetailProblemId) {
+          const activeLevelBtn = document.querySelector('#detail-ai-hint-tabs .ai-hint-tab-btn.active') || document.querySelector('#detail-ai-hint-tabs .ai-hint-tab-btn');
+          const level = parseInt(activeLevelBtn?.dataset.hintLevel || '1', 10);
+          loadDetailAIHint(level);
+        }
+      });
+    });
+
+    // Progressive Hint Level Tabs (Level 1-5)
+    document.querySelectorAll('#detail-ai-hint-tabs .ai-hint-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#detail-ai-hint-tabs .ai-hint-tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const level = parseInt(btn.dataset.hintLevel || '1', 10);
+        loadDetailAIHint(level);
+      });
+    });
+
+    async function loadDetailAIHint(level) {
+      if (!activeDetailProblemId || !window.AIEngine) return;
+      const p = allProblems.find(item => item.id === activeDetailProblemId);
+      if (!p) return;
+
+      const hintContent = document.getElementById('detail-ai-hint-content');
+      if (hintContent) {
+        hintContent.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating targeted scaffold...';
+      }
+
+      try {
+        const res = await AIEngine.getProgressiveHint(p, level, {
+          onHintUsed: () => {
+            const state = userStates[p.id];
+            if (state) {
+              state.hintsUsed = true;
+            }
+          }
+        });
+        if (hintContent) {
+          hintContent.textContent = res.content;
+        }
+      } catch (err) {
+        if (hintContent) {
+          hintContent.textContent = 'Failed to load hint: ' + err.message;
+        }
+      }
+    }
+
+    // Generate Edge Cases button
+    document.getElementById('btn-detail-generate-edgecases')?.addEventListener('click', () => {
+      if (!activeDetailProblemId || !window.AIEngine) return;
+      const p = allProblems.find(item => item.id === activeDetailProblemId);
+      if (!p) return;
+
+      const edgeCases = AIEngine.generateEdgeCases(p);
+      const hintContent = document.getElementById('detail-ai-hint-content');
+      if (hintContent) {
+        const header = `🛡️ **Boundary Checklist for "${p.title}"**:\n\n` +
+          edgeCases.map((ec, idx) => `[ ] ${idx + 1}. ${ec}`).join('\n') + '\n\n---\n\n';
+        hintContent.textContent = header + (hintContent.textContent || '');
+      }
+    });
+
+    // Solution Complexity & Validation Runner
+    document.getElementById('btn-run-solution-analysis')?.addEventListener('click', () => {
+      if (!activeDetailProblemId || !window.SolutionAnalysisEngine) return;
+      const p = allProblems.find(item => item.id === activeDetailProblemId);
+      if (!p) return;
+
+      const userTime = document.getElementById('analysis-input-time')?.value || 'O(N)';
+      const userSpace = document.getElementById('analysis-input-space')?.value || 'O(1)';
+      const checkedCases = [];
+      document.querySelectorAll('.analysis-edge-check:checked').forEach(c => checkedCases.push(c.value));
+
+      const result = SolutionAnalysisEngine.analyzeSubmission(p, {
+        timeComplexity: userTime,
+        spaceComplexity: userSpace,
+        edgeCases: checkedCases
+      });
+
+      const resultBox = document.getElementById('analysis-feedback-result');
+      if (resultBox) {
+        resultBox.style.display = 'block';
+        const isOpt = result.isOptimal;
+        resultBox.style.background = isOpt ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)';
+        resultBox.style.border = `1px solid ${isOpt ? '#10b981' : '#f59e0b'}`;
+        resultBox.style.color = isOpt ? '#34d399' : '#fbbf24';
+
+        resultBox.innerHTML = `
+          <div style="font-weight:700; margin-bottom:4px; font-size:13px;">
+            ${isOpt ? '🎯 Optimal Complexity Analysis!' : '⚠️ Suboptimal Complexity Detected'}
+          </div>
+          <p style="margin:0 0 6px 0; font-size:12px; color:var(--text-main);">${result.evaluation.time.message}</p>
+          <p style="margin:0 0 6px 0; font-size:12px; color:var(--text-main);">${result.evaluation.space.message}</p>
+          <div style="font-size:11.5px; color:var(--text-dim); margin-top:6px;">
+            <strong>Follow-up interview check:</strong> ${result.followUpQuestion}
+          </div>
+        `;
+      }
+    });
+  }
+
+  // --- VIEW 9: PREREQUISITE LEARNING GRAPH ---
+  function renderPrerequisiteGraph() {
+    const container = document.getElementById('prereq-graph-container');
+    if (!container || !window.GraphEngine) return;
+
+    const evaluated = GraphEngine.evaluateGraph(allProblems, userStates);
+    const nodes = evaluated.nodes;
+
+    if (!nodes || nodes.length === 0) {
+      container.innerHTML = '<div style="color:var(--text-dim); padding:20px;">No graph nodes defined.</div>';
+      return;
+    }
+
+    container.innerHTML = nodes.map(node => {
+      const statusClasses = {
+        mastered: 'status-mastered',
+        proficient: 'status-proficient',
+        learning: 'status-learning',
+        available: 'status-available',
+        locked: 'status-locked'
+      };
+      const statusBadges = {
+        mastered: '<span class="prereq-status-badge" style="background:rgba(16,185,129,0.2); color:#34d399; border:1px solid #10b981;">🏆 Mastered</span>',
+        proficient: '<span class="prereq-status-badge" style="background:rgba(6,182,212,0.2); color:#38bdf8; border:1px solid #06b6d4;">🔷 Proficient</span>',
+        learning: '<span class="prereq-status-badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid #f59e0b;">⏳ Learning</span>',
+        available: '<span class="prereq-status-badge" style="background:rgba(139,92,246,0.2); color:#c084fc; border:1px solid #8b5cf6;">🚀 Available</span>',
+        locked: '<span class="prereq-status-badge" style="background:rgba(100,116,139,0.2); color:#94a3b8; border:1px solid #64748b;">🔒 Locked</span>'
+      };
+
+      const cardClass = statusClasses[node.status] || 'status-available';
+      const badgeHtml = statusBadges[node.status] || '';
+
+      const prereqTitles = (node.prerequisites || []).map(pId => {
+        const pNode = evaluated.nodeMap[pId];
+        return pNode ? pNode.title : pId;
+      });
+
+      return `
+        <div class="prereq-node-card ${cardClass}" id="graph-node-${node.id}">
+          <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+            <div>
+              <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim);">Tier ${node.level} • ${node.topic}</div>
+              <h3 style="font-size:15px; font-weight:700; margin:3px 0 0 0; color:#f8fafc;">${node.title}</h3>
+            </div>
+            ${badgeHtml}
+          </div>
+
+          <p style="font-size:12.5px; color:var(--text-muted); line-height:1.45; margin:0;">
+            ${node.summary}
+          </p>
+
+          <div>
+            <div style="display:flex; justify-content:space-between; font-size:11.5px; margin-bottom:4px;">
+              <span style="color:var(--text-dim);">Topic Proficiency</span>
+              <strong style="color:var(--text-main);">${node.proficiencyScore}%</strong>
+            </div>
+            <div class="dimension-bar-track">
+              <div class="dimension-bar-fill" style="width:${node.proficiencyScore}%; background:${node.proficiencyScore >= 70 ? '#10b981' : node.proficiencyScore >= 40 ? '#38bdf8' : '#f59e0b'};"></div>
+            </div>
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-dim); margin-top:4px;">
+              <span>${node.solvedCount} of ${node.totalProblems} Solved</span>
+              <span>${node.independentRate}% Independent</span>
+            </div>
+          </div>
+
+          ${prereqTitles.length > 0 ? `
+            <div style="font-size:11px; color:var(--text-dim); background:rgba(255,255,255,0.02); padding:6px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.04);">
+              <strong style="color:var(--text-muted);"><i class="fa-solid fa-link" style="font-size:10px;"></i> Prereqs:</strong> ${prereqTitles.join(', ')}
+            </div>
+          ` : ''}
+
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:auto; padding-top:6px;">
+            <span style="font-size:11px; color:var(--accent-cyan);">
+              <i class="fa-solid fa-code-fork"></i> ${node.patterns ? node.patterns.join(', ') : ''}
+            </span>
+            <button class="btn btn-secondary btn-sm btn-prereq-practice" data-topic="${node.topic}" style="font-size:11.5px; padding:4px 10px;">
+              <i class="fa-solid fa-play"></i> Practice
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.querySelectorAll('.btn-prereq-practice').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const topic = btn.dataset.topic;
+        switchView('problems');
+        const topicSelect = document.getElementById('filter-topic');
+        if (topicSelect) {
+          topicSelect.value = topic;
+        }
+        renderProblemsTable();
+      });
+    });
+  }
+
+  // --- VIEW 10: REALISTIC MOCK INTERVIEW SIMULATOR ---
+  let activeMockSession = null;
+  let mockTimerInterval = null;
+
+  function renderMockInterviewView() {
+    const topicSelect = document.getElementById('mock-config-topic');
+    if (topicSelect && topicSelect.children.length <= 1) {
+      const topics = Array.from(new Set(allProblems.map(p => SRSEngine.canonicalizeTopic(p.topic)))).sort();
+      topicSelect.innerHTML = '<option value="all">All Topics (Comprehensive Pool)</option>';
+      topics.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        topicSelect.appendChild(opt);
+      });
+    }
+
+    const tbody = document.getElementById('mock-history-tbody');
+    if (tbody) {
+      let history = [];
+      try {
+        if (window.LearnerRepository) {
+          history = window.LearnerRepository.getMockHistory() || [];
+        } else {
+          const raw = localStorage.getItem('algorecall_mock_history_v2');
+          if (raw) history = JSON.parse(raw);
+        }
+      } catch (_) {}
+
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:var(--text-dim);">No mock interview rounds completed yet. Start your first session above!</td></tr>';
+      } else {
+        tbody.innerHTML = history.slice().reverse().map(m => `
+          <tr>
+            <td><strong style="color:var(--text-main); font-size:12.5px;">${new Date(m.completedAt || Date.now()).toLocaleDateString()}</strong></td>
+            <td><span class="badge badge-srs-upcoming" style="font-size:11px;">${m.trackTitle}</span></td>
+            <td>${m.actualMinutes || m.durationMinutes} mins</td>
+            <td><strong style="font-size:14px; color:${(m.overallPercentage || 0) >= 75 ? '#10b981' : (m.overallPercentage || 0) >= 60 ? '#38bdf8' : '#f59e0b'};">${m.overallPercentage || 0}%</strong></td>
+            <td><span class="badge ${(m.overallPercentage || 0) >= 75 ? 'badge-easy' : (m.overallPercentage || 0) >= 60 ? 'badge-medium' : 'badge-hard'}">${m.grade}</span></td>
+            <td>${(m.questionResults || []).map(q => `<span class="company-badge" style="font-size:10px;">${q.title} (${q.score}pts)</span>`).join(' ')}</td>
+          </tr>
+        `).join('');
+      }
+    }
+
+    const startBtn = document.getElementById('btn-start-mock-interview');
+    if (startBtn && !startBtn.dataset.bound) {
+      startBtn.dataset.bound = 'true';
+      startBtn.addEventListener('click', () => {
+        if (!window.MockEngine) return;
+        const trackId = document.getElementById('mock-config-track')?.value || 'faang_standard';
+        const duration = parseInt(document.getElementById('mock-config-duration')?.value || '45', 10);
+        const hints = document.getElementById('mock-config-hints')?.value || 'penalty';
+        const topic = document.getElementById('mock-config-topic')?.value || 'all';
+
+        const session = MockEngine.createSession(allProblems, userStates, {
+          trackId: trackId,
+          durationMinutes: duration,
+          hintPolicy: hints,
+          topicFilter: topic
+        });
+
+        startActiveMockSession(session);
+      });
+    }
+
+    document.getElementById('btn-close-mock-report')?.addEventListener('click', () => {
+      document.getElementById('mock-report-modal')?.classList.remove('open');
+    });
+    document.getElementById('btn-mock-report-done')?.addEventListener('click', () => {
+      document.getElementById('mock-report-modal')?.classList.remove('open');
+      renderAll();
+    });
+  }
+
+  function startActiveMockSession(session) {
+    if (!session) return;
+    activeMockSession = session;
+
+    const cockpit = document.getElementById('mock-interview-cockpit');
+    if (cockpit) {
+      cockpit.style.display = 'block';
+      cockpit.classList.add('open');
+    }
+
+    renderActiveMockQuestion();
+
+    if (mockTimerInterval) clearInterval(mockTimerInterval);
+    updateMockTimer();
+    mockTimerInterval = setInterval(() => {
+      updateMockTimer();
+      const now = Date.now();
+      const remaining = Math.max(0, Math.floor((activeMockSession.targetEndTime - now) / 1000));
+      if (remaining <= 0) {
+        clearInterval(mockTimerInterval);
+        alert('⏰ Mock interview time is up! Submitting evaluation.');
+        finishMockInterview();
+      }
+    }, 1000);
+  }
+
+  function updateMockTimer() {
+    if (!activeMockSession) return;
+    const now = Date.now();
+    const remainingSeconds = Math.max(0, Math.floor((activeMockSession.targetEndTime - now) / 1000));
+    const mins = Math.floor(remainingSeconds / 60);
+    const secs = remainingSeconds % 60;
+    const timerEl = document.getElementById('mock-cockpit-timer');
+    if (timerEl) {
+      timerEl.textContent = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      timerEl.classList.toggle('danger', remainingSeconds <= 300);
+    }
+  }
+
+  function saveCurrentMockQuestionState() {
+    if (!activeMockSession || !activeMockSession.problems[activeMockSession.activeQuestionIndex]) return;
+    const p = activeMockSession.problems[activeMockSession.activeQuestionIndex];
+    const ans = activeMockSession.answers[p.id] || {};
+
+    ans.code = document.getElementById('mock-code-editor')?.value || '';
+    ans.timeComplexity = document.getElementById('mock-input-time')?.value || '';
+    ans.spaceComplexity = document.getElementById('mock-input-space')?.value || '';
+
+    const activeRatingBtn = document.querySelector('#mock-q-rating-options .rating-btn.active');
+    ans.rating = activeRatingBtn ? activeRatingBtn.dataset.mockRating : 'medium';
+
+    activeMockSession.answers[p.id] = ans;
+    if (window.MockEngine) {
+      MockEngine.saveActiveSession(activeMockSession);
+    }
+  }
+
+  function renderActiveMockQuestion() {
+    if (!activeMockSession) return;
+    const idx = activeMockSession.activeQuestionIndex;
+    const p = activeMockSession.problems[idx];
+    if (!p) return;
+
+    const counterEl = document.getElementById('mock-cockpit-q-counter');
+    if (counterEl) counterEl.textContent = `Problem ${idx + 1} of ${activeMockSession.problems.length}`;
+
+    const titleEl = document.getElementById('mock-active-title');
+    if (titleEl) titleEl.textContent = p.title;
+
+    const badgesEl = document.getElementById('mock-active-badges');
+    if (badgesEl) {
+      badgesEl.innerHTML = `
+        <span class="badge badge-${p.difficulty.toLowerCase()}">${p.difficulty}</span>
+        <span class="badge badge-srs-upcoming">${p.topic}</span>
+        ${p.pattern ? `<span class="badge badge-srs-unsolved">${p.pattern}</span>` : ''}
+      `;
+    }
+
+    const linkEl = document.getElementById('mock-active-link');
+    if (linkEl) linkEl.href = p.url || `https://leetcode.com/problemset/all/?search=${encodeURIComponent(p.title)}`;
+
+    const ans = activeMockSession.answers[p.id] || {};
+    const codeEl = document.getElementById('mock-code-editor');
+    if (codeEl) codeEl.value = ans.code || '';
+
+    const timeEl = document.getElementById('mock-input-time');
+    if (timeEl) timeEl.value = ans.timeComplexity || '';
+
+    const spaceEl = document.getElementById('mock-input-space');
+    if (spaceEl) spaceEl.value = ans.spaceComplexity || '';
+
+    document.querySelectorAll('#mock-q-rating-options .rating-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mockRating === (ans.rating || 'medium'));
+    });
+
+    const hintBanner = document.getElementById('mock-hint-banner');
+    if (hintBanner) hintBanner.style.display = 'none';
+
+    const qList = document.getElementById('mock-question-list');
+    if (qList) {
+      qList.innerHTML = activeMockSession.problems.map((prob, i) => `
+        <div class="test-q-item ${i === idx ? 'active' : ''}" data-mock-idx="${i}">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <strong style="font-size:13px;">Q${i + 1}: ${prob.title}</strong>
+            <span class="badge badge-${prob.difficulty.toLowerCase()}">${prob.difficulty}</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-dim);">${prob.topic}</div>
+        </div>
+      `).join('');
+
+      qList.querySelectorAll('.test-q-item').forEach(item => {
+        item.addEventListener('click', () => {
+          saveCurrentMockQuestionState();
+          activeMockSession.activeQuestionIndex = parseInt(item.dataset.mockIdx, 10);
+          renderActiveMockQuestion();
+        });
+      });
+    }
+  }
+
+  function checkAndRestoreActiveMockSession() {
+    if (!window.MockEngine) return;
+    const session = MockEngine.getActiveSession();
+    if (session && !session.isExpired) {
+      startActiveMockSession(session);
+    }
+  }
+
+  function finishMockInterview() {
+    if (!activeMockSession || !window.MockEngine) return;
+    saveCurrentMockQuestionState();
+
+    if (mockTimerInterval) clearInterval(mockTimerInterval);
+
+    const report = MockEngine.evaluateSession(activeMockSession, userStates);
+
+    activeMockSession.problems.forEach(p => {
+      const ans = activeMockSession.answers[p.id] || {};
+      const curr = userStates[p.id] || {};
+      const hintsUsed = (ans.hintsUsedCount || 0) > 0;
+      userStates[p.id] = SRSEngine.processReview(
+        curr,
+        ans.rating || 'medium',
+        Math.round(activeMockSession.durationMinutes / activeMockSession.problems.length),
+        `Mock Round (${activeMockSession.trackTitle}): ${ans.rating || 'medium'}`,
+        ans.rating === 'simple' ? 5 : ans.rating === 'medium' ? 3 : 2,
+        { hintsUsed: hintsUsed }
+      );
+    });
+    saveUserStates();
+
+    if (window.GamificationEngine) {
+      GamificationEngine.awardXP('mock_interview');
+      GamificationEngine.evaluateBadges(allProblems, userStates, [report]);
+      updateGamificationHeader();
+    }
+
+    const cockpit = document.getElementById('mock-interview-cockpit');
+    if (cockpit) {
+      cockpit.style.display = 'none';
+      cockpit.classList.remove('open');
+    }
+    activeMockSession = null;
+
+    showMockReport(report);
+  }
+
+  function showMockReport(report) {
+    if (!report) return;
+    const modal = document.getElementById('mock-report-modal');
+    if (!modal) return;
+
+    document.getElementById('mock-report-date').textContent = new Date(report.completedAt).toLocaleString();
+    document.getElementById('mock-report-score').textContent = `${report.overallPercentage}%`;
+    document.getElementById('mock-report-grade').textContent = report.grade;
+    document.getElementById('mock-report-track-info').textContent = `${report.trackTitle} • ${report.actualMinutes} mins elapsed`;
+
+    const breakdownEl = document.getElementById('mock-report-breakdown');
+    if (breakdownEl) {
+      breakdownEl.innerHTML = report.questionResults.map(q => `
+        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:10px 14px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <strong style="font-size:13px; color:var(--text-main);">${q.title}</strong>
+            <span style="font-size:11px; color:var(--text-dim); display:block;">${q.topic} • ${q.difficulty} • Self-Rating: ${capitalize(q.rating)}</span>
+          </div>
+          <div style="text-align:right;">
+            <strong style="font-size:15px; color:${q.score >= 70 ? '#10b981' : '#f59e0b'};">${q.score} / 100</strong>
+            ${q.hintsUsedCount > 0 ? `<span style="font-size:10px; color:#f43f5e; display:block;">-${q.hintsUsedCount * 5} hint penalty</span>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    modal.classList.add('open');
+  }
+
+  // --- UNIFIED BACKUP & RESTORE ---
+  function exportDataJSON() {
+    if (window.StorageEngine) {
+      const bundle = StorageEngine.createExportBundle();
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `algorecall_backup_v2_${SRSEngine.getLocalDateString(new Date())}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
   }
 
   function importDataJSON(event) {
@@ -2014,22 +4798,26 @@
     const reader = new FileReader();
     reader.onload = function (e) {
       try {
-        const data = JSON.parse(e.target.result);
-        if (data.problems && Array.isArray(data.problems)) {
-          allProblems = data.problems;
-          saveProblems();
+        const jsonObj = JSON.parse(e.target.result);
+        if (!window.StorageEngine) return;
+        const inspection = StorageEngine.inspectImportBundle(jsonObj);
+        if (!inspection.valid) {
+          alert('Import Error: ' + inspection.error);
+          return;
         }
-        if (data.userStates && typeof data.userStates === 'object') {
-          userStates = data.userStates;
-          saveUserStates();
+
+        const msg = `Found ${inspection.stats.problemsCount} problems, ${inspection.stats.statesCount} review records, and ${inspection.stats.mocksCount} mock sessions.\n\nChoose OK to merge with existing data, or Cancel to abort.`;
+        if (confirm(msg)) {
+          StorageEngine.applyImportBundle(inspection, 'merge');
+          loadData();
+          if (window.RoadmapEngine) {
+            RoadmapEngine.initProgress();
+            RoadmapEngine.invalidatePlanCache('import_progress');
+          }
+          populateTopicDropdown();
+          renderAll();
+          alert('🎉 Data restored and merged successfully!');
         }
-        if (data.monthlyTestHistory && Array.isArray(data.monthlyTestHistory)) {
-          monthlyTestHistory = data.monthlyTestHistory;
-          saveTestHistory();
-        }
-        populateTopicDropdown();
-        renderAll();
-        alert('Data restored successfully!');
       } catch (err) {
         alert('Failed to parse JSON file. Please ensure it is a valid AlgoRecall backup.');
       }
@@ -2043,18 +4831,86 @@
     // Navigation routing
     document.querySelectorAll('.nav-item').forEach(item => {
       item.addEventListener('click', () => {
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-        document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-
-        item.classList.add('active');
         const viewName = item.getAttribute('data-view');
-        const viewEl = document.getElementById(`view-${viewName}`);
-        if (viewEl) viewEl.classList.add('active');
+        switchView(viewName);
+      });
+    });
 
-        // Re-render chart sizes if entering chart views
-        if (viewName === 'dashboard' || viewName === 'analytics') {
-          renderAll();
+    // Subtab navigation within Practice, Revision, and Progress
+    document.querySelectorAll('.view-subtab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const parentView = btn.getAttribute('data-parent-view');
+        const subtab = btn.getAttribute('data-subtab');
+        switchSubView(parentView, subtab);
+      });
+    });
+
+    // Accessible keyboard navigation for tabs & pills
+    document.querySelectorAll('.nav-item, .view-subtab-btn').forEach(item => {
+      item.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          item.click();
         }
+      });
+    });
+
+    // Settings View Preset Quick-Loaders
+    document.querySelectorAll('.btn-preset-load-view[data-preset]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const sheet = btn.dataset.preset;
+        const sheetSelect = document.getElementById('filter-sheet');
+        if (sheetSelect) {
+          sheetSelect.value = sheet;
+        }
+        document.querySelectorAll('.sheet-pill').forEach(p => {
+          if (p.getAttribute('data-sheet-val') === sheet) p.classList.add('active');
+          else p.classList.remove('active');
+        });
+        switchView('practice', 'catalog');
+        renderProblemsTable();
+      });
+    });
+
+    // Mock Cockpit Listeners
+    document.getElementById('btn-mock-request-hint')?.addEventListener('click', async () => {
+      if (!activeMockSession || !window.AIEngine) return;
+      const p = activeMockSession.problems[activeMockSession.activeQuestionIndex];
+      if (!p) return;
+
+      const ans = activeMockSession.answers[p.id] || {};
+      ans.hintsUsedCount = (ans.hintsUsedCount || 0) + 1;
+      const currentHintLevel = Math.min(5, ans.hintsUsedCount);
+
+      const banner = document.getElementById('mock-hint-banner');
+      if (banner) {
+        banner.style.display = 'block';
+        banner.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Loading hint...`;
+      }
+
+      const hint = await AIEngine.getProgressiveHint(p, currentHintLevel);
+      if (banner) {
+        banner.innerHTML = `
+          <div style="font-weight:700; margin-bottom:4px; display:flex; justify-content:space-between;">
+            <span>💡 Mock Hint (${hint.levelTitle})</span>
+            <span style="font-size:11px; opacity:0.8;">Hint #${ans.hintsUsedCount}</span>
+          </div>
+          <div style="white-space:pre-wrap; line-height:1.5;">${hint.content}</div>
+        `;
+      }
+    });
+
+    document.getElementById('btn-finish-mock-interview')?.addEventListener('click', () => {
+      if (confirm('Are you sure you want to finish and submit your mock interview for grading?')) {
+        finishMockInterview();
+      }
+    });
+
+    document.querySelectorAll('#mock-q-rating-options .rating-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#mock-q-rating-options .rating-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        saveCurrentMockQuestionState();
       });
     });
 
@@ -2228,6 +5084,14 @@
         openDetailModal(detailBtn.dataset.id);
         return;
       }
+
+      const trainerBtn = e.target.closest('.btn-action-trainer');
+      if (trainerBtn) {
+        if (window.SolutionDiscoveryController) {
+          window.SolutionDiscoveryController.openModal(trainerBtn.dataset.id);
+        }
+        return;
+      }
     });
 
     // Checkbox toggle in problems table
@@ -2269,6 +5133,17 @@
         openRatingModal(activeDetailProblemId);
       }
     });
+    document.getElementById('btn-detail-launch-trainer')?.addEventListener('click', () => {
+      if (activeDetailProblemId) {
+        closeDetailModal();
+        if (window.SolutionDiscoveryController) {
+          window.SolutionDiscoveryController.openModal(activeDetailProblemId);
+        }
+      }
+    });
+
+    // Adaptive Learning Loop Next Action trigger
+    document.getElementById('btn-adaptive-loop-action')?.addEventListener('click', handleAdaptiveLoopAction);
 
     // Add Custom Problem Modal
     const addModal = document.getElementById('add-problem-modal');
@@ -2597,6 +5472,7 @@
     });
 
     // Monthly Assessment Buttons
+    document.getElementById('btn-start-monthly-test')?.addEventListener('click', () => startMonthlyExam(4, 60));
     document.getElementById('btn-start-monthly-exam')?.addEventListener('click', () => startMonthlyExam(4, 60));
     document.getElementById('btn-quick-sample-exam')?.addEventListener('click', () => startMonthlyExam(2, 30));
     document.getElementById('btn-header-monthly-test')?.addEventListener('click', () => {
@@ -2609,12 +5485,14 @@
     document.querySelectorAll('[data-test-rating]').forEach(btn => {
       btn.addEventListener('click', () => {
         if (!activeTestSession) return;
+        saveCurrentQuestionState();
         const currentProb = activeTestSession.problems[activeTestQuestionIndex];
         const rating = btn.dataset.testRating;
         if (!testAnswers[currentProb.id]) {
-          testAnswers[currentProb.id] = { rating: 'medium', scratchpad: '' };
+          testAnswers[currentProb.id] = { rating: null, scratchpad: '' };
         }
         testAnswers[currentProb.id].rating = rating;
+        saveActiveExamState();
         renderActiveTestQuestion();
       });
     });
@@ -2857,7 +5735,627 @@
         renderFlashcards();
         return;
       }
+
+      // G. Global Escape key listener for modals and drawer
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const sidebar = document.querySelector('.sidebar');
+          const backdrop = document.getElementById('sidebar-mobile-backdrop');
+          const mobileToggle = document.getElementById('btn-mobile-menu-toggle');
+          if (sidebar && sidebar.classList.contains('mobile-open')) {
+            sidebar.classList.remove('mobile-open');
+            backdrop?.classList.remove('active');
+            if (mobileToggle) mobileToggle.setAttribute('aria-expanded', 'false');
+            return;
+          }
+
+          const openModals = document.querySelectorAll('.modal-backdrop.open');
+          if (openModals.length > 0) {
+            openModals.forEach(m => m.classList.remove('open'));
+          }
+
+          const userPill = document.getElementById('header-user-pill');
+          const authDropdown = document.getElementById('header-auth-dropdown');
+          if (authDropdown && authDropdown.classList.contains('open')) {
+            authDropdown.classList.remove('open');
+            userPill?.classList.remove('open');
+            userPill?.setAttribute('aria-expanded', 'false');
+          }
+        }
+      });
     });
+  }
+
+  // --- CROSS-TAB SYNCHRONIZATION CONTROLLER ---
+  function setupCrossTabSync() {
+    window.addEventListener('storage', (e) => {
+      if (!e || !e.key) return;
+
+      let shouldRender = false;
+      let shouldUpdateTopics = false;
+
+      try {
+        if (e.key === STORAGE_KEYS.USER_STATES || e.key === 'algorecall_user_states_v1') {
+          if (e.newValue) {
+            userStates = JSON.parse(e.newValue);
+            shouldRender = true;
+          }
+        } else if (e.key === STORAGE_KEYS.PROBLEMS || e.key === 'algorecall_problems_v1') {
+          if (e.newValue) {
+            allProblems = JSON.parse(e.newValue);
+            shouldUpdateTopics = true;
+            shouldRender = true;
+          }
+        } else if (e.key === STORAGE_KEYS.TEST_HISTORY || e.key === 'algorecall_monthly_test_history_v1') {
+          if (e.newValue) {
+            monthlyTestHistory = JSON.parse(e.newValue);
+            shouldRender = true;
+          }
+        } else if (e.key === 'algorecall_roadmap_progress_v1') {
+          if (window.RoadmapEngine) {
+            RoadmapEngine.initProgress();
+            shouldRender = true;
+          }
+        } else if (e.key === 'algorecall_settings_v2') {
+          if (e.newValue) {
+            const settings = JSON.parse(e.newValue);
+            if (settings && settings.theme) {
+              document.documentElement.setAttribute('data-theme', settings.theme);
+              const icon = document.getElementById('theme-toggle-icon');
+              if (icon) {
+                icon.className = settings.theme === 'light' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+              }
+            }
+          }
+        } else if (e.key === 'algorecall_gamification_v2') {
+          updateGamificationHeader();
+        }
+      } catch (err) {
+        console.warn('Cross-tab sync error parsing storage update:', err);
+      }
+
+      if (shouldUpdateTopics) {
+        populateTopicDropdown();
+      }
+      if (shouldRender) {
+        updateGamificationHeader();
+        renderAll();
+      }
+    });
+
+    // Cross-device / multi-browser focus & visibility freshness check
+    let _lastVisibilitySync = 0;
+    async function checkCloudFreshnessOnFocus() {
+      if (typeof document === 'undefined' || document.visibilityState === 'hidden') return;
+      if (typeof window === 'undefined' || !window.CloudSyncEngine || !window.AuthEngine) return;
+      const user = window.AuthEngine.getUser();
+      if (!user || !user.id) return;
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+
+      const now = Date.now();
+      if (now - _lastVisibilitySync < 6000) return;
+      _lastVisibilitySync = now;
+      const targetUserId = user.id;
+
+      try {
+        const syncRes = await window.CloudSyncEngine.syncOrHydrate(targetUserId, { user });
+        const activeUser = window.AuthEngine.getUser();
+        if (!activeUser || activeUser.id !== targetUserId) return;
+
+        if (syncRes && syncRes.success && syncRes.updatedLocal) {
+          reloadLearnerWorkspace();
+          showPlanConfirmation('Progress refreshed from another device session.');
+        }
+      } catch (err) {
+        // Silently tolerate network or cloud latency
+      }
+    }
+
+    window.addEventListener('focus', checkCloudFreshnessOnFocus);
+    document.addEventListener('visibilitychange', checkCloudFreshnessOnFocus);
+  }
+
+  // --- ACCESSIBLE MOBILE DRAWER NAVIGATION CONTROLLER ---
+  function setupMobileNav() {
+    const sidebar = document.querySelector('.sidebar');
+    const toggleBtn = document.getElementById('btn-mobile-menu-toggle');
+    const backdrop = document.getElementById('sidebar-mobile-backdrop');
+
+    if (!toggleBtn || !sidebar) return;
+
+    function setDrawerState(isOpen) {
+      sidebar.classList.toggle('mobile-open', isOpen);
+      backdrop?.classList.toggle('active', isOpen);
+      toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const willOpen = !sidebar.classList.contains('mobile-open');
+      setDrawerState(willOpen);
+    });
+
+    backdrop?.addEventListener('click', () => {
+      setDrawerState(false);
+    });
+
+    // Close mobile drawer when clicking navigation items on small screens
+    sidebar.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        if (window.innerWidth <= 768) {
+          setDrawerState(false);
+        }
+      });
+    });
+  }
+
+  // --- AUTHENTICATION & MULTI-USER IDENTITY CONTROLLER (Stage 1 & Stage 2) ---
+  let authInitialized = false;
+  let currentAuthUserId = null;
+
+  async function handleAuthStateTransition(event, session, user) {
+    updateAuthUI(event, session, user);
+
+    const isAuthed = Boolean(user && session);
+    const repo = window.LearnerRepository;
+    const migrator = window.MigrationManager;
+
+    if (isAuthed) {
+      const newUserId = user.id;
+      if (currentAuthUserId === newUserId) {
+        return; // Already active context, avoid duplicate cycles
+      }
+      currentAuthUserId = newUserId;
+      if (repo) repo.setContext({ type: 'user', id: newUserId, email: user.email });
+
+      // 1. Always check & synchronize with Cloud Snapshot
+      if (window.CloudSyncEngine) {
+        try {
+          const syncRes = await window.CloudSyncEngine.safeSignIn(user);
+          if (currentAuthUserId !== newUserId) return;
+          if (syncRes && syncRes.success) {
+            if (syncRes.restoredFromCloud || syncRes.action === 'hydrated_newer_cloud' || syncRes.action === 'reconciled_and_committed') {
+              reloadLearnerWorkspace();
+              showPlanConfirmation('Progress successfully synchronized across your devices!');
+              return;
+            }
+          }
+        } catch (syncErr) {
+          console.warn('[AlgoRecall] Cloud sync check exception:', syncErr);
+        }
+      }
+
+      if (currentAuthUserId !== newUserId) return;
+
+      // 2. Check if user already has initialized data
+      const alreadyHasData = repo && repo.hasUserData(newUserId);
+
+      if (alreadyHasData) {
+        // User already has existing isolated data
+        if (repo) repo.setContext({ type: 'user', id: newUserId, email: user.email });
+        reloadLearnerWorkspace();
+      } else {
+        // 3. Check if legacy unclaimed progress exists
+        const legacyStats = migrator ? migrator.detectLegacyProgress() : { hasProgress: false };
+        if (legacyStats.hasProgress && !legacyStats.isClaimed) {
+          // Explicit prompt: User must confirm before assigning legacy data to their account
+          showMigrationModal(user, legacyStats);
+        } else {
+          // Brand new account with no legacy progress to claim (e.g. friend)
+          if (migrator) migrator.startFreshUser(newUserId, { email: user.email });
+          if (repo) repo.setContext({ type: 'user', id: newUserId, email: user.email });
+          reloadLearnerWorkspace();
+        }
+      }
+    } else {
+      // Guest mode transition
+      if (currentAuthUserId !== null) {
+        currentAuthUserId = null;
+        if (repo) repo.setContext({ type: 'guest' });
+        // Clean up in-memory test timer and ephemeral session
+        if (testTimerInterval) {
+          clearInterval(testTimerInterval);
+          testTimerInterval = null;
+        }
+        activeTestSession = null;
+        reloadLearnerWorkspace();
+      }
+    }
+  }
+
+  function reloadLearnerWorkspace() {
+    loadData();
+    if (window.RoadmapEngine) {
+      window.RoadmapEngine.initProgress();
+    }
+    populateTopicDropdown();
+    updateGamificationHeader();
+    renderAll();
+    checkAndRestoreActiveExamSession();
+    checkAndRestoreActiveMockSession();
+  }
+
+  function showMigrationModal(user, legacyStats) {
+    const modal = document.getElementById('migration-modal');
+    if (!modal) {
+      if (window.MigrationManager) window.MigrationManager.migrateLegacyToUser(user.id, { email: user.email });
+      if (window.LearnerRepository) window.LearnerRepository.setContext({ type: 'user', id: user.id, email: user.email });
+      reloadLearnerWorkspace();
+      return;
+    }
+
+    const emailEl = document.getElementById('migration-modal-user-email');
+    if (emailEl) emailEl.textContent = user.email || 'your account';
+
+    const probEl = document.getElementById('migration-stat-problems');
+    if (probEl) probEl.textContent = legacyStats.problemsPracticed || legacyStats.statesCount || 0;
+
+    const masterEl = document.getElementById('migration-stat-mastered');
+    if (masterEl) masterEl.textContent = legacyStats.masteredCount || 0;
+
+    const xpEl = document.getElementById('migration-stat-xp');
+    if (xpEl) xpEl.textContent = `${legacyStats.xp || 0} XP`;
+
+    const levelEl = document.getElementById('migration-stat-level');
+    if (levelEl) levelEl.textContent = legacyStats.level || 1;
+
+    modal.classList.add('open');
+  }
+
+  function setupMigrationModalListeners() {
+    const modal = document.getElementById('migration-modal');
+    const btnClaim = document.getElementById('btn-migration-claim');
+    const btnFresh = document.getElementById('btn-migration-fresh');
+
+    btnClaim?.addEventListener('click', async () => {
+      const user = window.AuthEngine ? window.AuthEngine.getUser() : null;
+      if (!user) {
+        modal?.classList.remove('open');
+        return;
+      }
+      btnClaim.disabled = true;
+      btnClaim.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Migrating...';
+
+      try {
+        if (window.MigrationManager) {
+          const res = window.MigrationManager.migrateLegacyToUser(user.id, { email: user.email });
+          if (!res.success && !res.alreadyMigrated) {
+            alert(`Migration failed: ${res.error}`);
+          }
+        }
+        if (window.LearnerRepository) {
+          window.LearnerRepository.setContext({ type: 'user', id: user.id, email: user.email });
+        }
+        modal?.classList.remove('open');
+        reloadLearnerWorkspace();
+        showPlanConfirmation('Progress successfully linked to your account!');
+      } catch (e) {
+        alert('Migration error: ' + e.message);
+      } finally {
+        btnClaim.disabled = false;
+        btnClaim.innerHTML = '<i class="fa-solid fa-link" style="margin-right:6px;"></i> Claim & Link Progress to Account';
+      }
+    });
+
+    btnFresh?.addEventListener('click', async () => {
+      const user = window.AuthEngine ? window.AuthEngine.getUser() : null;
+      if (!user) {
+        modal?.classList.remove('open');
+        return;
+      }
+      btnFresh.disabled = true;
+      try {
+        if (window.MigrationManager) {
+          window.MigrationManager.startFreshUser(user.id, { email: user.email });
+        }
+        if (window.LearnerRepository) {
+          window.LearnerRepository.setContext({ type: 'user', id: user.id, email: user.email });
+        }
+        modal?.classList.remove('open');
+        reloadLearnerWorkspace();
+        showPlanConfirmation('Clean account initialized!');
+      } catch (e) {
+        alert('Start fresh error: ' + e.message);
+      } finally {
+        btnFresh.disabled = false;
+      }
+    });
+  }
+
+  async function initAuth() {
+    if (authInitialized) return;
+    authInitialized = true;
+
+    setupAuthUIListeners();
+    setupMigrationModalListeners();
+
+    if (!window.AuthEngine) {
+      updateAuthUI('GUEST', null, null);
+      return;
+    }
+
+    try {
+      // Listen for all auth events without re-triggering application init
+      window.AuthEngine.onAuthStateChange((event, session, user) => {
+        handleAuthStateTransition(event, session, user);
+      });
+
+      // Initialize engine & restore any persisted session
+      const res = await window.AuthEngine.initialize();
+      handleAuthStateTransition(res.status === 'authenticated' ? 'INITIAL_SESSION' : 'GUEST', res.session, res.user);
+    } catch (err) {
+      console.warn('[AlgoRecall] Auth initialization fallback to guest:', err);
+      updateAuthUI('GUEST', null, null);
+    }
+  }
+
+  function setupAuthUIListeners() {
+    const btnHeaderAuth = document.getElementById('btn-header-auth');
+    const authModal = document.getElementById('auth-modal');
+    const btnCloseAuthModal = document.getElementById('btn-close-auth-modal');
+    const btnAuthContinueGuest = document.getElementById('btn-auth-continue-guest');
+    const headerUserPill = document.getElementById('header-user-pill');
+    const authDropdown = document.getElementById('header-auth-dropdown');
+    const btnHeaderAccountDetails = document.getElementById('btn-header-account-details');
+    const btnHeaderSignout = document.getElementById('btn-header-signout');
+    const btnModalSignout = document.getElementById('btn-modal-signout');
+    const btnModalGoogleSignIn = document.getElementById('btn-modal-google-signin');
+
+    // Open Auth Modal from Header Sign-In Pill
+    btnHeaderAuth?.addEventListener('click', () => {
+      authModal?.classList.add('open');
+    });
+
+    // Close Auth Modal
+    btnCloseAuthModal?.addEventListener('click', () => {
+      authModal?.classList.remove('open');
+    });
+
+    btnAuthContinueGuest?.addEventListener('click', () => {
+      authModal?.classList.remove('open');
+    });
+
+    // Toggle User Account Dropdown
+    headerUserPill?.addEventListener('click', (e) => {
+      // If clicking inside the dropdown menu items, do not re-toggle pill
+      if (e.target.closest('#header-auth-dropdown')) return;
+      e.stopPropagation();
+      const isOpen = authDropdown?.classList.toggle('open');
+      headerUserPill.classList.toggle('open', isOpen);
+      headerUserPill.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', (e) => {
+      if (authDropdown && authDropdown.classList.contains('open')) {
+        if (!e.target.closest('#header-user-pill') && !e.target.closest('#header-auth-dropdown')) {
+          authDropdown.classList.remove('open');
+          headerUserPill?.classList.remove('open');
+          headerUserPill?.setAttribute('aria-expanded', 'false');
+        }
+      }
+    });
+
+    // Open Account Details Modal from Dropdown
+    btnHeaderAccountDetails?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      authDropdown?.classList.remove('open');
+      headerUserPill?.classList.remove('open');
+      headerUserPill?.setAttribute('aria-expanded', 'false');
+      authModal?.classList.add('open');
+    });
+
+    // Sign Out from Dropdown or Modal
+    async function handleSignOut(e) {
+      if (e) e.stopPropagation();
+      authDropdown?.classList.remove('open');
+      headerUserPill?.classList.remove('open');
+      headerUserPill?.setAttribute('aria-expanded', 'false');
+      authModal?.classList.remove('open');
+
+      const userIdToSignOut = currentAuthUserId;
+      if (window.CloudSyncEngine && userIdToSignOut) {
+        await window.CloudSyncEngine.safeSignOut(userIdToSignOut);
+      } else if (window.AuthEngine) {
+        await window.AuthEngine.signOut();
+      }
+    }
+
+    btnHeaderSignout?.addEventListener('click', handleSignOut);
+    btnModalSignout?.addEventListener('click', handleSignOut);
+
+    // Google Sign-In Submission
+    btnModalGoogleSignIn?.addEventListener('click', async () => {
+      if (!window.AuthEngine || !window.AuthEngine.isConfigured()) {
+        const warning = document.getElementById('auth-config-warning');
+        if (warning) warning.style.display = 'block';
+        return;
+      }
+
+      const label = document.getElementById('btn-google-signin-label');
+      const originalText = label ? label.textContent : 'Sign in with Google';
+      if (btnModalGoogleSignIn) btnModalGoogleSignIn.disabled = true;
+      if (label) label.textContent = 'Connecting to Google...';
+
+      try {
+        const { error } = await window.AuthEngine.signInWithGoogle();
+        if (error) {
+          alert(`Google Sign-In Error: ${error.message || 'Authentication request failed.'}`);
+          if (btnModalGoogleSignIn) btnModalGoogleSignIn.disabled = false;
+          if (label) label.textContent = originalText;
+        }
+        // In OAuth redirect flow, browser redirects to Google.
+      } catch (err) {
+        alert(`Google Sign-In Error: ${err.message}`);
+        if (btnModalGoogleSignIn) btnModalGoogleSignIn.disabled = false;
+        if (label) label.textContent = originalText;
+      }
+    });
+
+    // Local 5-User Authentication Tabs & Form
+    let isRegisterMode = false;
+    const tabLogin = document.getElementById('tab-auth-login');
+    const tabRegister = document.getElementById('tab-auth-register');
+    const displayNameGroup = document.getElementById('auth-displayname-group');
+    const submitBtn = document.getElementById('btn-auth-credentials-submit');
+    const submitLabel = document.getElementById('auth-submit-label');
+    const credError = document.getElementById('auth-credentials-error');
+    const usernameInput = document.getElementById('auth-input-username');
+    const passwordInput = document.getElementById('auth-input-password');
+    const displayNameInput = document.getElementById('auth-input-displayname');
+    const credForm = document.getElementById('auth-credentials-form');
+
+    function setAuthMode(register) {
+      isRegisterMode = register;
+      if (credError) { credError.style.display = 'none'; credError.textContent = ''; }
+      if (register) {
+        tabRegister?.classList.remove('btn-secondary');
+        tabRegister?.classList.add('btn-primary');
+        tabLogin?.classList.remove('btn-primary');
+        tabLogin?.classList.add('btn-secondary');
+        if (displayNameGroup) displayNameGroup.style.display = 'block';
+        if (submitLabel) submitLabel.textContent = 'Create Account';
+      } else {
+        tabLogin?.classList.remove('btn-secondary');
+        tabLogin?.classList.add('btn-primary');
+        tabRegister?.classList.remove('btn-primary');
+        tabRegister?.classList.add('btn-secondary');
+        if (displayNameGroup) displayNameGroup.style.display = 'none';
+        if (submitLabel) submitLabel.textContent = 'Sign In';
+      }
+    }
+
+    tabLogin?.addEventListener('click', () => setAuthMode(false));
+    tabRegister?.addEventListener('click', () => setAuthMode(true));
+
+    async function handleCredentialSubmit(e) {
+      if (e) e.preventDefault();
+      if (credError) { credError.style.display = 'none'; credError.textContent = ''; }
+
+      const username = usernameInput?.value.trim();
+      const password = passwordInput?.value;
+      const displayName = displayNameInput?.value.trim();
+
+      if (!username || !password) {
+        if (credError) {
+          credError.textContent = 'Please enter both username and password.';
+          credError.style.display = 'block';
+        }
+        return;
+      }
+
+      if (submitBtn) submitBtn.disabled = true;
+      if (submitLabel) submitLabel.textContent = isRegisterMode ? 'Creating...' : 'Signing in...';
+
+      try {
+        let result;
+        if (isRegisterMode) {
+          result = await window.AuthEngine.signUpWithCredentials(username, password, displayName);
+        } else {
+          result = await window.AuthEngine.signInWithCredentials(username, password);
+        }
+
+        if (!result.success) {
+          if (credError) {
+            credError.textContent = result.error || 'Authentication failed.';
+            credError.style.display = 'block';
+          }
+        } else {
+          // Success! Clear inputs and close modal
+          if (usernameInput) usernameInput.value = '';
+          if (passwordInput) passwordInput.value = '';
+          if (displayNameInput) displayNameInput.value = '';
+          authModal?.classList.remove('open');
+        }
+      } catch (err) {
+        if (credError) {
+          credError.textContent = err.message || 'An unexpected error occurred.';
+          credError.style.display = 'block';
+        }
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+        if (submitLabel) submitLabel.textContent = isRegisterMode ? 'Create Account' : 'Sign In';
+      }
+    }
+
+    credForm?.addEventListener('submit', handleCredentialSubmit);
+    submitBtn?.addEventListener('click', handleCredentialSubmit);
+  }
+
+  function updateAuthUI(event, session, user) {
+    const btnHeaderAuth = document.getElementById('btn-header-auth');
+    const headerUserPill = document.getElementById('header-user-pill');
+    const headerUserName = document.getElementById('header-user-name');
+    const headerUserAvatar = document.getElementById('header-user-avatar');
+    const headerUserEmail = document.getElementById('header-user-email');
+    const authModalUserEmail = document.getElementById('auth-modal-user-email');
+    const authStatusMessage = document.getElementById('auth-status-message');
+    const authSigninActionBox = document.getElementById('auth-signin-action-box');
+    const authAccountDetails = document.getElementById('auth-account-details');
+    const authConfigWarning = document.getElementById('auth-config-warning');
+    const btnModalGoogleSignIn = document.getElementById('btn-modal-google-signin');
+
+    const isAuthed = Boolean(user && session);
+    const isConfigured = window.AuthEngine ? window.AuthEngine.isConfigured() : false;
+
+    if (isAuthed) {
+      // Authenticated State
+      if (btnHeaderAuth) btnHeaderAuth.style.display = 'none';
+      if (headerUserPill) headerUserPill.style.display = 'inline-flex';
+
+      const email = user.email || 'learner@example.com';
+      const meta = user.user_metadata || {};
+      const fullName = meta.full_name || meta.name || meta.user_name || email.split('@')[0];
+      const avatarUrl = meta.avatar_url || meta.picture || null;
+
+      // Safe text injection
+      if (headerUserName) headerUserName.textContent = fullName;
+      if (headerUserEmail) headerUserEmail.textContent = email;
+      if (authModalUserEmail) authModalUserEmail.textContent = email;
+
+      // Safe avatar rendering
+      if (headerUserAvatar) {
+        if (avatarUrl && typeof avatarUrl === 'string' && (avatarUrl.startsWith('https://') || avatarUrl.startsWith('http://'))) {
+          headerUserAvatar.innerHTML = '';
+          const img = document.createElement('img');
+          img.src = avatarUrl;
+          img.alt = fullName;
+          img.onerror = () => {
+            headerUserAvatar.textContent = (fullName.charAt(0) || 'U').toUpperCase();
+          };
+          headerUserAvatar.appendChild(img);
+        } else {
+          headerUserAvatar.textContent = (fullName.charAt(0) || 'U').toUpperCase();
+        }
+      }
+
+      if (authStatusMessage) {
+        authStatusMessage.innerHTML = `You are signed in as <strong>${escapeHtml(fullName)}</strong>. Your learning progress is synced directly with your account.`;
+      }
+
+      if (authSigninActionBox) authSigninActionBox.style.display = 'none';
+      if (authAccountDetails) authAccountDetails.style.display = 'flex';
+      if (authConfigWarning) authConfigWarning.style.display = 'none';
+
+    } else {
+      // Guest / Unauthenticated State
+      if (btnHeaderAuth) btnHeaderAuth.style.display = 'inline-flex';
+      if (headerUserPill) {
+        headerUserPill.style.display = 'none';
+        headerUserPill.classList.remove('open');
+        headerUserPill.setAttribute('aria-expanded', 'false');
+      }
+      const authDropdown = document.getElementById('header-auth-dropdown');
+      if (authDropdown) authDropdown.classList.remove('open');
+
+      if (authStatusMessage) {
+        authStatusMessage.innerHTML = `You are currently preparing in <strong>Guest Mode</strong>. All problems, ratings, and SRS retention intervals are safely preserved in this browser.`;
+      }
+
+      if (authSigninActionBox) authSigninActionBox.style.display = 'flex';
+      if (authAccountDetails) authAccountDetails.style.display = 'none';
+      if (authConfigWarning) authConfigWarning.style.display = 'none';
+    }
   }
 
   function capitalize(str) {

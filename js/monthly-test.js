@@ -3,7 +3,10 @@
  * Generates curated monthly mock tests from covered topics to evaluate retention
  */
 
-window.MonthlyAssessmentEngine = {
+(function () {
+  'use strict';
+
+  const MonthlyAssessmentEngine = {
   /**
    * Determine active / covered topics based on user problem history
    */
@@ -139,21 +142,22 @@ window.MonthlyAssessmentEngine = {
    */
   evaluateTest(testSession, results) {
     let totalScore = 0;
-    const maxScore = results.length * 100;
+    const maxScore = Math.max(100, (results || []).length * 100);
     const breakdown = [];
 
-    results.forEach(res => {
+    (results || []).forEach(res => {
       let score = 0;
       if (res.rating === 'simple') score = 100;
       else if (res.rating === 'medium') score = 75;
       else if (res.rating === 'hard') score = 45;
       else if (res.rating === 'failed') score = 0;
+      else score = 0; // Unrated or unattempted questions receive 0 points
 
       totalScore += score;
       breakdown.push({
         problemId: res.problemId,
         score: score,
-        rating: res.rating,
+        rating: res.rating || 'failed',
         timeSpentMinutes: res.timeSpentMinutes || 0
       });
     });
@@ -189,3 +193,11 @@ window.MonthlyAssessmentEngine = {
     };
   }
 };
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = MonthlyAssessmentEngine;
+}
+if (typeof window !== 'undefined') {
+  window.MonthlyAssessmentEngine = MonthlyAssessmentEngine;
+}
+})();

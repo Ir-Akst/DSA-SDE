@@ -35,8 +35,16 @@ window.DSACharts = {
     const labels = topics.map(t => t.length > 14 ? t.substring(0, 12) + '...' : t);
     const scores = topics.map(t => topicMasteryMap[t].score || 0);
 
+    if (this.radarChartInstance && this.radarChartInstance.canvas === canvas) {
+      this.radarChartInstance.data.labels = labels;
+      this.radarChartInstance.data.datasets[0].data = scores;
+      this.radarChartInstance.update('none');
+      return;
+    }
+
     if (this.radarChartInstance) {
       this.radarChartInstance.destroy();
+      this.radarChartInstance = null;
     }
 
     const ctx = canvas.getContext('2d');
@@ -109,8 +117,18 @@ window.DSACharts = {
     const inProgressData = topics.map(t => Math.max(0, (topicMasteryMap[t].solved || 0) - (topicMasteryMap[t].mastered || 0)));
     const unstartedData = topics.map(t => Math.max(0, topicMasteryMap[t].total - (topicMasteryMap[t].solved || 0)));
 
+    if (this.topicBarChartInstance && this.topicBarChartInstance.canvas === canvas) {
+      this.topicBarChartInstance.data.labels = labels;
+      this.topicBarChartInstance.data.datasets[0].data = masteredData;
+      this.topicBarChartInstance.data.datasets[1].data = inProgressData;
+      this.topicBarChartInstance.data.datasets[2].data = unstartedData;
+      this.topicBarChartInstance.update('none');
+      return;
+    }
+
     if (this.topicBarChartInstance) {
       this.topicBarChartInstance.destroy();
+      this.topicBarChartInstance = null;
     }
 
     const ctx = canvas.getContext('2d');
@@ -190,8 +208,17 @@ window.DSACharts = {
     const canvas = document.getElementById(canvasId);
     if (!canvas || typeof Chart === 'undefined') return;
 
+    const dataArr = [stats.easySolved || 0, stats.mediumSolved || 0, stats.hardSolved || 0];
+
+    if (this.difficultyDoughnutInstance && this.difficultyDoughnutInstance.canvas === canvas) {
+      this.difficultyDoughnutInstance.data.datasets[0].data = dataArr;
+      this.difficultyDoughnutInstance.update('none');
+      return;
+    }
+
     if (this.difficultyDoughnutInstance) {
       this.difficultyDoughnutInstance.destroy();
+      this.difficultyDoughnutInstance = null;
     }
 
     const ctx = canvas.getContext('2d');
@@ -200,7 +227,7 @@ window.DSACharts = {
       data: {
         labels: ['Easy', 'Medium', 'Hard'],
         datasets: [{
-          data: [stats.easySolved || 0, stats.mediumSolved || 0, stats.hardSolved || 0],
+          data: dataArr,
           backgroundColor: ['#10b981', '#f59e0b', '#f43f5e'],
           borderColor: '#0f172a',
           borderWidth: 3,
@@ -229,5 +256,92 @@ window.DSACharts = {
         }
       }
     });
+  },
+
+  /**
+   * Render Trainer / Practice Outcome Distribution Doughnut
+   * Displays independent solves, assisted solves, solution reveals, and failed attempts
+   */
+  outcomeDoughnutInstance: null,
+
+  renderOutcomeDoughnut(canvasId, outcomes = {}) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    const ind = outcomes.independentSolves || 0;
+    const ast = outcomes.assistedSolves || 0;
+    const rev = outcomes.solutionReveals || 0;
+    const fail = outcomes.failedAttempts || 0;
+    const total = ind + ast + rev + fail;
+    const dataArr = total === 0 ? [0, 0, 0, 0] : [ind, ast, rev, fail];
+
+    if (this.outcomeDoughnutInstance && this.outcomeDoughnutInstance.canvas === canvas) {
+      this.outcomeDoughnutInstance.data.datasets[0].data = dataArr;
+      this.outcomeDoughnutInstance.options.plugins.tooltip.callbacks.label = (context) => {
+        const val = context.raw || 0;
+        const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+        return ` ${context.label}: ${val} (${pct}%)`;
+      };
+      this.outcomeDoughnutInstance.update('none');
+      return;
+    }
+
+    if (this.outcomeDoughnutInstance) {
+      this.outcomeDoughnutInstance.destroy();
+      this.outcomeDoughnutInstance = null;
+    }
+
+    const ctx = canvas.getContext('2d');
+    this.outcomeDoughnutInstance = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Independent Solves', 'Assisted Solves', 'Solution Reveals', 'Failed Attempts'],
+        datasets: [{
+          data: dataArr,
+          backgroundColor: ['#10b981', '#3b82f6', '#f59e0b', '#f43f5e'],
+          borderColor: '#0f172a',
+          borderWidth: 2,
+          hoverOffset: 6
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '68%',
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              color: '#cbd5e1',
+              boxWidth: 12,
+              padding: 10,
+              font: { size: 11, family: "'Inter', sans-serif" }
+            }
+          },
+          tooltip: {
+            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+            borderColor: 'rgba(255, 255, 255, 0.1)',
+            borderWidth: 1,
+            callbacks: {
+              label: (context) => {
+                const val = context.raw || 0;
+                const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+                return ` ${context.label}: ${val} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  },
+
+  /**
+   * Cleans up all active Chart.js instances to prevent leaks upon context change
+   */
+  destroyAll() {
+    if (this.radarChartInstance) { this.radarChartInstance.destroy(); this.radarChartInstance = null; }
+    if (this.topicBarChartInstance) { this.topicBarChartInstance.destroy(); this.topicBarChartInstance = null; }
+    if (this.difficultyDoughnutInstance) { this.difficultyDoughnutInstance.destroy(); this.difficultyDoughnutInstance = null; }
+    if (this.outcomeDoughnutInstance) { this.outcomeDoughnutInstance.destroy(); this.outcomeDoughnutInstance = null; }
   }
 };

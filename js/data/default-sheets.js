@@ -4,7 +4,7 @@
  * 100% Comprehensive & Balanced Coverage across all DSA Topics
  */
 
-window.DEFAULT_DSA_SHEETS = [
+const DEFAULT_DSA_SHEETS = [
   {
     "id": "prob-1-count-digits",
     "title": "Count Digits",
@@ -10037,3 +10037,10 @@ window.DEFAULT_DSA_SHEETS = [
     "id": "prob-479-prefix-and-suffix-search"
   }
 ];
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = DEFAULT_DSA_SHEETS;
+}
+if (typeof window !== 'undefined') {
+  window.DEFAULT_DSA_SHEETS = DEFAULT_DSA_SHEETS;
+}

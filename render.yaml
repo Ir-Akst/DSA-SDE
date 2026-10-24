@@ -1,0 +1,22 @@
+# ==============================================================================
+# AlgoRecall 2.0 — Render Blueprint Specification (render.yaml)
+# ==============================================================================
+services:
+  - type: web
+    name: algorecall
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci
+    startCommand: node server.js
+    healthCheckPath: /api/status
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MAX_USERS
+        value: "5"
+      - key: DATA_DIR
+        value: ./data
