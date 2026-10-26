@@ -12,4 +12,5 @@ coverage/
 .env.*.local
 
 test-output.txt
-data/
+/data/
+!js/data/

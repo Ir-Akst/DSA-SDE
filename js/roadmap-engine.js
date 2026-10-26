@@ -23,6 +23,15 @@
     return null;
   };
 
+  const getRoadmap120 = () => {
+    try {
+      if (typeof window !== 'undefined' && window.Roadmap120Engine) return window.Roadmap120Engine;
+      if (typeof global !== 'undefined' && global.Roadmap120Engine) return global.Roadmap120Engine;
+      if (typeof require !== 'undefined') return require('./roadmap-120-engine');
+    } catch (_) {}
+    return null;
+  };
+
   const STORAGE_KEY_ROADMAP = 'algorecall_roadmap_progress_v1';
 
   const RoadmapEngine = {
@@ -57,6 +66,12 @@
           this.progress.selectedLearningTopic = this.progress.currentLearningTopic;
           this.progress.selectedRevisionTopic = this.progress.revisionTopic;
           if (this.progress.userLockedTopics === undefined) this.progress.userLockedTopics = false;
+          const r120 = getRoadmap120();
+          if (!this.progress.dsa120Roadmap || this.progress.dsa120Roadmap.schemaVersion !== 5 || !this.progress.dsa120Roadmap.unmixed) {
+            if (r120) {
+              this.progress.dsa120Roadmap = r120.generateBaselineTemplate();
+            }
+          }
         }
       } catch (e) {
         console.error('Error loading roadmap progress:', e);
@@ -65,6 +80,7 @@
     },
 
     getDefaultProgress() {
+      const r120 = getRoadmap120();
       return {
         activeTrack: 'striver_hero',
         selectedWeek: 1,
@@ -83,8 +99,174 @@
         selectedRevisionTopic: null,
         weeklyStudyDays: 5,
         userLockedTopics: false,
-        skippedTasks: {}
+        skippedTasks: {},
+        dsa120Roadmap: r120 ? r120.generateBaselineTemplate() : null
       };
+    },
+
+    // 120-Day Roadmap Editor API Methods
+    get120DayRoadmap(userStates = {}, options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return null;
+      const res = r120.get120DayRoadmap(this.progress, userStates, options);
+      this.saveProgress();
+      return res;
+    },
+
+    save120DayRoadmap(roadmap, description = '') {
+      if (!this.progress) this.initProgress();
+      this.progress.dsa120Roadmap = roadmap;
+      this.saveProgress();
+    },
+
+    insertDay(positionIndex = 1, options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.insertDay(this.progress, positionIndex, options);
+      this.saveProgress();
+      return res;
+    },
+
+    shiftRoadmap(fromDayIndex = 1, shiftCount = 1, options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.shiftRoadmap(this.progress, fromDayIndex, shiftCount, options);
+      this.saveProgress();
+      return res;
+    },
+
+    condenseRoadmap(options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.condenseRoadmap(this.progress, options);
+      if (!options.dryRun) this.saveProgress();
+      return res;
+    },
+
+    moveDay(fromDayIndex, toDayIndex) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.moveDay(this.progress, fromDayIndex, toDayIndex);
+      this.saveProgress();
+      return res;
+    },
+
+    moveTask(...args) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.moveTask(this.progress, ...args);
+      this.saveProgress();
+      return res;
+    },
+
+    reorderTasksWithinDay(dayIndex, taskIdsOrder = []) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.reorderTasksWithinDay(this.progress, dayIndex, taskIdsOrder);
+      this.saveProgress();
+      return res;
+    },
+
+    editDay(dayIndex, updates = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.editDay(this.progress, dayIndex, updates);
+      this.saveProgress();
+      return res;
+    },
+
+    splitDay(dayIndex, options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.splitDay(this.progress, dayIndex, options);
+      this.saveProgress();
+      return res;
+    },
+
+    mergeDays(firstDayIndex, secondDayIndex) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.mergeDays(this.progress, firstDayIndex, secondDayIndex);
+      this.saveProgress();
+      return res;
+    },
+
+    skipTask(...args) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.skipTask(this.progress, ...args);
+      this.saveProgress();
+      return res;
+    },
+
+    replaceTask(taskId, newTaskData = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.replaceTask(this.progress, taskId, newTaskData);
+      this.saveProgress();
+      return res;
+    },
+
+    deferTask(...args) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.deferTask(this.progress, ...args);
+      this.saveProgress();
+      return res;
+    },
+
+    extendRoadmap(numDays = 7, blockType = 'revision_cycle') {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.extendRoadmap(this.progress, numDays, blockType);
+      this.saveProgress();
+      return res;
+    },
+
+    undoLastAction() {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.undoLastAction(this.progress);
+      if (res.success) this.saveProgress();
+      return res;
+    },
+
+    getChangeHistory() {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return [];
+      return r120.getChangeHistory(this.progress);
+    },
+
+    restoreDefaultRoadmap(userStates = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.restoreDefaultRoadmap(this.progress, userStates);
+      this.saveProgress();
+      return res;
+    },
+
+    getTodayAuthoritativePlan(allProblems = [], userStates = {}, options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return null;
+      return r120.getTodayAuthoritativePlan(this.progress, allProblems, userStates, options);
     },
 
     saveProgress(ctx) {

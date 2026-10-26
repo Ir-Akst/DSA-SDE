@@ -62,6 +62,17 @@
         </div>
       </nav>
 
+      <!-- Prominent 120-Day Roadmap Dedicated Quick Access -->
+      <div class="sidebar-roadmap-wrapper" style="padding: 8px 14px 4px;">
+        <button type="button" class="btn btn-secondary" id="nav-item-roadmap" title="Open 120-Day DSA Roadmap" style="width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: rgba(139, 124, 255, 0.12); border: 1px solid rgba(139, 124, 255, 0.35); border-radius: var(--radius-md); color: #f8fafc; font-weight: 700; cursor: pointer; transition: all 0.2s ease;">
+          <span style="display: flex; align-items: center; gap: 8px; font-size: 13px;">
+            <i class="fa-solid fa-route" style="color: #a78bfa;"></i>
+            <span>120D Roadmap</span>
+          </span>
+          <span class="nav-badge" style="background: #8b7cff; color: #fff; font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px;">120D</span>
+        </button>
+      </div>
+
       <div class="sidebar-footer">
         <button class="btn btn-primary" id="btn-open-add-modal" style="width:100%;">
           <i class="fa-solid fa-plus"></i> Add Problem
@@ -151,6 +162,11 @@
             </div>
           </div>
 
+          <!-- 120-Day Roadmap Quick Access Button -->
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-header-roadmap" title="Open 120-Day DSA Roadmap" style="font-weight:700; color:#a78bfa; border-color:rgba(139,124,255,0.4); background:rgba(139,124,255,0.1); display:inline-flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-route"></i> <span>120D Roadmap</span>
+          </button>
+
           <!-- Theme Toggle Button -->
           <button class="theme-toggle-btn" id="btn-theme-toggle" title="Toggle Dark / Light Theme" aria-label="Toggle dark or light theme">
             <i class="fa-solid fa-moon" id="theme-toggle-icon"></i>
@@ -230,9 +246,14 @@
                 </div>
               </div>
 
-              <button class="btn btn-primary btn-lg btn-start-next-problem" id="btn-start-next-problem">
-                <i class="fa-solid fa-play"></i> Start Next Problem
-              </button>
+              <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary btn-lg" id="btn-dashboard-view-roadmap" style="font-weight:700; color:#a78bfa; border-color:rgba(139,124,255,0.4); background:rgba(139,124,255,0.12);">
+                  <i class="fa-solid fa-route"></i> 120-Day Roadmap
+                </button>
+                <button class="btn btn-primary btn-lg btn-start-next-problem" id="btn-start-next-problem">
+                  <i class="fa-solid fa-play"></i> Start Next Problem
+                </button>
+              </div>
             </div>
           </div>
 
@@ -584,6 +605,9 @@
           </button>
           <button type="button" class="view-subtab-btn" data-parent-view="practice" data-subtab="flashcards" role="tab" aria-selected="false">
             <i class="fa-solid fa-bolt"></i> Flashcard Intuition
+          </button>
+          <button type="button" class="view-subtab-btn" data-parent-view="practice" data-subtab="roadmap" id="btn-practice-subtab-roadmap" role="tab" aria-selected="false" style="color:#a78bfa;">
+            <i class="fa-solid fa-route"></i> 120D Roadmap
           </button>
         </div>
 
@@ -1287,71 +1311,171 @@
 
         <!-- Subview 4: Study Roadmap Track (Preserves id="view-roadmap") -->
         <div id="view-roadmap" class="subview-section" data-parent-view="progress" data-subview="roadmap">
-          <!-- Daily Plan Hero Header -->
-          <div class="roadmap-hero-card">
-            <div class="roadmap-hero-main">
-              <div class="roadmap-hero-badge">
-                <i class="fa-solid fa-calendar-check"></i>
-                <span>Daily Problem Pacing & Weekend Test Hub</span>
-              </div>
-              <h2 id="roadmap-track-title">🎯 Daily Practice & Weekend Test</h2>
-              <p id="roadmap-track-subtitle">Adaptive confidence-powered daily DSA target problems, automated spaced revisions, and weekly diagnostic retention exams.</p>
+          <div class="roadmap-120-wrapper">
+            <!-- 120-Day Roadmap Hero Header -->
+            <div class="roadmap-hero-card">
+              <div class="roadmap-hero-main">
+                <div class="roadmap-hero-badge">
+                  <i class="fa-solid fa-route"></i>
+                  <span>Production 120-Day DSA Roadmap & Study Planner</span>
+                </div>
+                <h2 id="roadmap-track-title">🎯 120-Day DSA Mastery & SDE Interview Roadmap</h2>
+                <p id="roadmap-track-subtitle">Fully editable 120-day learning calendar with independent Current Learning (Graphs → Greedy → Recursion → Trees → DP), Foundation Revision, and Spaced Repetition.</p>
 
-              <div class="roadmap-stats-row">
-                <div class="roadmap-stat-item">
-                  <span class="stat-num" id="roadmap-stat-progress">0%</span>
-                  <span class="stat-txt">Cycle Progress</span>
+                <!-- Top KPI Grid -->
+                <div class="roadmap-120-kpis" style="margin-top: 14px;">
+                  <div class="roadmap-120-kpi-card kpi-learn">
+                    <span class="roadmap-120-kpi-title"><i class="fa-solid fa-graduation-cap"></i> Overall Plan Progress</span>
+                    <span class="roadmap-120-kpi-val" id="roadmap-stat-progress">0%</span>
+                    <span class="roadmap-120-kpi-sub" id="roadmap-120-kpi-progress-sub">0 of 120 Days Complete</span>
+                  </div>
+                  <div class="roadmap-120-kpi-card kpi-success">
+                    <span class="roadmap-120-kpi-title"><i class="fa-solid fa-circle-check"></i> Actual Solved</span>
+                    <span class="roadmap-120-kpi-val" id="roadmap-stat-solved-count" style="color:#34d399;">0 / 479</span>
+                    <span class="roadmap-120-kpi-sub"><span id="roadmap-stat-days-done">0 / 7</span> Cycle Completed</span>
+                  </div>
+                  <div class="roadmap-120-kpi-card kpi-learn">
+                    <span class="roadmap-120-kpi-title"><i class="fa-solid fa-book-open"></i> Stream A: Learn</span>
+                    <span class="roadmap-120-kpi-val" id="roadmap-stat-active-focus" style="font-size: 16px; font-weight:700;">Graphs</span>
+                    <span class="roadmap-120-kpi-sub" id="roadmap-120-kpi-subtopic-learn">BFS & DFS</span>
+                  </div>
+                  <div class="roadmap-120-kpi-card kpi-revise">
+                    <span class="roadmap-120-kpi-title"><i class="fa-solid fa-rotate-left"></i> Stream B: Revision</span>
+                    <span class="roadmap-120-kpi-val" id="roadmap-120-kpi-revise-topic" style="font-size: 16px; font-weight:700;">Maths</span>
+                    <span class="roadmap-120-kpi-sub" id="roadmap-120-kpi-subtopic-revise">Number Theory</span>
+                  </div>
+                  <div class="roadmap-120-kpi-card kpi-srs">
+                    <span class="roadmap-120-kpi-title"><i class="fa-solid fa-clock-rotate-left"></i> Stream C: SRS Due</span>
+                    <span class="roadmap-120-kpi-val" id="roadmap-120-kpi-srs-due" style="color:var(--warning);">0 Due</span>
+                    <span class="roadmap-120-kpi-sub"><span id="roadmap-stat-unsolved-count">0</span> Remaining</span>
+                  </div>
+                  <div class="roadmap-120-kpi-card">
+                    <span class="roadmap-120-kpi-title"><i class="fa-solid fa-heart-pulse"></i> Schedule Health</span>
+                    <span class="roadmap-120-kpi-val" id="roadmap-120-kpi-health" style="color:#34d399; font-size:16px;">On Track</span>
+                    <span class="roadmap-120-kpi-sub" id="roadmap-120-kpi-target-date">Target: 120 Days</span>
+                  </div>
                 </div>
-                <div class="roadmap-stat-item">
-                  <span class="stat-num" id="roadmap-stat-days-done">0 / 7</span>
-                  <span class="stat-txt">Days Complete</span>
+              </div>
+
+              <!-- Quick Focus Pacing dropdown for backwards compatibility -->
+              <div class="roadmap-hero-actions" style="margin-top: 14px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:8px;">
+                  <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Quick Focus Pacing:</label>
+                  <select class="filter-select" id="roadmap-track-select" style="max-width:320px;">
+                    <option value="striver_hero">🚀 Full Coverage Track (479 Master Problems)</option>
+                    <option value="faang_60">💼 FAANG High-Frequency Sprint</option>
+                    <option value="blind_30">⚡ Blind 75 Essentials</option>
+                  </select>
                 </div>
-                <div class="roadmap-stat-item">
-                  <span class="stat-num" id="roadmap-stat-solved-count" style="color:#34d399;">0</span>
-                  <span class="stat-txt">Solved Problems</span>
-                </div>
-                <div class="roadmap-stat-item">
-                  <span class="stat-num" id="roadmap-stat-unsolved-count" style="color:#cbd5e1;">0</span>
-                  <span class="stat-txt">Unsolved Remaining</span>
-                </div>
-                <div class="roadmap-stat-item">
-                  <span class="stat-num" id="roadmap-stat-active-focus">Basics & Math</span>
-                  <span class="stat-txt">Active Focus</span>
+                <div class="roadmap-track-progress-bar" style="margin-top: 8px;">
+                  <div class="roadmap-track-progress-fill" id="roadmap-track-progress-fill" style="width:0%;"></div>
                 </div>
               </div>
             </div>
 
-            <div class="roadmap-hero-actions">
-              <label style="font-size:12px; font-weight:600; color:var(--text-muted);">Quick Focus Pacing:</label>
-              <select class="filter-select" id="roadmap-track-select" style="width:100%;">
-                <option value="striver_hero">🚀 Full Coverage Track (479 Master Problems)</option>
-                <option value="faang_60">💼 FAANG High-Frequency Sprint</option>
-                <option value="blind_30">⚡ Blind 75 Essentials</option>
-              </select>
-              <div class="roadmap-track-progress-bar">
-                <div class="roadmap-track-progress-fill" id="roadmap-track-progress-fill" style="width:0%;"></div>
+            <!-- View Switcher & Global Toolbar -->
+            <div class="roadmap-120-nav-bar">
+              <div class="roadmap-120-view-tabs" role="tablist">
+                <button type="button" class="roadmap-120-view-btn active" data-roadmap-view="list">
+                  <i class="fa-solid fa-list-check"></i> Day-by-Day List
+                </button>
+                <button type="button" class="roadmap-120-view-btn" data-roadmap-view="calendar">
+                  <i class="fa-solid fa-calendar-days"></i> 120-Day Calendar
+                </button>
+                <button type="button" class="roadmap-120-view-btn" data-roadmap-view="topics">
+                  <i class="fa-solid fa-layer-group"></i> Topic Curriculum
+                </button>
+                <button type="button" class="roadmap-120-view-btn" data-roadmap-view="audit">
+                  <i class="fa-solid fa-chart-pie"></i> Curriculum Audit
+                </button>
+                <button type="button" class="roadmap-120-view-btn" data-roadmap-view="legacy_cycle">
+                  <i class="fa-solid fa-arrows-spin"></i> Active Day Practice & Tests
+                </button>
               </div>
-            </div>
-          </div>
 
-          <!-- 7-Day Cycle Selector Strip -->
-          <div class="roadmap-days-strip-card" style="margin-top:18px;">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
-              <div style="font-size:14px; font-weight:700; color:#f8fafc;" id="roadmap-selected-week-heading">
-                <i class="fa-solid fa-calendar-day" style="color:var(--primary); margin-right:6px;"></i> Weekly Practice & Assessment Schedule
-              </div>
-              <div style="font-size:12px; color:var(--text-dim);" id="roadmap-week-progress-txt">
-                0 / 7 Days Complete
+              <div class="roadmap-120-global-actions">
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-roadmap-insert-day" title="Insert blank buffer day">
+                  <i class="fa-solid fa-plus"></i> Insert Day
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-roadmap-shift" title="Shift remaining roadmap forward">
+                  <i class="fa-solid fa-forward-step"></i> Shift Mode
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-roadmap-condense" title="Condense remaining schedule">
+                  <i class="fa-solid fa-compress"></i> Condense
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-roadmap-extend" title="Extend beyond 120 days">
+                  <i class="fa-solid fa-calendar-plus"></i> Extend (+7d)
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-roadmap-undo" title="Undo recent plan change">
+                  <i class="fa-solid fa-rotate-left"></i> Undo
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-roadmap-history" title="View change history">
+                  <i class="fa-solid fa-clock-rotate-left"></i> History
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-roadmap-restore" title="Restore default 120-day roadmap">
+                  <i class="fa-solid fa-arrow-rotate-left"></i> Reset
+                </button>
               </div>
             </div>
-            <div class="roadmap-days-pills" id="roadmap-days-pills-container">
-              <!-- Dynamically populated 7-Day Pills (Days 1-5 Practice, Day 6 Super Rev, Day 7 Exam) -->
-            </div>
-          </div>
 
-          <!-- Active Day Practice & Weekend Test Container -->
-          <div id="roadmap-active-day-content" style="margin-top:20px;">
-            <!-- Dynamically populated daily target problems, due revisions, or weekend test cards -->
+            <!-- Filter & Search Bar -->
+            <div class="roadmap-120-filter-bar">
+              <div class="roadmap-120-search-box">
+                <i class="fa-solid fa-magnifying-glass" style="color:var(--text-dim);"></i>
+                <input type="text" id="roadmap-120-search-input" placeholder="Search topics, subtopics, problem names..." aria-label="Search roadmap">
+              </div>
+
+              <div class="roadmap-120-filter-pills" role="group" aria-label="Filter Roadmap Days">
+                <button type="button" class="roadmap-120-filter-pill active" data-filter="all">All Days</button>
+                <button type="button" class="roadmap-120-filter-pill" data-filter="today">Today</button>
+                <button type="button" class="roadmap-120-filter-pill" data-filter="upcoming">Upcoming</button>
+                <button type="button" class="roadmap-120-filter-pill" data-filter="completed">Completed</button>
+                <button type="button" class="roadmap-120-filter-pill" data-filter="incomplete">Incomplete</button>
+                <button type="button" class="roadmap-120-filter-pill" data-filter="buffer">Buffer Days</button>
+                <button type="button" class="roadmap-120-filter-pill" data-filter="current_learning">Stream A (Learn)</button>
+                <button type="button" class="roadmap-120-filter-pill" data-filter="foundation_revision">Stream B (Revise)</button>
+              </div>
+            </div>
+
+            <!-- Floating Bulk Action Toolbar -->
+            <div class="roadmap-120-bulk-bar" id="roadmap-120-bulk-bar" style="display:none;">
+              <span class="bulk-count" id="roadmap-120-bulk-count">0 Days Selected</span>
+              <div style="display:flex; gap:8px;">
+                <button type="button" class="btn btn-primary btn-sm" id="btn-bulk-shift">
+                  <i class="fa-solid fa-forward-step"></i> Shift Selected
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-bulk-condense">
+                  <i class="fa-solid fa-compress"></i> Condense Selected
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-bulk-defer">
+                  <i class="fa-solid fa-calendar-xmark"></i> Mark Deferred
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm" id="btn-bulk-deselect">
+                  Cancel
+                </button>
+              </div>
+            </div>
+
+            <!-- Dynamic Views Container -->
+            <div id="roadmap-120-content-area">
+              <!-- Dynamically populated List, Calendar, Topic, or Legacy View -->
+            </div>
+
+            <!-- Preserved Legacy 7-Day Cycle & Active Day View (Used in legacy mode) -->
+            <div id="roadmap-120-legacy-wrap" style="display:none;">
+              <div class="roadmap-days-strip-card" style="margin-top:18px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                  <div style="font-size:14px; font-weight:700; color:#f8fafc;" id="roadmap-selected-week-heading">
+                    <i class="fa-solid fa-calendar-day" style="color:var(--primary); margin-right:6px;"></i> Weekly Practice & Assessment Schedule
+                  </div>
+                  <div style="font-size:12px; color:var(--text-dim);" id="roadmap-week-progress-txt">
+                    0 / 7 Days Complete
+                  </div>
+                </div>
+                <div class="roadmap-days-pills" id="roadmap-days-pills-container"></div>
+              </div>
+              <div id="roadmap-active-day-content" style="margin-top:20px;"></div>
+            </div>
           </div>
         </div>
 
@@ -2724,6 +2848,293 @@
     </div>
   </div>
 
+  <!-- ================= 120-DAY ROADMAP MODALS ================= -->
+
+  <!-- 1. Edit Day Modal -->
+  <div class="modal-backdrop" id="roadmap-edit-day-modal" role="dialog" aria-modal="true" aria-labelledby="roadmap-edit-modal-title">
+    <div class="modal-box" style="max-width: 680px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 id="roadmap-edit-modal-title"><i class="fa-solid fa-pen-to-square" style="color:var(--primary); margin-right:8px;"></i> Edit Roadmap Day</h3>
+        <button type="button" class="modal-close" id="btn-close-roadmap-edit-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:16px;">
+        <input type="hidden" id="edit-day-seq-input">
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Day Type:</label>
+            <select class="filter-select" id="edit-day-type-select" style="width:100%;">
+              <option value="learning">Active Learning Day</option>
+              <option value="buffer">Buffer / Rest Day</option>
+              <option value="review">Consolidation & Flashcards Day</option>
+              <option value="assessment">Diagnostic Assessment Day</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Buffer Reason (if applicable):</label>
+            <input type="text" class="search-input" id="edit-day-buffer-reason" placeholder="e.g. Work deadline, Rest day" style="width:100%;">
+          </div>
+        </div>
+
+        <!-- Stream A (Current Learning) Edit Card -->
+        <div style="background:rgba(139, 124, 255, 0.06); border:1px solid rgba(139, 124, 255, 0.25); border-radius:var(--radius-md); padding:14px; display:flex; flex-direction:column; gap:10px;">
+          <div style="font-size:13px; font-weight:800; color:var(--stream-learn-accent); text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-book-open"></i> Stream A: Current Learning
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Topic:</label>
+              <input type="text" class="search-input" id="edit-stream-a-topic" placeholder="e.g. Graphs, Greedy" style="width:100%;">
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Subtopic:</label>
+              <input type="text" class="search-input" id="edit-stream-a-subtopic" placeholder="e.g. BFS & DFS Fundamentals" style="width:100%;">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Problem Target:</label>
+              <input type="number" class="search-input" id="edit-stream-a-target" min="1" max="10" value="3" style="width:100%;">
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Est. Minutes:</label>
+              <input type="number" class="search-input" id="edit-stream-a-mins" min="15" max="240" value="60" style="width:100%;">
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Status:</label>
+              <select class="filter-select" id="edit-stream-a-status" style="width:100%;">
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="deferred">Deferred</option>
+                <option value="skipped">Skipped</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Learning Objectives:</label>
+            <input type="text" class="search-input" id="edit-stream-a-objectives" placeholder="Core concepts to master" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Selected Problem IDs (comma-separated):</label>
+            <input type="text" class="search-input" id="edit-stream-a-problems" placeholder="prob-226-number-of-provinces, prob-227-number-of-islands" style="width:100%;">
+          </div>
+        </div>
+
+        <!-- Stream B (Foundation Revision) Edit Card -->
+        <div style="background:rgba(66, 214, 197, 0.06); border:1px solid rgba(66, 214, 197, 0.25); border-radius:var(--radius-md); padding:14px; display:flex; flex-direction:column; gap:10px;">
+          <div style="font-size:13px; font-weight:800; color:var(--stream-topic-accent); text-transform:uppercase; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;">
+            <i class="fa-solid fa-rotate-left"></i> Stream B: Foundation Revision
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Revision Topic:</label>
+              <input type="text" class="search-input" id="edit-stream-b-topic" placeholder="e.g. Basics & Math, Arrays" style="width:100%;">
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Subtopic:</label>
+              <input type="text" class="search-input" id="edit-stream-b-subtopic" placeholder="e.g. Number Theory" style="width:100%;">
+            </div>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px;">
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Target Count:</label>
+              <input type="number" class="search-input" id="edit-stream-b-target" min="1" max="10" value="2" style="width:100%;">
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Est. Minutes:</label>
+              <input type="number" class="search-input" id="edit-stream-b-mins" min="15" max="180" value="35" style="width:100%;">
+            </div>
+            <div>
+              <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Status:</label>
+              <select class="filter-select" id="edit-stream-b-status" style="width:100%;">
+                <option value="pending">Pending</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+                <option value="deferred">Deferred</option>
+                <option value="skipped">Skipped</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Revision Objectives:</label>
+            <input type="text" class="search-input" id="edit-stream-b-objectives" placeholder="Core revision drills" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:11.5px; color:var(--text-dim); margin-bottom:3px; display:block;">Problem IDs (comma-separated):</label>
+            <input type="text" class="search-input" id="edit-stream-b-problems" placeholder="prob-1-count-digits, prob-2-reverse-a-number" style="width:100%;">
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Learner Notes / Journal for this Day:</label>
+          <textarea class="search-input" id="edit-day-notes" rows="2" placeholder="Personal notes, tricky concepts to remember..." style="width:100%;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-roadmap-edit">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-save-roadmap-edit"><i class="fa-solid fa-check"></i> Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2. Insert Day Modal -->
+  <div class="modal-backdrop" id="roadmap-insert-day-modal" role="dialog" aria-modal="true" aria-labelledby="roadmap-insert-modal-title">
+    <div class="modal-box" style="max-width: 480px;">
+      <div class="modal-header">
+        <h3 id="roadmap-insert-modal-title"><i class="fa-solid fa-calendar-plus" style="color:var(--primary); margin-right:8px;"></i> Insert Blank Buffer Day</h3>
+        <button type="button" class="modal-close" id="btn-close-insert-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+          Add a flexible blank buffer day without forced tasks. Subsequent planned days will automatically shift forward without losing task order or learning history.
+        </p>
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Insertion Position:</label>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <select class="filter-select" id="insert-day-relation" style="flex:1;">
+              <option value="after">Insert After Day</option>
+              <option value="before">Insert Before Day</option>
+            </select>
+            <input type="number" class="search-input" id="insert-day-target-num" min="1" value="1" style="width:90px;">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Reason / Buffer Label:</label>
+          <input type="text" class="search-input" id="insert-day-reason" placeholder="e.g. Work deadline, Rest day, Sick leave" style="width:100%;">
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Optional Notes:</label>
+          <textarea class="search-input" id="insert-day-notes" rows="2" placeholder="Notes for this buffer period..." style="width:100%;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-insert-day">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-confirm-insert-day"><i class="fa-solid fa-plus"></i> Insert Buffer Day</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. Shift Roadmap Modal -->
+  <div class="modal-backdrop" id="roadmap-shift-modal" role="dialog" aria-modal="true" aria-labelledby="roadmap-shift-modal-title">
+    <div class="modal-box" style="max-width: 520px;">
+      <div class="modal-header">
+        <h3 id="roadmap-shift-modal-title"><i class="fa-solid fa-forward-step" style="color:var(--primary); margin-right:8px;"></i> Shift Roadmap Forward</h3>
+        <button type="button" class="modal-close" id="btn-close-shift-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+          Missed a study day? Push subsequent planned tasks forward by N days without disturbing completed work or historical learning records.
+        </p>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Shift Starting From Day:</label>
+            <input type="number" class="search-input" id="shift-from-day-input" min="1" value="1" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Shift By (Days):</label>
+            <input type="number" class="search-input" id="shift-count-input" min="1" max="60" value="1" style="width:100%;">
+          </div>
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Shift Mode:</label>
+          <select class="filter-select" id="shift-stream-mode" style="width:100%;">
+            <option value="both">Both Streams (Aligned, Recommended)</option>
+            <option value="current_learning">Current Learning (Stream A) Only</option>
+            <option value="foundation_revision">Foundation Revision (Stream B) Only</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Reason for Rescheduling:</label>
+          <input type="text" class="search-input" id="shift-reason-input" placeholder="e.g. College exam, Missed session" style="width:100%;">
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+        <button type="button" class="btn btn-secondary" id="btn-cancel-shift">Cancel</button>
+        <button type="button" class="btn btn-primary" id="btn-confirm-shift"><i class="fa-solid fa-forward-step"></i> Apply Shift</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Condense Roadmap Modal -->
+  <div class="modal-backdrop" id="roadmap-condense-modal" role="dialog" aria-modal="true" aria-labelledby="roadmap-condense-modal-title">
+    <div class="modal-box" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 id="roadmap-condense-modal-title"><i class="fa-solid fa-compress" style="color:var(--primary); margin-right:8px;"></i> Condense Remaining Roadmap</h3>
+        <button type="button" class="modal-close" id="btn-close-condense-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+        <p style="font-size:13px; color:var(--text-muted); line-height:1.5;">
+          Have less time remaining? Recalculate your plan to fit available study time while preserving prerequisite dependencies and logical progression.
+        </p>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Condense From Day:</label>
+            <input type="number" class="search-input" id="condense-from-day" min="1" value="1" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Daily Time Budget (Mins):</label>
+            <select class="filter-select" id="condense-daily-minutes" style="width:100%;">
+              <option value="60">60 mins / day (1 hour)</option>
+              <option value="90">90 mins / day (1.5 hours)</option>
+              <option value="120" selected>120 mins / day (2 hours)</option>
+              <option value="180">180 mins / day (3 hours)</option>
+              <option value="240">240 mins / day (4 hours)</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Study Days / Week:</label>
+            <input type="number" class="search-input" id="condense-weekly-days" min="1" max="7" value="5" style="width:100%;">
+          </div>
+          <div>
+            <label style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:4px; display:block;">Target Completion Date (Optional):</label>
+            <input type="date" class="search-input" id="condense-target-date" style="width:100%;">
+          </div>
+        </div>
+        <label style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-main); cursor:pointer;">
+          <input type="checkbox" id="condense-reduce-targets" checked>
+          <span>Adaptively reduce problem targets (focus on 2 core problems per topic)</span>
+        </label>
+
+        <!-- Preview Results Container -->
+        <div id="condense-preview-results" style="display:none; background:rgba(15,23,42,0.6); border:1px solid var(--border-color); border-radius:var(--radius-md); padding:12px;">
+          <!-- Dynamically populated analysis and before/after stats -->
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
+        <button type="button" class="btn btn-secondary btn-sm" id="btn-run-condense-preview"><i class="fa-solid fa-eye"></i> Preview Impact</button>
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-secondary" id="btn-cancel-condense">Cancel</button>
+          <button type="button" class="btn btn-primary" id="btn-confirm-condense"><i class="fa-solid fa-compress"></i> Apply Condensing</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5. Change History Modal -->
+  <div class="modal-backdrop" id="roadmap-history-modal" role="dialog" aria-modal="true" aria-labelledby="roadmap-history-modal-title">
+    <div class="modal-box" style="max-width: 600px; max-height: 85vh; overflow-y: auto;">
+      <div class="modal-header">
+        <h3 id="roadmap-history-modal-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary); margin-right:8px;"></i> Roadmap Change History</h3>
+        <button type="button" class="modal-close" id="btn-close-history-modal" aria-label="Close dialog">&times;</button>
+      </div>
+      <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+        <p style="font-size:13px; color:var(--text-muted);">
+          Audit trail of recent plan edits. Undo reverts plan adjustments only, preserving all solved problem milestones and SRS intervals.
+        </p>
+        <div id="roadmap-history-list" style="display:flex; flex-direction:column; gap:8px;">
+          <!-- Dynamically populated history entries -->
+        </div>
+      </div>
+      <div class="modal-footer" style="display:flex; justify-content:space-between; align-items:center; margin-top:14px;">
+        <button type="button" class="btn btn-primary btn-sm" id="btn-history-undo"><i class="fa-solid fa-rotate-left"></i> Undo Recent Action</button>
+        <button type="button" class="btn btn-secondary" id="btn-close-history-footer">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="js/data/default-sheets.js"></script>
   <script src="js/data/patterns-data.js"></script>
@@ -2740,6 +3151,8 @@
   <script src="js/mock-engine.js"></script>
   <script src="js/gamification-engine.js"></script>
   <script src="js/recommendation-engine.js"></script>
+  <script src="js/data/roadmap-120-curriculum.js"></script>
+  <script src="js/roadmap-120-engine.js"></script>
   <script src="js/roadmap-engine.js"></script>
   <script src="js/monthly-test.js"></script>
   <script src="js/adaptive-learning-engine.js"></script>

@@ -572,6 +572,66 @@
       }
 
       return candidateProblems.slice(0, limit);
+    },
+
+    /**
+     * Single Authoritative Daily Resolver Integration
+     * Reconciles scheduled roadmap tasks, actual topic/problem progress,
+     * genuinely due SRS reviews, and adaptive signals without silent overwrites.
+     */
+    resolveDailySchedule(arg1, arg2, arg3, arg4) {
+      let RoadmapEngineRef = (typeof window !== 'undefined' && window.RoadmapEngine) ||
+                             (typeof global !== 'undefined' && global.RoadmapEngine) ||
+                             (typeof require !== 'undefined' ? (function () { try { return require('./roadmap-engine'); } catch (_) { return null; } })() : null);
+      let allProblems = [];
+      let userStates = {};
+      let options = {};
+
+      if (arg1 && typeof arg1 === 'object' && typeof arg1.getTodayAuthoritativePlan === 'function') {
+        RoadmapEngineRef = arg1;
+        allProblems = Array.isArray(arg2) ? arg2 : [];
+        userStates = arg3 || {};
+        options = arg4 || {};
+      } else {
+        allProblems = Array.isArray(arg1) ? arg1 : [];
+        userStates = arg2 || {};
+        options = arg3 || {};
+      }
+
+      if (RoadmapEngineRef && typeof RoadmapEngineRef.getTodayAuthoritativePlan === 'function') {
+        return RoadmapEngineRef.getTodayAuthoritativePlan(allProblems, userStates, options);
+      }
+      return null;
+    },
+
+    /**
+     * Detect differences between planned roadmap task and adaptive diagnosis
+     */
+    compareAdaptiveWithRoadmap(plannedTaskOrEngine, allProblems = [], userStates = {}) {
+      let plannedTask = plannedTaskOrEngine;
+      if (plannedTaskOrEngine && typeof plannedTaskOrEngine === 'object' && typeof plannedTaskOrEngine.getTodayAuthoritativePlan === 'function') {
+        const auth = plannedTaskOrEngine.getTodayAuthoritativePlan(allProblems, userStates);
+        plannedTask = auth?.streamA;
+      }
+      if (!plannedTask) return { hasConflict: false, hasDifference: false, difference: null };
+      const stats = this.getConfidenceStats(allProblems, userStates);
+      const weak = stats.weakProblems || [];
+
+      if (weak.length > 0) {
+        const primaryWeak = weak[0];
+        const weakTopic = primaryWeak.problem.topic;
+        if (weakTopic && plannedTask.topic && weakTopic !== plannedTask.topic) {
+          return {
+            hasConflict: true,
+            hasDifference: true,
+            plannedTopic: plannedTask.topic,
+            suggestedTopic: weakTopic,
+            reason: `Recent low-confidence solve in ${weakTopic} recommends foundation reinforcement before ${plannedTask.topic}`,
+            suggestedProblem: primaryWeak.problem
+          };
+        }
+      }
+      return { hasConflict: false, hasDifference: false, difference: null };
     }
   };
 

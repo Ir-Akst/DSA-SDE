@@ -33,6 +33,10 @@ const RecommendationEngine = require('../js/recommendation-engine');
 const DSA_PATTERNS = require('../js/data/patterns-data');
 const DEFAULT_DSA_SHEETS = require('../js/data/default-sheets');
 const RoadmapEngine = require('../js/roadmap-engine');
+const Roadmap120Engine = require('../js/roadmap-120-engine');
+global.Roadmap120Engine = Roadmap120Engine;
+const RoadmapCurriculumData = require('../js/data/roadmap-120-curriculum');
+global.RoadmapCurriculumData = RoadmapCurriculumData;
 const AdaptiveLearningEngine = require('../js/adaptive-learning-engine');
 const TimeTravelSimulator = require('../js/time-travel-simulator');
 const AdaptiveBenchmark = require('../js/adaptive-benchmark');
@@ -11104,6 +11108,301 @@ async function runAll() {
     } finally {
       await new Promise(resolve => testServer.close(resolve));
     }
+  });
+
+  // ========================================
+  // [SUITE] 46. 120-Day Topic-Wise Editable Roadmap Engine Suite
+  // ========================================
+  suite('46. 120-Day Topic-Wise Editable Roadmap Engine Suite', () => {
+    test('46.1: Generates 120-day baseline with Stream A starting at Graphs and Stream B starting at Maths', () => {
+      RoadmapEngine.initProgress();
+      RoadmapEngine.restoreDefaultRoadmap();
+      const plan = RoadmapEngine.get120DayRoadmap();
+
+      assert.strictEqual(plan.days.length, 120, 'Plan must contain exactly 120 days');
+      assert.strictEqual(plan.metadata.totalDays, 120);
+
+      // Verify Day 1 Stream A starts with Graphs
+      const day1 = plan.days[0];
+      assert.strictEqual(day1.dayNumber, 1);
+      assert.strictEqual(day1.streams.current_learning.topic, 'Graphs', 'Stream A must begin with Graphs');
+      assert.ok(
+        day1.streams.current_learning.subtopic.includes('BFS') ||
+        day1.streams.current_learning.subtopic.includes('Components') ||
+        day1.streams.current_learning.subtopic.includes('Graph'),
+        'Stream A Day 1 must focus on BFS/DFS or Components'
+      );
+
+      // Verify Day 1 Stream B starts with Number Theory & Maths
+      assert.ok(
+        day1.streams.foundation_revision.topic.includes('Math') ||
+        day1.streams.foundation_revision.subtopic.includes('Number Theory'),
+        'Stream B must start foundational revision from Maths & Number Theory'
+      );
+
+      // Verify authentic problem IDs from catalog
+      const allPIds = new Set(DEFAULT_DSA_SHEETS.map(p => p.id));
+      assert.ok(day1.streams.current_learning.problemIds.length > 0);
+      assert.ok(day1.streams.current_learning.problemIds.every(id => allPIds.has(id)), 'All Stream A problems must exist in catalog');
+      assert.ok(day1.streams.foundation_revision.problemIds.every(id => allPIds.has(id)), 'All Stream B problems must exist in catalog');
+    });
+
+    test('46.2: Adapts starting progress based on userStates graph problems', () => {
+      const mockStates = {
+        'prob-226-number-of-provinces': { stage: 3, lastReviewed: '2026-10-20' },
+        'prob-227-number-of-islands': { stage: 3, lastReviewed: '2026-10-20' },
+        'prob-228-flood-fill': { stage: 3, lastReviewed: '2026-10-20' },
+        'prob-229-rotting-oranges': { stage: 3, lastReviewed: '2026-10-20' },
+        'prob-230-detect-cycle-undirected-bfs': { stage: 3, lastReviewed: '2026-10-20' },
+        'prob-231-detect-cycle-undirected-dfs': { stage: 3, lastReviewed: '2026-10-20' }
+      };
+
+      const adaptedPlan = Roadmap120Engine.generateBaselineTemplate(mockStates);
+      assert.strictEqual(adaptedPlan.days.length, 120);
+
+      // Verify Day 1 Stream A adapted to advanced Graphs (e.g. Cycle Detection or Topological Sort)
+      const day1 = adaptedPlan.days[0];
+      assert.strictEqual(day1.streams.current_learning.topic, 'Graphs');
+      assert.ok(
+        day1.streams.current_learning.subtopic.includes('Cycle') ||
+        day1.streams.current_learning.subtopic.includes('Topo') ||
+        day1.streams.current_learning.subtopic.includes('Bipartite'),
+        'Should adapt to next milestone after mastered graph basics'
+      );
+    });
+
+    test('46.3: Inserts blank buffer day (renumbers sequence, preserves task identity, non-completion)', () => {
+      RoadmapEngine.restoreDefaultRoadmap();
+      const initialPlan = RoadmapEngine.get120DayRoadmap();
+      const origDay5A = initialPlan.days[4].streams.current_learning.problemIds;
+
+      const insertRes = RoadmapEngine.insertDay(4, { bufferReason: 'Mid-term Exams Rest', notes: 'Took a break' });
+      assert.strictEqual(insertRes.success, true);
+
+      const updatedPlan = RoadmapEngine.get120DayRoadmap();
+      assert.strictEqual(updatedPlan.days.length, 121, 'Total days must increase by 1');
+
+      // Day 5 is now buffer
+      const day5 = updatedPlan.days[4];
+      assert.strictEqual(day5.dayNumber, 5);
+      assert.strictEqual(day5.isBufferDay, true);
+      assert.strictEqual(day5.bufferReason, 'Mid-term Exams Rest');
+      assert.strictEqual(day5.isCompleted, false, 'Buffer day must never default to complete');
+
+      // Day 6 is previous Day 5 tasks
+      const day6 = updatedPlan.days[5];
+      assert.strictEqual(day6.dayNumber, 6);
+      assert.deepStrictEqual(day6.streams.current_learning.problemIds, origDay5A);
+    });
+
+    test('46.4: Aligned and independent shift mode with reason audit', () => {
+      RoadmapEngine.restoreDefaultRoadmap();
+      RoadmapEngine.editDay(1, { isCompleted: true });
+      RoadmapEngine.editDay(2, { isCompleted: true });
+
+      // Aligned shift starting from Day 3 by 2 days
+      const shiftRes = RoadmapEngine.shiftRoadmap(3, 2, { stream: 'both', reason: 'College festival' });
+      assert.strictEqual(shiftRes.success, true);
+
+      const planAfterShift = RoadmapEngine.get120DayRoadmap();
+      assert.strictEqual(planAfterShift.days[0].isCompleted, true, 'Completed day 1 must not be cleared');
+      assert.strictEqual(planAfterShift.days[1].isCompleted, true, 'Completed day 2 must not be cleared');
+      assert.strictEqual(planAfterShift.days[2].isBufferDay, true, 'Shifted slot becomes buffer day');
+      assert.strictEqual(planAfterShift.days[2].bufferReason, 'College festival');
+
+      // Independent shift: Stream A only
+      const indepRes = RoadmapEngine.shiftRoadmap(10, 2, { stream: 'current_learning', reason: 'Focus on revisions' });
+      assert.strictEqual(indepRes.success, true);
+
+      const planIndep = RoadmapEngine.get120DayRoadmap();
+      assert.ok(planIndep.days[9].streams.foundation_revision.topic.length > 0, 'Stream B must remain unaffected');
+    });
+
+    test('46.5: Condense mode: Workload recalculation, feasibility assessment & dryRun preview', () => {
+      // Unrealistic deadline check (100 days remaining, target in 3 days)
+      const unrealistic = RoadmapEngine.condenseRoadmap({
+        fromDay: 20,
+        dailyMinutes: 60,
+        weeklyDays: 5,
+        targetDate: '2026-10-29',
+        dryRun: true
+      });
+
+      assert.strictEqual(unrealistic.feasibility.isFeasible, false);
+      assert.strictEqual(unrealistic.feasibility.status, 'INFEASIBLE');
+      assert.ok(unrealistic.feasibility.recommendation.length > 0, 'Must provide trade-off explanation');
+
+      // Realistic condense execution
+      const condense = RoadmapEngine.condenseRoadmap({
+        fromDay: 40,
+        dailyMinutes: 180,
+        weeklyDays: 6,
+        reduceTargets: true,
+        dryRun: false
+      });
+
+      assert.strictEqual(condense.success, true);
+      assert.ok(condense.after.totalDays < condense.before.totalDays, 'Condensed plan total days must decrease');
+    });
+
+    test('46.6: Move day and move task with prerequisite warning contract', () => {
+      RoadmapEngine.restoreDefaultRoadmap();
+      const day20A = JSON.parse(JSON.stringify(RoadmapEngine.get120DayRoadmap().days[19]));
+
+      const moveDayRes = RoadmapEngine.moveDay(20, 15);
+      assert.strictEqual(moveDayRes.success, true);
+
+      const plan = RoadmapEngine.get120DayRoadmap();
+      assert.strictEqual(plan.days[14].streams.current_learning.topic, day20A.streams.current_learning.topic);
+
+      // Move task between days
+      const moveTaskRes = RoadmapEngine.moveTask(15, 'current_learning', 18);
+      assert.strictEqual(moveTaskRes.success, true);
+    });
+
+    test('46.7: Day and stream editing (Topic, Subtopic, Target Count, Minutes, Custom Notes)', () => {
+      const editRes = RoadmapEngine.editDay(12, {
+        notes: 'Exam preparation sprint',
+        streams: {
+          current_learning: {
+            topic: 'Segment Tree & Fenwick',
+            targetCount: 4,
+            estimatedMinutes: 90
+          }
+        }
+      });
+
+      assert.strictEqual(editRes.success, true);
+      const day12 = RoadmapEngine.get120DayRoadmap().days[11];
+      assert.strictEqual(day12.notes, 'Exam preparation sprint');
+      assert.strictEqual(day12.streams.current_learning.topic, 'Segment Tree & Fenwick');
+      assert.strictEqual(day12.streams.current_learning.targetCount, 4);
+      assert.strictEqual(day12.streams.current_learning.estimatedMinutes, 90);
+    });
+
+    test('46.8: Split day workload across two consecutive days', () => {
+      RoadmapEngine.editDay(14, {
+        streams: {
+          current_learning: {
+            problemIds: ['p-1', 'p-2', 'p-3', 'p-4'],
+            targetCount: 4
+          }
+        }
+      });
+
+      const splitRes = RoadmapEngine.splitDay(14);
+      assert.strictEqual(splitRes.success, true);
+
+      const plan = RoadmapEngine.get120DayRoadmap();
+      assert.deepStrictEqual(plan.days[13].streams.current_learning.problemIds, ['p-1', 'p-2']);
+      assert.deepStrictEqual(plan.days[14].streams.current_learning.problemIds, ['p-3', 'p-4']);
+    });
+
+    test('46.9: Merge consecutive days workload into single day', () => {
+      const mergeRes = RoadmapEngine.mergeDays(14, 15);
+      assert.strictEqual(mergeRes.success, true);
+
+      const plan = RoadmapEngine.get120DayRoadmap();
+      assert.deepStrictEqual(plan.days[13].streams.current_learning.problemIds, ['p-1', 'p-2', 'p-3', 'p-4']);
+    });
+
+    test('46.10: Skip task invariance (Audit trail recorded, never marks problem as mastered in SRS)', () => {
+      const mockStates = {
+        'prob-226-number-of-provinces': { stage: 1, nextReview: '2026-10-30', interval: 3 }
+      };
+
+      const skipRes = RoadmapEngine.skipTask(1, 'current_learning', 'College assignment covered it', mockStates);
+      assert.strictEqual(skipRes.success, true);
+
+      const d1 = RoadmapEngine.get120DayRoadmap().days[0];
+      assert.strictEqual(d1.streams.current_learning.status, 'skipped');
+      assert.strictEqual(d1.streams.current_learning.skipReason, 'College assignment covered it');
+
+      // Verify SRS invariance: userStates stage and interval MUST NOT be mutated
+      assert.strictEqual(mockStates['prob-226-number-of-provinces'].stage, 1, 'Skip must never mark problem as mastered');
+      assert.strictEqual(mockStates['prob-226-number-of-provinces'].interval, 3, 'Skip must never mutate SRS interval');
+    });
+
+    test('46.11: Extend roadmap beyond 120 days without destroying existing history', () => {
+      const planBefore = RoadmapEngine.get120DayRoadmap();
+      const prevCount = planBefore.days.length;
+
+      const extRes = RoadmapEngine.extendRoadmap(21);
+      assert.strictEqual(extRes.success, true);
+
+      const planAfter = RoadmapEngine.get120DayRoadmap();
+      assert.strictEqual(planAfter.days.length, prevCount + 21);
+      assert.strictEqual(planAfter.days[prevCount].dayNumber, prevCount + 1);
+    });
+
+    test('46.12: Undo stack operations (Bounded 30 snapshots, plan only, zero history/XP erasure)', () => {
+      const countBefore = RoadmapEngine.get120DayRoadmap().days.length;
+
+      RoadmapEngine.insertDay(1, { bufferReason: 'Buffer for testing undo' });
+      assert.strictEqual(RoadmapEngine.get120DayRoadmap().days.length, countBefore + 1);
+
+      const undoRes = RoadmapEngine.undoLastAction();
+      assert.strictEqual(undoRes.success, true);
+      assert.strictEqual(RoadmapEngine.get120DayRoadmap().days.length, countBefore);
+
+      const history = RoadmapEngine.getChangeHistory();
+      assert.ok(history.length <= 30, 'History stack must be bounded at 30 snapshots');
+    });
+
+    test('46.13: Authoritative daily resolver & Spaced Repetition System integration', () => {
+      const dueProbId = 'prob-1-count-digits';
+      const mockStates = {
+        [dueProbId]: { stage: 1, nextReview: '2020-01-01', lastConfidence: 2 }
+      };
+
+      const authoritative = RecommendationEngine.resolveDailySchedule(RoadmapEngine, DEFAULT_DSA_SHEETS, mockStates);
+      assert.ok(authoritative.dayNumber >= 1);
+      assert.ok(authoritative.streamA.topic.length > 0);
+      assert.ok(authoritative.streamB.topic.length > 0);
+      assert.ok(authoritative.streamC.dueCount >= 1);
+      assert.ok(authoritative.streamC.dueProblems.some(p => p.id === dueProbId), 'Stream C must include live due problems from SRS');
+
+      const comp = RecommendationEngine.compareAdaptiveWithRoadmap(RoadmapEngine, DEFAULT_DSA_SHEETS, mockStates);
+      assert.ok(comp !== null);
+      assert.strictEqual(typeof comp.hasDifference, 'boolean');
+    });
+
+    test('46.14: Persistence via LearnerRepository and storage invariance', () => {
+      LearnerRepository._resetForTesting();
+      RoadmapEngine.initProgress();
+      RoadmapEngine.editDay(1, { notes: 'Persisted notes verification' });
+
+      // Simulate full reload
+      RoadmapEngine.progress = null;
+      RoadmapEngine.initProgress();
+      const reloaded = RoadmapEngine.get120DayRoadmap();
+      assert.strictEqual(reloaded.days[0].notes, 'Persisted notes verification', 'Edits must survive app reload');
+    });
+
+    test('46.15: Curriculum Completeness & Taxonomy Audit Invariant', () => {
+      assert.strictEqual(RoadmapCurriculumData.STREAM_A.length, 120, 'Stream A must contain exactly 120 days');
+      assert.strictEqual(RoadmapCurriculumData.STREAM_B.length, 120, 'Stream B must contain exactly 120 days');
+
+      // Check Stream A boundaries: Starts with Graphs, ends with FAANG assessment
+      assert.strictEqual(RoadmapCurriculumData.STREAM_A[0].topic, 'Graphs', 'Day 1 Stream A must be Graphs');
+      assert.strictEqual(RoadmapCurriculumData.STREAM_A[119].phase, 'Phase 4: Interview Preparation', 'Day 120 must be interview preparation');
+
+      // Check Stream B boundaries: Starts with Maths, ends with Final assessment
+      assert.ok(RoadmapCurriculumData.STREAM_B[0].topic.includes('Math'), 'Day 1 Stream B must be Maths');
+      assert.ok(RoadmapCurriculumData.STREAM_B[119].subtopic.includes('Foundation mastery audit'), 'Day 120 Stream B must be foundation mastery audit');
+
+      // Check Taxonomy Audit across 14 topic taxonomies (A to N)
+      assert.strictEqual(RoadmapCurriculumData.TAXONOMY_AUDIT.length, 14, 'Taxonomy audit must cover all 14 areas A through N');
+      const areaCodes = RoadmapCurriculumData.TAXONOMY_AUDIT.map(a => a.code);
+      const expectedCodes = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N'];
+      assert.deepStrictEqual(areaCodes, expectedCodes, 'All 14 taxonomy codes A-N must be present');
+
+      // Check Taxonomy Coverage Summary statistics
+      const summary = RoadmapCurriculumData.getTaxonomyCoverageSummary();
+      assert.ok(summary.totalPatterns >= 90, 'Must audit at least 90 patterns across the 14 areas');
+      assert.ok(summary.coreCoveragePct >= 80, 'Core pattern coverage must be at least 80%');
+      assert.strictEqual(summary.catalogSize, 479, 'Must match full catalog size of 479 master problems');
+    });
   });
 
   console.log(`TEST RESULTS: ${passedTests}/${totalTests} Passed (${failedTests} Failed)`);

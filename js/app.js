@@ -3346,7 +3346,12 @@
     window.addEventListener('hashchange', handleHashRoute);
   }
 
-  // --- VIEW 7: DAILY PROBLEMS & WEEKEND TEST ---
+  // --- VIEW 7: 120-DAY EDITABLE DSA ROADMAP & MULTI-STREAM TRACKER ---
+  let activeRoadmap120View = 'list'; // 'list' | 'calendar' | 'topics' | 'legacy_cycle'
+  let activeRoadmap120Filter = 'all'; // 'all' | 'today' | 'upcoming' | 'completed' | 'incomplete' | 'buffer' | 'current_learning' | 'foundation_revision'
+  let roadmap120SearchQuery = '';
+  let selectedRoadmap120Days = new Set();
+
   function renderRoadmapView() {
     if (!window.RoadmapEngine) return;
     if (!RoadmapEngine.progress) {
@@ -3354,39 +3359,23 @@
     }
 
     const activeTrack = RoadmapEngine.progress.activeTrack || 'striver_hero';
-    const schedule = RoadmapEngine.getSchedule(activeTrack, allProblems);
-    const currentWeek = schedule[0] || { weekNumber: 1, title: 'Core Practice', topic: 'Arrays & Hashing', days: [] };
+    const plan120 = RoadmapEngine.get120DayRoadmap(userStates);
+    const todayPlan = RoadmapEngine.getTodayAuthoritativePlan(allProblems, userStates);
 
-    // 1. Calculate 7-Day Cycle Progress
-    let completedDaysInCycle = 0;
-    currentWeek.days.forEach(day => {
-      if (RoadmapEngine.isDayCompleted(activeTrack, 1, day.dayNumber)) {
-        completedDaysInCycle++;
-      }
-    });
+    // 1. Calculate Overall Plan Progress & KPIs
+    const completedDays = plan120.days.filter(d => d.isCompleted).length;
+    const totalDays = plan120.days.length;
+    const completionPct = totalDays > 0 ? Math.round((completedDays / totalDays) * 100) : 0;
 
-    const cyclePercent = Math.round((completedDaysInCycle / 7) * 100);
     const statProgressEl = document.getElementById('roadmap-stat-progress');
-    const statDaysDoneEl = document.getElementById('roadmap-stat-days-done');
+    const kpiProgressSubEl = document.getElementById('roadmap-120-kpi-progress-sub');
     const trackProgressFill = document.getElementById('roadmap-track-progress-fill');
 
-    if (statProgressEl) statProgressEl.textContent = `${cyclePercent}%`;
-    if (statDaysDoneEl) statDaysDoneEl.textContent = `${completedDaysInCycle} / 7`;
-    if (trackProgressFill) trackProgressFill.style.width = `${cyclePercent}%`;
+    if (statProgressEl) statProgressEl.textContent = `${completionPct}%`;
+    if (kpiProgressSubEl) kpiProgressSubEl.textContent = `${completedDays} of ${totalDays} Days Complete`;
+    if (trackProgressFill) trackProgressFill.style.width = `${completionPct}%`;
 
-    // 2. Ensure valid selectedDay (1 to 7)
-    if (!RoadmapEngine.progress.selectedDay || RoadmapEngine.progress.selectedDay > 7 || RoadmapEngine.progress.selectedDay < 1) {
-      RoadmapEngine.progress.selectedDay = 1;
-    }
-    const currentDay = currentWeek.days.find(d => d.dayNumber === RoadmapEngine.progress.selectedDay) || currentWeek.days[0];
-
-    const customDayTopic = RoadmapEngine.getDayCustomTopic(activeTrack, 1, currentDay.dayNumber);
-    const activeFocusTopic = customDayTopic ? (Array.isArray(customDayTopic) ? `Mixed (${customDayTopic.length} Topics)` : customDayTopic) : (currentDay.topic || 'General DSA');
-
-    const statActiveFocusEl = document.getElementById('roadmap-stat-active-focus');
-    if (statActiveFocusEl) statActiveFocusEl.textContent = activeFocusTopic;
-
-    // Track Solved & Unsolved Counts
+    // 2. Track Solved & Unsolved Counts
     let trackSolvedCount = 0;
     allProblems.forEach(p => {
       if (userStates[p.id]?.lastReviewed) trackSolvedCount++;
@@ -3398,42 +3387,998 @@
     if (statTrackSolvedEl) statTrackSolvedEl.textContent = `${trackSolvedCount} / ${allProblems.length}`;
     if (statTrackUnsolvedEl) statTrackUnsolvedEl.textContent = `${trackUnsolvedCount}`;
 
-    // 3. Render 7-Day Selector Pills Strip (Mon - Sun)
-    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat (Review)', 'Sun (Exam)'];
-    const progressTxtEl = document.getElementById('roadmap-week-progress-txt');
-    if (progressTxtEl) {
-      progressTxtEl.textContent = `${completedDaysInCycle} / 7 Days Complete (${cyclePercent}%)`;
+    // 3. Legacy Cycle Progress (Mon - Sun, 7 days)
+    let completedDaysInCycle = 0;
+    for (let d = 1; d <= 7; d++) {
+      if (RoadmapEngine.isDayCompleted(activeTrack, 1, d)) {
+        completedDaysInCycle++;
+      }
+    }
+    const statDaysDoneEl = document.getElementById('roadmap-stat-days-done');
+    if (statDaysDoneEl) statDaysDoneEl.textContent = `${completedDaysInCycle} / 7`;
+
+    // 4. Stream KPIs
+    const statActiveFocusEl = document.getElementById('roadmap-stat-active-focus');
+    const kpiSubtopicLearnEl = document.getElementById('roadmap-120-kpi-subtopic-learn');
+    if (statActiveFocusEl) statActiveFocusEl.textContent = todayPlan.streamA?.topic || 'Graphs';
+    if (kpiSubtopicLearnEl) kpiSubtopicLearnEl.textContent = todayPlan.streamA?.subtopic || 'BFS & DFS';
+
+    const kpiReviseTopicEl = document.getElementById('roadmap-120-kpi-revise-topic');
+    const kpiSubtopicReviseEl = document.getElementById('roadmap-120-kpi-subtopic-revise');
+    if (kpiReviseTopicEl) kpiReviseTopicEl.textContent = todayPlan.streamB?.topic || 'Maths';
+    if (kpiSubtopicReviseEl) kpiSubtopicReviseEl.textContent = todayPlan.streamB?.subtopic || 'Number Theory';
+
+    const kpiSrsDueEl = document.getElementById('roadmap-120-kpi-srs-due');
+    if (kpiSrsDueEl) kpiSrsDueEl.textContent = `${todayPlan.streamC?.dueCount || 0} Due`;
+
+    const kpiHealthEl = document.getElementById('roadmap-120-kpi-health');
+    const kpiTargetDateEl = document.getElementById('roadmap-120-kpi-target-date');
+    if (kpiHealthEl) {
+      if (todayPlan.differences && todayPlan.differences.hasDifference) {
+        kpiHealthEl.innerHTML = '<span style="color:#f59e0b;">Adjusted</span>';
+      } else {
+        kpiHealthEl.innerHTML = '<span style="color:#34d399;">On Track</span>';
+      }
+    }
+    if (kpiTargetDateEl) kpiTargetDateEl.textContent = `Target: ${totalDays} Days`;
+
+    // 5. Update Active View Tab Buttons
+    document.querySelectorAll('.roadmap-120-view-btn').forEach(btn => {
+      if (btn.dataset.roadmapView === activeRoadmap120View) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    // 6. Update Active Filter Pills
+    document.querySelectorAll('.roadmap-120-filter-pill').forEach(pill => {
+      if (pill.dataset.filter === activeRoadmap120Filter) {
+        pill.classList.add('active');
+      } else {
+        pill.classList.remove('active');
+      }
+    });
+
+    // 7. Update Bulk Action Bar
+    const bulkBarEl = document.getElementById('roadmap-120-bulk-bar');
+    const bulkCountEl = document.getElementById('roadmap-120-bulk-count');
+    if (bulkBarEl && bulkCountEl) {
+      if (selectedRoadmap120Days.size > 0) {
+        bulkBarEl.style.display = 'flex';
+        bulkCountEl.textContent = `${selectedRoadmap120Days.size} Days Selected`;
+      } else {
+        bulkBarEl.style.display = 'none';
+      }
     }
 
-    const daysPillsContainer = document.getElementById('roadmap-days-pills-container');
-    if (daysPillsContainer) {
-      daysPillsContainer.innerHTML = '';
-      currentWeek.days.forEach((day, idx) => {
-        const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, 1, day.dayNumber);
-        const isDayActive = day.dayNumber === RoadmapEngine.progress.selectedDay;
-        const hasCustomTopic = !!RoadmapEngine.getDayCustomTopic(activeTrack, 1, day.dayNumber);
+    // 8. Render Selected View Mode
+    const contentArea = document.getElementById('roadmap-120-content-area');
+    const legacyWrap = document.getElementById('roadmap-120-legacy-wrap');
 
-        const pill = document.createElement('button');
-        pill.className = `roadmap-day-pill ${isDayActive ? 'active' : ''} ${isDayDone ? 'completed' : ''} ${day.isWeekend ? 'weekend' : ''}`;
-        pill.dataset.dayNum = day.dayNumber;
+    if (activeRoadmap120View === 'legacy_cycle') {
+      if (contentArea) contentArea.style.display = 'none';
+      if (legacyWrap) legacyWrap.style.display = 'block';
 
-        let icon = isDayDone ? '<i class="fa-solid fa-check"></i>' : (day.isExamDay ? '<i class="fa-solid fa-trophy"></i>' : day.isReviewDay ? '<i class="fa-solid fa-bolt"></i>' : (hasCustomTopic ? '<i class="fa-solid fa-shuffle"></i>' : `<i class="fa-solid fa-code"></i>`));
-        let dayName = dayNames[idx] || `Day ${day.dayNumber}`;
-        let label = day.isExamDay ? `Day 7: Weekend Test 🏆` : day.isReviewDay ? `Day 6: Flashcards ⚡` : `Day ${day.dayNumber} (${dayName})`;
+      // Render 7-day selector pills strip
+      const schedule = RoadmapEngine.getSchedule(activeTrack, allProblems);
+      const currentWeek = schedule[0] || { weekNumber: 1, title: 'Core Practice', topic: 'Arrays & Hashing', days: [] };
+      const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat (Review)', 'Sun (Exam)'];
+      const progressTxtEl = document.getElementById('roadmap-week-progress-txt');
+      if (progressTxtEl) {
+        const cyclePercent = Math.round((completedDaysInCycle / 7) * 100);
+        progressTxtEl.textContent = `${completedDaysInCycle} / 7 Days Complete (${cyclePercent}%)`;
+      }
 
-        pill.innerHTML = `${icon} <span>${label}</span>`;
-        pill.addEventListener('click', () => {
-          RoadmapEngine.progress.selectedWeek = 1;
-          RoadmapEngine.progress.selectedDay = day.dayNumber;
-          RoadmapEngine.saveProgress();
+      if (!RoadmapEngine.progress.selectedDay || RoadmapEngine.progress.selectedDay > 7 || RoadmapEngine.progress.selectedDay < 1) {
+        RoadmapEngine.progress.selectedDay = 1;
+      }
+      const currentDay = currentWeek.days.find(d => d.dayNumber === RoadmapEngine.progress.selectedDay) || currentWeek.days[0];
+
+      const daysPillsContainer = document.getElementById('roadmap-days-pills-container');
+      if (daysPillsContainer) {
+        daysPillsContainer.innerHTML = '';
+        currentWeek.days.forEach((day, idx) => {
+          const isDayDone = RoadmapEngine.isDayCompleted(activeTrack, 1, day.dayNumber);
+          const isDayActive = day.dayNumber === RoadmapEngine.progress.selectedDay;
+          const hasCustomTopic = !!RoadmapEngine.getDayCustomTopic(activeTrack, 1, day.dayNumber);
+
+          const pill = document.createElement('button');
+          pill.className = `roadmap-day-pill ${isDayActive ? 'active' : ''} ${isDayDone ? 'completed' : ''} ${day.isWeekend ? 'weekend' : ''}`;
+          pill.dataset.dayNum = day.dayNumber;
+
+          let icon = isDayDone ? '<i class="fa-solid fa-check"></i>' : (day.isExamDay ? '<i class="fa-solid fa-trophy"></i>' : day.isReviewDay ? '<i class="fa-solid fa-bolt"></i>' : (hasCustomTopic ? '<i class="fa-solid fa-shuffle"></i>' : `<i class="fa-solid fa-code"></i>`));
+          let dayName = dayNames[idx] || `Day ${day.dayNumber}`;
+          let label = day.isExamDay ? `Day 7: Weekend Test 🏆` : day.isReviewDay ? `Day 6: Flashcards ⚡` : `Day ${day.dayNumber} (${dayName})`;
+
+          pill.innerHTML = `${icon} <span>${label}</span>`;
+          pill.addEventListener('click', () => {
+            RoadmapEngine.progress.selectedWeek = 1;
+            RoadmapEngine.progress.selectedDay = day.dayNumber;
+            RoadmapEngine.saveProgress();
+            renderRoadmapView();
+          });
+          daysPillsContainer.appendChild(pill);
+        });
+      }
+
+      renderActiveDayContent(activeTrack, currentWeek, currentDay);
+    } else {
+      if (legacyWrap) legacyWrap.style.display = 'none';
+      if (contentArea) {
+        contentArea.style.display = 'block';
+        if (activeRoadmap120View === 'list') {
+          render120ListView(plan120, todayPlan);
+        } else if (activeRoadmap120View === 'calendar') {
+          render120CalendarView(plan120, todayPlan);
+        } else if (activeRoadmap120View === 'topics') {
+          render120TopicsView(plan120, todayPlan);
+        } else if (activeRoadmap120View === 'audit') {
+          render120AuditView();
+        }
+      }
+    }
+  }
+
+  function render120ListView(plan120, todayPlan) {
+    const container = document.getElementById('roadmap-120-content-area');
+    if (!container) return;
+
+    const query = (roadmap120SearchQuery || '').toLowerCase().trim();
+
+    const filteredDays = plan120.days.filter(d => {
+      // Filter tab check
+      if (activeRoadmap120Filter === 'today' && d.dayNumber !== todayPlan.dayNumber) return false;
+      if (activeRoadmap120Filter === 'upcoming' && (d.dayNumber < todayPlan.dayNumber || d.isCompleted)) return false;
+      if (activeRoadmap120Filter === 'completed' && !d.isCompleted) return false;
+      if (activeRoadmap120Filter === 'incomplete' && d.isCompleted) return false;
+      if (activeRoadmap120Filter === 'buffer' && !d.isBufferDay && d.type !== 'buffer') return false;
+      if (activeRoadmap120Filter === 'current_learning' && (d.isBufferDay || d.streams?.current_learning?.status === 'completed')) return false;
+      if (activeRoadmap120Filter === 'foundation_revision' && (d.isBufferDay || d.streams?.foundation_revision?.status === 'completed')) return false;
+
+      // Search query check
+      if (query) {
+        const matchNum = `day ${d.dayNumber}`.includes(query) || `${d.dayNumber}` === query;
+        const matchStreamA = (d.streams?.current_learning?.topic || '').toLowerCase().includes(query) ||
+                             (d.streams?.current_learning?.subtopic || '').toLowerCase().includes(query) ||
+                             (d.streams?.current_learning?.learningObjectives || '').toLowerCase().includes(query);
+        const matchStreamB = (d.streams?.foundation_revision?.topic || '').toLowerCase().includes(query) ||
+                             (d.streams?.foundation_revision?.subtopic || '').toLowerCase().includes(query) ||
+                             (d.streams?.foundation_revision?.revisionObjectives || '').toLowerCase().includes(query);
+        const matchBuffer = (d.bufferReason || '').toLowerCase().includes(query) || (d.notes || '').toLowerCase().includes(query);
+        const matchProb = (d.streams?.current_learning?.problemIds || []).some(id => id.toLowerCase().includes(query)) ||
+                          (d.streams?.foundation_revision?.problemIds || []).some(id => id.toLowerCase().includes(query));
+        if (!matchNum && !matchStreamA && !matchStreamB && !matchBuffer && !matchProb) return false;
+      }
+      return true;
+    });
+
+    if (filteredDays.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:48px 20px; background:var(--bg-elevated); border-radius:var(--radius-lg); border:1px dashed var(--border-color); margin-top:16px;">
+          <i class="fa-solid fa-filter-circle-xmark" style="font-size:36px; margin-bottom:14px; color:var(--primary); opacity:0.6;"></i>
+          <h4 style="color:#f8fafc; font-size:16px; margin:0 0 6px;">No Matching Days Found</h4>
+          <p style="font-size:13px; color:var(--text-dim); max-width:420px; margin:0 auto 16px;">No roadmap days matched your current search and filter selections.</p>
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-clear-roadmap-filter">
+            <i class="fa-solid fa-arrows-rotate"></i> Reset Filters
+          </button>
+        </div>
+      `;
+      document.getElementById('btn-clear-roadmap-filter')?.addEventListener('click', () => {
+        activeRoadmap120Filter = 'all';
+        roadmap120SearchQuery = '';
+        const searchInput = document.getElementById('roadmap-120-search-input');
+        if (searchInput) searchInput.value = '';
+        renderRoadmapView();
+      });
+      return;
+    }
+
+    let html = `<div style="display:flex; flex-direction:column; gap:16px; margin-top:16px;">`;
+
+    filteredDays.forEach(d => {
+      const isToday = d.dayNumber === todayPlan.dayNumber;
+      const isSelected = selectedRoadmap120Days.has(d.dayNumber);
+      const totalEstMins = (d.streams?.current_learning?.estimatedMinutes || 0) +
+                           (d.streams?.foundation_revision?.estimatedMinutes || 0) +
+                           (d.streams?.srs_due?.estimatedMinutes || 0);
+
+      html += `
+        <div class="roadmap-120-day-card ${d.isCompleted ? 'completed' : ''} ${d.isBufferDay ? 'buffer-day' : ''} ${isToday ? 'today-active' : ''}" data-day-num="${d.dayNumber}">
+          <!-- Day Header -->
+          <div class="roadmap-120-day-header">
+            <div class="day-left">
+              <input type="checkbox" class="roadmap-120-day-checkbox" data-day="${d.dayNumber}" ${isSelected ? 'checked' : ''} aria-label="Select Day ${d.dayNumber}">
+              <span class="roadmap-120-day-number-badge"><i class="fa-solid fa-calendar-day"></i> Day ${d.dayNumber}</span>
+              ${isToday ? `<span class="badge" style="background:rgba(139,124,255,0.25); color:#a78bfa; border:1px solid rgba(139,124,255,0.4); font-weight:700;"><i class="fa-solid fa-bullseye"></i> TODAY</span>` : ''}
+              ${d.isBufferDay ? `<span class="roadmap-120-buffer-tag"><i class="fa-solid fa-mug-hot"></i> Buffer: ${escapeHtml(d.bufferReason || 'Flex Buffer')}</span>` : ''}
+              ${d.isCompleted ? `<span class="badge badge-mastered" style="font-weight:700;"><i class="fa-solid fa-check"></i> Completed</span>` : ''}
+              ${!d.isBufferDay ? `<span class="badge" style="background:rgba(255,255,255,0.06); color:var(--text-muted);"><i class="fa-solid fa-clock"></i> ~${totalEstMins}m</span>` : ''}
+            </div>
+
+            <div class="day-actions">
+              <button type="button" class="btn btn-secondary btn-sm btn-roadmap-toggle-complete" data-day="${d.dayNumber}" title="${d.isCompleted ? 'Mark as Incomplete' : 'Mark as Completed'}">
+                <i class="fa-solid ${d.isCompleted ? 'fa-arrow-rotate-left' : 'fa-circle-check'}"></i> <span>${d.isCompleted ? 'Undo' : 'Done'}</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm btn-roadmap-edit-day" data-day="${d.dayNumber}" title="Edit Day Details & Objectives">
+                <i class="fa-solid fa-pen-to-square"></i> <span>Edit</span>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm btn-roadmap-insert-after" data-day="${d.dayNumber}" title="Insert Blank Buffer Day After This Day">
+                <i class="fa-solid fa-plus"></i> <span>Buffer</span>
+              </button>
+              ${!d.isBufferDay ? `
+                <button type="button" class="btn btn-secondary btn-sm btn-roadmap-split-day" data-day="${d.dayNumber}" title="Split Workload Across Two Days">
+                  <i class="fa-solid fa-arrows-split-up-and-left"></i> <span>Split</span>
+                </button>
+              ` : ''}
+              <button type="button" class="btn btn-secondary btn-sm btn-roadmap-shift-from" data-day="${d.dayNumber}" title="Shift Remaining Plan Starting Here">
+                <i class="fa-solid fa-forward-step"></i> <span>Shift</span>
+              </button>
+              <div style="display:flex; gap:2px;">
+                ${d.dayNumber > 1 ? `<button type="button" class="btn btn-secondary btn-sm btn-roadmap-move-day" data-day="${d.dayNumber}" data-dir="up" title="Move Day Earlier"><i class="fa-solid fa-arrow-up"></i></button>` : ''}
+                ${d.dayNumber < plan120.days.length ? `<button type="button" class="btn btn-secondary btn-sm btn-roadmap-move-day" data-day="${d.dayNumber}" data-dir="down" title="Move Day Later"><i class="fa-solid fa-arrow-down"></i></button>` : ''}
+              </div>
+            </div>
+          </div>
+
+          <!-- Day Body -->
+          ${d.isBufferDay ? `
+            <div class="roadmap-120-buffer-notice">
+              <i class="fa-solid fa-mug-hot" style="font-size:24px; color:#f59e0b;"></i>
+              <div>
+                <h4 style="margin:0; font-size:14px; color:#f8fafc;">Buffer & Rest Day: ${escapeHtml(d.bufferReason || 'Flex Catch-up')}</h4>
+                <p style="margin:4px 0 0; font-size:12.5px; color:var(--text-muted); line-height:1.4;">
+                  ${escapeHtml(d.notes || 'Reserved for reviewing backlogs or taking a rest without disturbing roadmap sequence.')}
+                </p>
+              </div>
+            </div>
+          ` : `
+            <div class="roadmap-120-streams-grid">
+              <!-- Stream A: Current Learning -->
+              <div class="roadmap-120-stream-box stream-a">
+                <div class="stream-box-header">
+                  <span class="stream-box-title" style="color:var(--stream-learn-accent);">
+                    <i class="fa-solid fa-book-open"></i> Stream A: Learn
+                  </span>
+                  <span style="font-size:11px; color:var(--text-dim);">~${d.streams?.current_learning?.estimatedMinutes || 60}m</span>
+                </div>
+                <div style="font-size:14px; font-weight:700; color:#f8fafc; margin-top:4px;">
+                  ${escapeHtml(d.streams?.current_learning?.topic || 'General DSA')}
+                </div>
+                <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">
+                  ${escapeHtml(d.streams?.current_learning?.subtopic || '')}
+                </div>
+                <div style="font-size:11.5px; color:var(--text-muted); margin-top:6px;">
+                  <i class="fa-solid fa-bullseye" style="color:var(--stream-learn-accent);"></i> ${escapeHtml(d.streams?.current_learning?.learningObjectives || 'Master core algorithmic technique')}
+                </div>
+
+                <div class="roadmap-120-prob-chips-container" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                  ${(d.streams?.current_learning?.problemIds || []).map(pid => {
+                    const p = allProblems.find(item => item.id === pid) || { id: pid, title: pid, difficulty: 'Medium' };
+                    const isSolved = !!userStates[p.id]?.lastReviewed;
+                    return `
+                      <button type="button" class="roadmap-120-prob-pill ${isSolved ? 'solved' : ''} btn-action-detail" data-id="${p.id}" title="${escapeHtml(p.title)}">
+                        <i class="fa-solid ${isSolved ? 'fa-check' : 'fa-code'}"></i>
+                        <span style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.title)}</span>
+                        <span class="badge badge-${(p.difficulty || 'medium').toLowerCase()}" style="font-size:9px; padding:1px 4px;">${p.difficulty}</span>
+                      </button>
+                    `;
+                  }).join('')}
+                </div>
+
+                <div style="display:flex; gap:6px; margin-top:10px; border-top:1px dashed rgba(139,124,255,0.2); padding-top:8px;">
+                  <button type="button" class="btn btn-secondary btn-sm btn-task-skip" data-day="${d.dayNumber}" data-stream="current_learning" style="font-size:10.5px; padding:3px 7px;">
+                    <i class="fa-solid fa-forward"></i> Skip
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm btn-task-defer" data-day="${d.dayNumber}" data-stream="current_learning" style="font-size:10.5px; padding:3px 7px;">
+                    <i class="fa-solid fa-clock"></i> Defer
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm btn-task-replace" data-day="${d.dayNumber}" data-stream="current_learning" style="font-size:10.5px; padding:3px 7px;">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </button>
+                </div>
+              </div>
+
+              <!-- Stream B: Foundation Revision -->
+              <div class="roadmap-120-stream-box stream-b">
+                <div class="stream-box-header">
+                  <span class="stream-box-title" style="color:var(--stream-topic-accent);">
+                    <i class="fa-solid fa-rotate-left"></i> Stream B: Revision
+                  </span>
+                  <span style="font-size:11px; color:var(--text-dim);">~${d.streams?.foundation_revision?.estimatedMinutes || 35}m</span>
+                </div>
+                <div style="font-size:14px; font-weight:700; color:#f8fafc; margin-top:4px;">
+                  ${escapeHtml(d.streams?.foundation_revision?.topic || 'Maths')}
+                </div>
+                <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">
+                  ${escapeHtml(d.streams?.foundation_revision?.subtopic || '')}
+                </div>
+                <div style="font-size:11.5px; color:var(--text-muted); margin-top:6px;">
+                  <i class="fa-solid fa-arrows-rotate" style="color:var(--stream-topic-accent);"></i> ${escapeHtml(d.streams?.foundation_revision?.revisionObjectives || 'Speed drill')}
+                </div>
+
+                <div class="roadmap-120-prob-chips-container" style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+                  ${(d.streams?.foundation_revision?.problemIds || []).map(pid => {
+                    const p = allProblems.find(item => item.id === pid) || { id: pid, title: pid, difficulty: 'Easy' };
+                    const isSolved = !!userStates[p.id]?.lastReviewed;
+                    return `
+                      <button type="button" class="roadmap-120-prob-pill ${isSolved ? 'solved' : ''} btn-action-detail" data-id="${p.id}" title="${escapeHtml(p.title)}">
+                        <i class="fa-solid ${isSolved ? 'fa-check' : 'fa-code'}"></i>
+                        <span style="max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.title)}</span>
+                        <span class="badge badge-${(p.difficulty || 'easy').toLowerCase()}" style="font-size:9px; padding:1px 4px;">${p.difficulty}</span>
+                      </button>
+                    `;
+                  }).join('')}
+                </div>
+
+                <div style="display:flex; gap:6px; margin-top:10px; border-top:1px dashed rgba(66,214,197,0.2); padding-top:8px;">
+                  <button type="button" class="btn btn-secondary btn-sm btn-task-skip" data-day="${d.dayNumber}" data-stream="foundation_revision" style="font-size:10.5px; padding:3px 7px;">
+                    <i class="fa-solid fa-forward"></i> Skip
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm btn-task-defer" data-day="${d.dayNumber}" data-stream="foundation_revision" style="font-size:10.5px; padding:3px 7px;">
+                    <i class="fa-solid fa-clock"></i> Defer
+                  </button>
+                  <button type="button" class="btn btn-secondary btn-sm btn-task-replace" data-day="${d.dayNumber}" data-stream="foundation_revision" style="font-size:10.5px; padding:3px 7px;">
+                    <i class="fa-solid fa-pen"></i> Edit
+                  </button>
+                </div>
+              </div>
+
+              <!-- Stream C: SRS Due -->
+              <div class="roadmap-120-stream-box stream-c">
+                <div class="stream-box-header">
+                  <span class="stream-box-title" style="color:var(--stream-srs-accent);">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Stream C: SRS Due
+                  </span>
+                  <span style="font-size:11px; color:var(--text-dim);">~${d.streams?.srs_due?.estimatedMinutes || 20}m</span>
+                </div>
+
+                ${isToday ? `
+                  <div style="margin-top:4px;">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                      <span class="badge badge-due" style="font-size:12px; font-weight:700;">
+                        ${todayPlan.streamC?.dueCount || 0} Reviews Due Today
+                      </span>
+                    </div>
+                    ${todayPlan.streamC?.dueProblems && todayPlan.streamC.dueProblems.length > 0 ? `
+                      <div style="display:flex; flex-direction:column; gap:6px; margin-top:8px; max-height:160px; overflow-y:auto;">
+                        ${todayPlan.streamC.dueProblems.map(p => `
+                          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.2); padding:6px 8px; border-radius:var(--radius-sm); border:1px solid rgba(245,190,101,0.2);">
+                            <span style="font-size:12px; color:#f8fafc; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:160px;">${escapeHtml(p.title)}</span>
+                            <div style="display:flex; gap:4px;">
+                              <button type="button" class="btn btn-primary btn-sm btn-action-review" data-id="${p.id}" style="font-size:10px; padding:2px 6px;">Revise</button>
+                              <button type="button" class="btn btn-secondary btn-sm btn-action-detail" data-id="${p.id}" style="font-size:10px; padding:2px 6px;"><i class="fa-solid fa-file-lines"></i></button>
+                            </div>
+                          </div>
+                        `).join('')}
+                      </div>
+                    ` : `
+                      <div style="font-size:12px; color:#34d399; margin-top:10px; display:flex; align-items:center; gap:6px;">
+                        <i class="fa-solid fa-check-circle"></i> All SRS reviews up-to-date!
+                      </div>
+                    `}
+                  </div>
+                ` : `
+                  <div style="margin-top:6px;">
+                    <div style="font-size:12.5px; color:#f8fafc; font-weight:600;">
+                      SRS Interval Consolidation
+                    </div>
+                    <div style="font-size:11.5px; color:var(--text-muted); margin-top:4px; line-height:1.4;">
+                      Dynamic spaced repetition slots (~${d.streams?.srs_due?.targetCount || 2} reviews). Genuine intervals calculated live from review history.
+                    </div>
+                  </div>
+                `}
+              </div>
+            </div>
+          `}
+
+          ${d.notes ? `
+            <div style="font-size:11.5px; color:var(--text-dim); margin-top:8px; border-top:1px dashed var(--border-color); padding-top:6px;">
+              <i class="fa-regular fa-note-sticky" style="color:var(--primary); margin-right:4px;"></i> ${escapeHtml(d.notes)}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    });
+
+    html += `</div>`;
+    container.innerHTML = html;
+  }
+
+  function render120CalendarView(plan120, todayPlan) {
+    const container = document.getElementById('roadmap-120-content-area');
+    if (!container) return;
+
+    const totalWeeks = Math.ceil(plan120.days.length / 7);
+    let html = `
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="font-size:15px; font-weight:700; color:#f8fafc; margin:0;">
+            <i class="fa-solid fa-calendar-days" style="color:var(--primary); margin-right:6px;"></i> 120-Day Interactive Calendar Overview
+          </h3>
+          <span style="font-size:12px; color:var(--text-dim);">${totalWeeks} Total Weeks (${plan120.days.length} Days)</span>
+        </div>
+        <div class="roadmap-120-calendar-container">
+    `;
+
+    for (let w = 0; w < totalWeeks; w++) {
+      const weekDays = plan120.days.slice(w * 7, (w + 1) * 7);
+      html += `
+        <div class="roadmap-120-calendar-week">
+          <div class="calendar-week-header">Week ${w + 1}</div>
+          <div class="calendar-days-row">
+            ${weekDays.map(d => {
+              const isToday = d.dayNumber === todayPlan.dayNumber;
+              return `
+                <div class="calendar-day-cell ${d.isCompleted ? 'completed' : ''} ${d.isBufferDay ? 'buffer' : ''} ${isToday ? 'today' : ''}" data-day="${d.dayNumber}" title="Click to edit Day ${d.dayNumber}">
+                  <div class="calendar-cell-top">
+                    <span class="cell-day-num">D${d.dayNumber}</span>
+                    ${d.isCompleted ? '<i class="fa-solid fa-circle-check cell-check" style="color:#34d399; font-size:11px;"></i>' : ''}
+                  </div>
+                  ${d.isBufferDay ? `
+                    <div class="cell-buffer-txt"><i class="fa-solid fa-mug-hot"></i> Buffer</div>
+                  ` : `
+                    <div class="cell-topic-chip stream-a" title="${escapeHtml(d.streams?.current_learning?.topic || '')}">
+                      ${escapeHtml(d.streams?.current_learning?.topic || 'DSA')}
+                    </div>
+                    <div class="cell-topic-chip stream-b" title="${escapeHtml(d.streams?.foundation_revision?.topic || '')}">
+                      ${escapeHtml(d.streams?.foundation_revision?.topic || 'Rev')}
+                    </div>
+                  `}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+        </div>
+      </div>
+    `;
+    container.innerHTML = html;
+  }
+
+  function render120TopicsView(plan120, todayPlan) {
+    const container = document.getElementById('roadmap-120-content-area');
+    if (!container) return;
+
+    // Group days by Stream A topics and Stream B topics
+    const streamATopicsMap = new Map();
+    const streamBTopicsMap = new Map();
+
+    plan120.days.forEach(d => {
+      if (d.isBufferDay) return;
+      if (d.streams?.current_learning?.topic) {
+        const t = d.streams.current_learning.topic;
+        if (!streamATopicsMap.has(t)) {
+          streamATopicsMap.set(t, { days: [], completed: 0, problems: new Set() });
+        }
+        const data = streamATopicsMap.get(t);
+        data.days.push(d.dayNumber);
+        if (d.isCompleted) data.completed++;
+        (d.streams.current_learning.problemIds || []).forEach(pid => data.problems.add(pid));
+      }
+
+      if (d.streams?.foundation_revision?.topic) {
+        const t = d.streams.foundation_revision.topic;
+        if (!streamBTopicsMap.has(t)) {
+          streamBTopicsMap.set(t, { days: [], completed: 0, problems: new Set() });
+        }
+        const data = streamBTopicsMap.get(t);
+        data.days.push(d.dayNumber);
+        if (d.isCompleted) data.completed++;
+        (d.streams.foundation_revision.problemIds || []).forEach(pid => data.problems.add(pid));
+      }
+    });
+
+    let html = `
+      <div style="margin-top:16px; display:flex; flex-direction:column; gap:20px;">
+        <!-- Stream A Topic Progression Matrix -->
+        <div style="background:var(--bg-elevated); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <div>
+              <h3 style="font-size:15px; font-weight:700; color:var(--stream-learn-accent); margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-book-open"></i> Stream A: Current Learning Topic Progression
+              </h3>
+              <span style="font-size:12px; color:var(--text-dim);">Sequential advance from Graphs through DP and FAANG interview preparation</span>
+            </div>
+            <span class="badge" style="background:rgba(139,124,255,0.15); color:var(--stream-learn-accent); font-weight:700;">
+              ${streamATopicsMap.size} Topic Modules
+            </span>
+          </div>
+
+          <div class="roadmap-120-topic-matrix">
+            ${Array.from(streamATopicsMap.entries()).map(([topic, data]) => {
+              const pct = data.days.length > 0 ? Math.round((data.completed / data.days.length) * 100) : 0;
+              return `
+                <div class="roadmap-120-topic-card" data-topic="${escapeHtml(topic)}" style="cursor:pointer;" title="Click to filter roadmap by ${escapeHtml(topic)}">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div style="font-size:13.5px; font-weight:700; color:#f8fafc;">${escapeHtml(topic)}</div>
+                    <span class="badge" style="font-size:10px;">${data.completed} / ${data.days.length}d</span>
+                  </div>
+                  <div style="font-size:11.5px; color:var(--text-dim); margin-top:4px;">
+                    Days ${Math.min(...data.days)}–${Math.max(...data.days)} • ${data.problems.size} Curated Problems
+                  </div>
+                  <div class="progress-bar-wrap" style="height:5px; margin-top:10px; background:rgba(255,255,255,0.06);">
+                    <div class="progress-bar-fill" style="width:${pct}%; background:var(--stream-learn-accent);"></div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+
+        <!-- Stream B Foundation Revision Progression Matrix -->
+        <div style="background:var(--bg-elevated); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:18px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+            <div>
+              <h3 style="font-size:15px; font-weight:700; color:var(--stream-topic-accent); margin:0; display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-rotate-left"></i> Stream B: Foundation Revision Topic Progression
+              </h3>
+              <span style="font-size:12px; color:var(--text-dim);">Independent sequential foundation revision from Maths to Advanced Algorithms</span>
+            </div>
+            <span class="badge" style="background:rgba(66,214,197,0.15); color:var(--stream-topic-accent); font-weight:700;">
+              ${streamBTopicsMap.size} Foundation Units
+            </span>
+          </div>
+
+          <div class="roadmap-120-topic-matrix">
+            ${Array.from(streamBTopicsMap.entries()).map(([topic, data]) => {
+              const pct = data.days.length > 0 ? Math.round((data.completed / data.days.length) * 100) : 0;
+              return `
+                <div class="roadmap-120-topic-card" data-topic="${escapeHtml(topic)}" style="cursor:pointer;" title="Click to filter roadmap by ${escapeHtml(topic)}">
+                  <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                    <div style="font-size:13.5px; font-weight:700; color:#f8fafc;">${escapeHtml(topic)}</div>
+                    <span class="badge" style="font-size:10px;">${data.completed} / ${data.days.length}d</span>
+                  </div>
+                  <div style="font-size:11.5px; color:var(--text-dim); margin-top:4px;">
+                    Days ${Math.min(...data.days)}–${Math.max(...data.days)} • ${data.problems.size} Drills
+                  </div>
+                  <div class="progress-bar-wrap" style="height:5px; margin-top:10px; background:rgba(255,255,255,0.06);">
+                    <div class="progress-bar-fill" style="width:${pct}%; background:var(--stream-topic-accent);"></div>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+    container.innerHTML = html;
+  }
+
+  function render120AuditView() {
+    const container = document.getElementById('roadmap-120-content-area');
+    if (!container) return;
+
+    if (!window.RoadmapCurriculumData || !window.RoadmapCurriculumData.TAXONOMY_AUDIT) {
+      container.innerHTML = '<div class="empty-state">Curriculum Audit data unavailable.</div>';
+      return;
+    }
+
+    const summary = window.RoadmapCurriculumData.getTaxonomyCoverageSummary ?
+      window.RoadmapCurriculumData.getTaxonomyCoverageSummary() :
+      { totalPatterns: 100, coreCoveragePct: 87, coreStats: '60 / 69 Core Patterns Covered', importantStats: '25 / 31 Important Patterns Covered', advancedCount: 11, optionalCount: 6, catalogSize: 479 };
+
+    const areas = window.RoadmapCurriculumData.TAXONOMY_AUDIT;
+
+    let html = `
+      <div class="roadmap-120-audit-wrap">
+        <!-- Executive KPI Banner -->
+        <div class="roadmap-120-audit-summary-grid">
+          <div class="roadmap-120-audit-summary-card card-core">
+            <div style="font-size:12px; font-weight:700; color:#a78bfa; text-transform:uppercase; letter-spacing:0.5px;">Core Taxonomy Coverage</div>
+            <div style="font-size:26px; font-weight:800; color:#f8fafc; margin-top:4px;">${summary.coreCoveragePct}%</div>
+            <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">${summary.coreStats}</div>
+            <div class="progress-bar-wrap" style="height:4px; margin-top:8px; background:rgba(255,255,255,0.06);">
+              <div class="progress-bar-fill" style="width:${summary.coreCoveragePct}%; background:#8b7cff;"></div>
+            </div>
+          </div>
+
+          <div class="roadmap-120-audit-summary-card card-important">
+            <div style="font-size:12px; font-weight:700; color:#42d6c5; text-transform:uppercase; letter-spacing:0.5px;">Important Patterns</div>
+            <div style="font-size:26px; font-weight:800; color:#f8fafc; margin-top:4px;">81%</div>
+            <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">${summary.importantStats}</div>
+            <div class="progress-bar-wrap" style="height:4px; margin-top:8px; background:rgba(255,255,255,0.06);">
+              <div class="progress-bar-fill" style="width:81%; background:#42d6c5;"></div>
+            </div>
+          </div>
+
+          <div class="roadmap-120-audit-summary-card card-advanced">
+            <div style="font-size:12px; font-weight:700; color:#f5be65; text-transform:uppercase; letter-spacing:0.5px;">Post-120 Extension</div>
+            <div style="font-size:26px; font-weight:800; color:#f8fafc; margin-top:4px;">${summary.advancedCount + summary.optionalCount}</div>
+            <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">${summary.advancedCount} Advanced • ${summary.optionalCount} Optional Patterns</div>
+          </div>
+
+          <div class="roadmap-120-audit-summary-card card-catalog">
+            <div style="font-size:12px; font-weight:700; color:#34d399; text-transform:uppercase; letter-spacing:0.5px;">Problem Catalog</div>
+            <div style="font-size:26px; font-weight:800; color:#f8fafc; margin-top:4px;">${summary.catalogSize || 479}</div>
+            <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">Master DSA Catalog Mapped to 14 Topics</div>
+          </div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
+          <div>
+            <h3 style="font-size:16px; font-weight:700; color:#f8fafc; margin:0;">
+              <i class="fa-solid fa-clipboard-check" style="color:var(--primary); margin-right:8px;"></i>
+              Curriculum Completeness Audit (Taxonomies A–N)
+            </h3>
+            <span style="font-size:12px; color:var(--text-dim);">Detailed breakdown of all 14 algorithmic domains, pattern classification, catalog problem coverage, and post-120 gaps</span>
+          </div>
+          <span class="badge" style="background:rgba(139,124,255,0.15); color:var(--primary-light); font-weight:700;">
+            14 Algorithmic Taxonomies
+          </span>
+        </div>
+
+        <!-- 14 Areas List -->
+        <div style="display:flex; flex-direction:column; gap:14px;">
+          ${areas.map(area => {
+            const total = area.patterns.length;
+            const core = area.patterns.filter(p => p.tier === 'Core');
+            const coreCovered = core.filter(p => p.catalogCount > 0).length;
+            const corePct = core.length > 0 ? Math.round((coreCovered / core.length) * 100) : 100;
+
+            return `
+              <div class="roadmap-120-audit-area-card" id="audit-area-${escapeHtml(area.code)}">
+                <div class="roadmap-120-audit-area-header">
+                  <div style="display:flex; align-items:center; gap:10px;">
+                    <span class="badge" style="background:rgba(139,124,255,0.2); color:#a78bfa; font-weight:800; font-size:12px;">
+                      Area ${escapeHtml(area.code)}
+                    </span>
+                    <span style="font-size:14.5px; font-weight:700; color:#f8fafc;">
+                      ${escapeHtml(area.area)}
+                    </span>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:12px;">
+                    <span style="font-size:12px; color:var(--text-dim);">
+                      Core: <strong style="color:#34d399;">${coreCovered}/${core.length}</strong> (${corePct}%) • Total: <strong>${total}</strong> patterns
+                    </span>
+                  </div>
+                </div>
+
+                <table class="roadmap-120-audit-patterns-table">
+                  <thead>
+                    <tr>
+                      <th style="width:30%;">Pattern Name</th>
+                      <th style="width:15%;">Tier</th>
+                      <th style="width:15%;">Catalog Problems</th>
+                      <th style="width:20%;">120D Status</th>
+                      <th style="width:20%;">Sample Match</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${area.patterns.map(p => {
+                      const isCovered = p.catalogCount > 0;
+                      const sampleProb = (p.sampleProblemIds && p.sampleProblemIds.length > 0) ? p.sampleProblemIds[0] : 'None';
+                      return `
+                        <tr>
+                          <td style="font-weight:600; color:#f8fafc;">
+                            ${escapeHtml(p.name)}
+                          </td>
+                          <td>
+                            <span class="tier-badge tier-${escapeHtml(p.tier)}">${escapeHtml(p.tier)}</span>
+                          </td>
+                          <td>
+                            <span style="font-weight:700; color:${p.catalogCount > 0 ? '#34d399' : 'var(--text-dim)'};">
+                              ${p.catalogCount} problems
+                            </span>
+                          </td>
+                          <td>
+                            ${isCovered ? `
+                              <span class="coverage-pill covered">
+                                <i class="fa-solid fa-check"></i> Covered in 120D
+                              </span>
+                            ` : `
+                              <span class="coverage-pill gap" title="Identified as gap or post-120 extension pattern">
+                                <i class="fa-solid fa-arrow-up-right-from-square"></i> Post-120 Extension
+                              </span>
+                            `}
+                          </td>
+                          <td style="font-size:11.5px; color:var(--text-dim); font-family:monospace;">
+                            ${escapeHtml(sampleProb)}
+                          </td>
+                        </tr>
+                      `;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    `;
+
+    container.innerHTML = html;
+  }
+
+  // --- 120-DAY ROADMAP MODAL DIALOGS ---
+  function openRoadmapEditModal(dayNum) {
+    const modal = document.getElementById('roadmap-edit-day-modal');
+    if (!modal || !window.RoadmapEngine) return;
+
+    const plan = RoadmapEngine.get120DayRoadmap(userStates);
+    const day = plan.days.find(d => d.dayNumber === dayNum);
+    if (!day) return;
+
+    const seqInput = document.getElementById('edit-day-seq-input');
+    const titleEl = document.getElementById('roadmap-edit-modal-title');
+    const typeSelect = document.getElementById('edit-day-type-select');
+    const bufferReasonInput = document.getElementById('edit-day-buffer-reason');
+
+    const streamATopic = document.getElementById('edit-stream-a-topic');
+    const streamASubtopic = document.getElementById('edit-stream-a-subtopic');
+    const streamATarget = document.getElementById('edit-stream-a-target');
+    const streamAMins = document.getElementById('edit-stream-a-mins');
+    const streamAStatus = document.getElementById('edit-stream-a-status');
+    const streamAObjectives = document.getElementById('edit-stream-a-objectives');
+    const streamAProblems = document.getElementById('edit-stream-a-problems');
+
+    const streamBTopic = document.getElementById('edit-stream-b-topic');
+    const streamBSubtopic = document.getElementById('edit-stream-b-subtopic');
+    const streamBTarget = document.getElementById('edit-stream-b-target');
+    const streamBMins = document.getElementById('edit-stream-b-mins');
+    const streamBStatus = document.getElementById('edit-stream-b-status');
+    const streamBObjectives = document.getElementById('edit-stream-b-objectives');
+    const streamBProblems = document.getElementById('edit-stream-b-problems');
+
+    const notesText = document.getElementById('edit-day-notes');
+
+    if (seqInput) seqInput.value = day.dayNumber;
+    if (titleEl) titleEl.innerHTML = `<i class="fa-solid fa-pen-to-square" style="color:var(--primary); margin-right:8px;"></i> Edit Roadmap Day ${day.dayNumber}`;
+    if (typeSelect) typeSelect.value = day.type || (day.isBufferDay ? 'buffer' : 'learning');
+    if (bufferReasonInput) bufferReasonInput.value = day.bufferReason || '';
+
+    if (streamATopic) streamATopic.value = day.streams?.current_learning?.topic || '';
+    if (streamASubtopic) streamASubtopic.value = day.streams?.current_learning?.subtopic || '';
+    if (streamATarget) streamATarget.value = day.streams?.current_learning?.targetCount || 3;
+    if (streamAMins) streamAMins.value = day.streams?.current_learning?.estimatedMinutes || 60;
+    if (streamAStatus) streamAStatus.value = day.streams?.current_learning?.status || 'pending';
+    if (streamAObjectives) streamAObjectives.value = day.streams?.current_learning?.learningObjectives || '';
+    if (streamAProblems) streamAProblems.value = (day.streams?.current_learning?.problemIds || []).join(', ');
+
+    if (streamBTopic) streamBTopic.value = day.streams?.foundation_revision?.topic || '';
+    if (streamBSubtopic) streamBSubtopic.value = day.streams?.foundation_revision?.subtopic || '';
+    if (streamBTarget) streamBTarget.value = day.streams?.foundation_revision?.targetCount || 2;
+    if (streamBMins) streamBMins.value = day.streams?.foundation_revision?.estimatedMinutes || 35;
+    if (streamBStatus) streamBStatus.value = day.streams?.foundation_revision?.status || 'pending';
+    if (streamBObjectives) streamBObjectives.value = day.streams?.foundation_revision?.revisionObjectives || '';
+    if (streamBProblems) streamBProblems.value = (day.streams?.foundation_revision?.problemIds || []).join(', ');
+
+    if (notesText) notesText.value = day.notes || '';
+
+    modal.classList.add('open');
+  }
+
+  function closeRoadmapEditModal() {
+    document.getElementById('roadmap-edit-day-modal')?.classList.remove('open');
+  }
+
+  function saveRoadmapEditModal() {
+    if (!window.RoadmapEngine) return;
+    const dayNum = parseInt(document.getElementById('edit-day-seq-input')?.value, 10);
+    if (!dayNum) return;
+
+    const type = document.getElementById('edit-day-type-select')?.value || 'learning';
+    const bufferReason = document.getElementById('edit-day-buffer-reason')?.value || '';
+    const notes = document.getElementById('edit-day-notes')?.value || '';
+
+    const streamAProbStr = document.getElementById('edit-stream-a-problems')?.value || '';
+    const streamAProblems = streamAProbStr.split(',').map(s => s.trim()).filter(Boolean);
+
+    const streamBProbStr = document.getElementById('edit-stream-b-problems')?.value || '';
+    const streamBProblems = streamBProbStr.split(',').map(s => s.trim()).filter(Boolean);
+
+    const updates = {
+      type: type,
+      isBufferDay: type === 'buffer',
+      bufferReason: bufferReason,
+      notes: notes,
+      streams: {
+        current_learning: {
+          topic: document.getElementById('edit-stream-a-topic')?.value || '',
+          subtopic: document.getElementById('edit-stream-a-subtopic')?.value || '',
+          targetCount: parseInt(document.getElementById('edit-stream-a-target')?.value, 10) || 3,
+          estimatedMinutes: parseInt(document.getElementById('edit-stream-a-mins')?.value, 10) || 60,
+          status: document.getElementById('edit-stream-a-status')?.value || 'pending',
+          learningObjectives: document.getElementById('edit-stream-a-objectives')?.value || '',
+          problemIds: streamAProblems
+        },
+        foundation_revision: {
+          topic: document.getElementById('edit-stream-b-topic')?.value || '',
+          subtopic: document.getElementById('edit-stream-b-subtopic')?.value || '',
+          targetCount: parseInt(document.getElementById('edit-stream-b-target')?.value, 10) || 2,
+          estimatedMinutes: parseInt(document.getElementById('edit-stream-b-mins')?.value, 10) || 35,
+          status: document.getElementById('edit-stream-b-status')?.value || 'pending',
+          revisionObjectives: document.getElementById('edit-stream-b-objectives')?.value || '',
+          problemIds: streamBProblems
+        }
+      }
+    };
+
+    RoadmapEngine.editDay(dayNum, updates);
+    closeRoadmapEditModal();
+    renderRoadmapView();
+  }
+
+  function openRoadmapInsertModal(targetDayNum) {
+    const modal = document.getElementById('roadmap-insert-day-modal');
+    if (!modal) return;
+    const targetInput = document.getElementById('insert-day-target-num');
+    if (targetInput) targetInput.value = targetDayNum || 1;
+    modal.classList.add('open');
+  }
+
+  function closeRoadmapInsertModal() {
+    document.getElementById('roadmap-insert-day-modal')?.classList.remove('open');
+  }
+
+  function saveRoadmapInsertModal() {
+    if (!window.RoadmapEngine) return;
+    const relation = document.getElementById('insert-day-relation')?.value || 'after';
+    const targetNum = parseInt(document.getElementById('insert-day-target-num')?.value, 10) || 1;
+    const reason = document.getElementById('insert-day-reason')?.value || 'Flex Buffer Day';
+    const notes = document.getElementById('insert-day-notes')?.value || '';
+
+    const afterDayNumber = relation === 'after' ? targetNum : Math.max(0, targetNum - 1);
+    RoadmapEngine.insertDay(afterDayNumber, { bufferReason: reason, notes: notes });
+    closeRoadmapInsertModal();
+    renderRoadmapView();
+  }
+
+  function openRoadmapShiftModal(fromDayNum) {
+    const modal = document.getElementById('roadmap-shift-modal');
+    if (!modal) return;
+    const fromInput = document.getElementById('shift-from-day-input');
+    if (fromInput) fromInput.value = fromDayNum || 1;
+    modal.classList.add('open');
+  }
+
+  function closeRoadmapShiftModal() {
+    document.getElementById('roadmap-shift-modal')?.classList.remove('open');
+  }
+
+  function saveRoadmapShiftModal() {
+    if (!window.RoadmapEngine) return;
+    const fromDay = parseInt(document.getElementById('shift-from-day-input')?.value, 10) || 1;
+    const count = parseInt(document.getElementById('shift-count-input')?.value, 10) || 1;
+    const mode = document.getElementById('shift-stream-mode')?.value || 'both';
+    const reason = document.getElementById('shift-reason-input')?.value || 'Schedule shift';
+
+    RoadmapEngine.shiftRoadmap(fromDay, count, { stream: mode, reason: reason });
+    closeRoadmapShiftModal();
+    renderRoadmapView();
+  }
+
+  function openRoadmapCondenseModal(fromDayNum) {
+    const modal = document.getElementById('roadmap-condense-modal');
+    if (!modal) return;
+    const fromInput = document.getElementById('condense-from-day');
+    if (fromInput) fromInput.value = fromDayNum || 1;
+    const previewBox = document.getElementById('condense-preview-results');
+    if (previewBox) previewBox.style.display = 'none';
+    modal.classList.add('open');
+  }
+
+  function closeRoadmapCondenseModal() {
+    document.getElementById('roadmap-condense-modal')?.classList.remove('open');
+  }
+
+  function previewRoadmapCondense() {
+    if (!window.RoadmapEngine) return;
+    const fromDay = parseInt(document.getElementById('condense-from-day')?.value, 10) || 1;
+    const dailyMinutes = parseInt(document.getElementById('condense-daily-minutes')?.value, 10) || 120;
+    const weeklyDays = parseInt(document.getElementById('condense-weekly-days')?.value, 10) || 5;
+    const targetDate = document.getElementById('condense-target-date')?.value || null;
+    const reduceTargets = document.getElementById('condense-reduce-targets')?.checked ?? true;
+
+    const result = RoadmapEngine.condenseRoadmap({
+      fromDay,
+      dailyMinutes,
+      weeklyDays,
+      targetDate,
+      reduceTargets,
+      dryRun: true
+    });
+
+    const previewBox = document.getElementById('condense-preview-results');
+    if (!previewBox) return;
+
+    previewBox.style.display = 'block';
+    previewBox.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span style="font-size:13px; font-weight:700; color:#f8fafc;">Feasibility Assessment:</span>
+        <span class="badge" style="background:${result.feasibility.isFeasible ? 'rgba(52,211,153,0.2)' : 'rgba(239,68,68,0.2)'}; color:${result.feasibility.isFeasible ? '#34d399' : '#f87171'}; border:1px solid ${result.feasibility.isFeasible ? 'rgba(52,211,153,0.4)' : 'rgba(239,68,68,0.4)'}; font-weight:700;">
+          <i class="fa-solid ${result.feasibility.isFeasible ? 'fa-circle-check' : 'fa-triangle-exclamation'}"></i> ${result.feasibility.status}
+        </span>
+      </div>
+      <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px; line-height:1.4;">
+        ${escapeHtml(result.feasibility.reason)}
+      </p>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px; background:rgba(0,0,0,0.25); padding:8px; border-radius:var(--radius-sm);">
+        <div><strong>Initial Remaining Days:</strong> ${result.before.totalDays - fromDay + 1}</div>
+        <div><strong>Recalculated Days:</strong> ${result.after.totalDays - fromDay + 1}</div>
+        <div><strong>Original Plan Length:</strong> ${result.before.totalDays} Days</div>
+        <div><strong>Condensed Plan Length:</strong> ${result.after.totalDays} Days</div>
+      </div>
+      ${result.feasibility.recommendation ? `
+        <div style="margin-top:8px; font-size:11.5px; color:#f59e0b;">
+          <i class="fa-solid fa-lightbulb"></i> <strong>Trade-off:</strong> ${escapeHtml(result.feasibility.recommendation)}
+        </div>
+      ` : ''}
+    `;
+  }
+
+  function saveRoadmapCondenseModal() {
+    if (!window.RoadmapEngine) return;
+    const fromDay = parseInt(document.getElementById('condense-from-day')?.value, 10) || 1;
+    const dailyMinutes = parseInt(document.getElementById('condense-daily-minutes')?.value, 10) || 120;
+    const weeklyDays = parseInt(document.getElementById('condense-weekly-days')?.value, 10) || 5;
+    const targetDate = document.getElementById('condense-target-date')?.value || null;
+    const reduceTargets = document.getElementById('condense-reduce-targets')?.checked ?? true;
+
+    RoadmapEngine.condenseRoadmap({
+      fromDay,
+      dailyMinutes,
+      weeklyDays,
+      targetDate,
+      reduceTargets,
+      dryRun: false
+    });
+
+    closeRoadmapCondenseModal();
+    renderRoadmapView();
+  }
+
+  function openRoadmapHistoryModal() {
+    const modal = document.getElementById('roadmap-history-modal');
+    if (!modal || !window.RoadmapEngine) return;
+
+    const history = RoadmapEngine.getChangeHistory();
+    const listEl = document.getElementById('roadmap-history-list');
+    if (listEl) {
+      if (history.length === 0) {
+        listEl.innerHTML = `
+          <div style="text-align:center; padding:24px; color:var(--text-dim); font-size:13px;">
+            <i class="fa-solid fa-clock-rotate-left" style="font-size:24px; margin-bottom:8px; opacity:0.5;"></i>
+            <div>No roadmap plan edits recorded yet.</div>
+          </div>
+        `;
+      } else {
+        listEl.innerHTML = history.slice().reverse().map((item, idx) => `
+          <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(0,0,0,0.25); border:1px solid var(--border-color); border-radius:var(--radius-sm); padding:10px 12px;">
+            <div>
+              <div style="font-size:13px; font-weight:700; color:#f8fafc;">
+                ${escapeHtml(item.description)}
+              </div>
+              <div style="font-size:11px; color:var(--text-dim); margin-top:2px;">
+                <span class="badge" style="font-size:9.5px; padding:1px 5px;">${escapeHtml(item.actionType)}</span>
+                <span style="margin-left:6px;">${new Date(item.timestamp).toLocaleString()}</span>
+              </div>
+            </div>
+            ${idx === 0 ? `
+              <button type="button" class="btn btn-secondary btn-sm" id="btn-history-inline-undo" style="font-size:11px; padding:4px 8px;">
+                <i class="fa-solid fa-rotate-left"></i> Revert
+              </button>
+            ` : ''}
+          </div>
+        `).join('');
+
+        document.getElementById('btn-history-inline-undo')?.addEventListener('click', () => {
+          RoadmapEngine.undoLastAction();
+          openRoadmapHistoryModal();
           renderRoadmapView();
         });
-        daysPillsContainer.appendChild(pill);
-      });
+      }
     }
 
-    // 4. Render Active Day Practice & Weekend Test Workspace
-    renderActiveDayContent(activeTrack, currentWeek, currentDay);
+    modal.classList.add('open');
+  }
+
+  function closeRoadmapHistoryModal() {
+    document.getElementById('roadmap-history-modal')?.classList.remove('open');
   }
 
   function renderActiveDayContent(activeTrack, currentWeek, currentDay) {
@@ -3954,10 +4899,20 @@
 
     // Update Primary Navigation active states and ARIA
     document.querySelectorAll('.nav-item').forEach(n => {
-      const isMatch = n.getAttribute('data-view') === destination;
+      const viewAttr = n.getAttribute('data-view');
+      const isMatch = (viewAttr === destination && cleanKey !== 'roadmap');
       n.classList.toggle('active', isMatch);
       n.setAttribute('aria-selected', isMatch ? 'true' : 'false');
     });
+
+    const roadmapBtn = document.getElementById('nav-item-roadmap');
+    if (roadmapBtn) {
+      const isRoadmapActive = (cleanKey === 'roadmap' || (destination === 'progress' && subtab === 'roadmap'));
+      roadmapBtn.classList.toggle('active', isRoadmapActive);
+      roadmapBtn.style.background = isRoadmapActive ? 'rgba(139, 124, 255, 0.28)' : 'rgba(139, 124, 255, 0.12)';
+      roadmapBtn.style.borderColor = isRoadmapActive ? 'var(--primary)' : 'rgba(139, 124, 255, 0.35)';
+      roadmapBtn.style.boxShadow = isRoadmapActive ? '0 0 12px rgba(139, 124, 255, 0.25)' : 'none';
+    }
 
     // Update Primary View Sections
     document.querySelectorAll('.view-section').forEach(v => {
@@ -3991,18 +4946,26 @@
     // Update document title for accessibility & context
     const titles = {
       dashboard: 'Dashboard | AlgoRecall 2.0',
+      roadmap: '120-Day DSA Roadmap & Study Planner | AlgoRecall 2.0',
       practice: 'Practice & Patterns | AlgoRecall 2.0',
       revision: 'Spaced Revision & Retention | AlgoRecall 2.0',
       progress: 'Readiness & Analytics | AlgoRecall 2.0',
       settings: 'Settings & Data Hub | AlgoRecall 2.0'
     };
-    if (titles[destination] && typeof document !== 'undefined') {
+    if (subtab === 'roadmap' || cleanKey === 'roadmap') {
+      document.title = titles.roadmap;
+    } else if (titles[destination] && typeof document !== 'undefined') {
       document.title = titles[destination];
     }
   }
 
   function switchSubView(parentView, targetSubtab) {
     if (!parentView || !targetSubtab) return;
+
+    if (parentView === 'practice' && targetSubtab === 'roadmap') {
+      switchView('roadmap');
+      return;
+    }
 
     // Update Subtab buttons
     document.querySelectorAll(`.view-subtab-btn[data-parent-view="${parentView}"]`).forEach(btn => {
@@ -5205,6 +6168,20 @@
       document.querySelector('[data-view="revision"]')?.click();
     });
 
+    // 120-Day Roadmap Quick Access buttons
+    document.getElementById('btn-header-roadmap')?.addEventListener('click', () => {
+      switchView('roadmap');
+    });
+    document.getElementById('btn-dashboard-view-roadmap')?.addEventListener('click', () => {
+      switchView('roadmap');
+    });
+    document.getElementById('btn-practice-subtab-roadmap')?.addEventListener('click', () => {
+      switchView('roadmap');
+    });
+    document.getElementById('nav-item-roadmap')?.addEventListener('click', () => {
+      switchView('roadmap');
+    });
+
     // Global Search & Filters
     const searchInput = document.getElementById('global-search-input');
     searchInput?.addEventListener('input', renderProblemsTable);
@@ -5932,6 +6909,275 @@
       RoadmapEngine.saveCustomDayMixedWorkout(track, week, day, problemIds, selectedTopics);
       switchTopicModal?.classList.remove('open');
       renderRoadmapView();
+    });
+
+    // --- 120-DAY ROADMAP EVENT LISTENERS ---
+    // A. View Navigation Tabs
+    document.querySelectorAll('.roadmap-120-view-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeRoadmap120View = btn.dataset.roadmapView || 'list';
+        renderRoadmapView();
+      });
+    });
+
+    // B. Filter Pills
+    document.querySelectorAll('.roadmap-120-filter-pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        activeRoadmap120Filter = pill.dataset.filter || 'all';
+        renderRoadmapView();
+      });
+    });
+
+    // C. Search Input
+    document.getElementById('roadmap-120-search-input')?.addEventListener('input', (e) => {
+      roadmap120SearchQuery = e.target.value;
+      renderRoadmapView();
+    });
+
+    // D. Global Action Toolbar Buttons
+    const onInsertDay = () => openRoadmapInsertModal(1);
+    document.getElementById('btn-roadmap-insert-day')?.addEventListener('click', onInsertDay);
+    document.getElementById('btn-roadmap-insert-buffer')?.addEventListener('click', onInsertDay);
+
+    document.getElementById('btn-roadmap-shift')?.addEventListener('click', () => {
+      openRoadmapShiftModal(1);
+    });
+
+    document.getElementById('btn-roadmap-condense')?.addEventListener('click', () => {
+      openRoadmapCondenseModal(1);
+    });
+
+    document.getElementById('btn-roadmap-extend')?.addEventListener('click', () => {
+      if (!window.RoadmapEngine) return;
+      const daysStr = prompt('Enter number of days to extend roadmap (e.g. 7, 14, 30):', '14');
+      if (daysStr) {
+        const count = parseInt(daysStr, 10);
+        if (!isNaN(count) && count > 0) {
+          RoadmapEngine.extendRoadmap(count);
+          renderRoadmapView();
+        }
+      }
+    });
+
+    document.getElementById('btn-roadmap-undo')?.addEventListener('click', () => {
+      if (!window.RoadmapEngine) return;
+      const res = RoadmapEngine.undoLastAction();
+      if (res && res.success) {
+        renderRoadmapView();
+      } else {
+        alert(res?.message || 'Nothing to undo.');
+      }
+    });
+
+    document.getElementById('btn-roadmap-history')?.addEventListener('click', () => {
+      openRoadmapHistoryModal();
+    });
+
+    const onRestoreDefault = () => {
+      if (!window.RoadmapEngine) return;
+      if (confirm('Are you sure you want to restore the default 120-day roadmap? Custom edits will be reset, but solved history will be preserved.')) {
+        RoadmapEngine.restoreDefaultRoadmap();
+        renderRoadmapView();
+      }
+    };
+    document.getElementById('btn-roadmap-restore')?.addEventListener('click', onRestoreDefault);
+    document.getElementById('btn-roadmap-reset-default')?.addEventListener('click', onRestoreDefault);
+
+    // E. Bulk Action Bar Handlers
+    document.getElementById('btn-bulk-deselect')?.addEventListener('click', () => {
+      selectedRoadmap120Days.clear();
+      renderRoadmapView();
+    });
+
+    document.getElementById('btn-bulk-shift')?.addEventListener('click', () => {
+      if (selectedRoadmap120Days.size === 0) return;
+      const minDay = Math.min(...Array.from(selectedRoadmap120Days));
+      openRoadmapShiftModal(minDay);
+    });
+
+    document.getElementById('btn-bulk-condense')?.addEventListener('click', () => {
+      if (selectedRoadmap120Days.size === 0) return;
+      const minDay = Math.min(...Array.from(selectedRoadmap120Days));
+      openRoadmapCondenseModal(minDay);
+    });
+
+    document.getElementById('btn-bulk-defer')?.addEventListener('click', () => {
+      if (!window.RoadmapEngine || selectedRoadmap120Days.size === 0) return;
+      selectedRoadmap120Days.forEach(dayNum => {
+        RoadmapEngine.deferTask(dayNum, 'current_learning');
+        RoadmapEngine.deferTask(dayNum, 'foundation_revision');
+      });
+      selectedRoadmap120Days.clear();
+      renderRoadmapView();
+    });
+
+    // F. Modal Dialog Buttons (Close, Save, Preview)
+    document.getElementById('btn-close-roadmap-edit-modal')?.addEventListener('click', closeRoadmapEditModal);
+    document.getElementById('btn-cancel-roadmap-edit')?.addEventListener('click', closeRoadmapEditModal);
+    document.getElementById('btn-save-roadmap-edit')?.addEventListener('click', saveRoadmapEditModal);
+
+    document.getElementById('btn-close-insert-modal')?.addEventListener('click', closeRoadmapInsertModal);
+    document.getElementById('btn-cancel-insert-day')?.addEventListener('click', closeRoadmapInsertModal);
+    document.getElementById('btn-confirm-insert-day')?.addEventListener('click', saveRoadmapInsertModal);
+
+    document.getElementById('btn-close-shift-modal')?.addEventListener('click', closeRoadmapShiftModal);
+    document.getElementById('btn-cancel-shift')?.addEventListener('click', closeRoadmapShiftModal);
+    document.getElementById('btn-confirm-shift')?.addEventListener('click', saveRoadmapShiftModal);
+
+    document.getElementById('btn-close-condense-modal')?.addEventListener('click', closeRoadmapCondenseModal);
+    document.getElementById('btn-cancel-condense')?.addEventListener('click', closeRoadmapCondenseModal);
+    document.getElementById('btn-run-condense-preview')?.addEventListener('click', previewRoadmapCondense);
+    document.getElementById('btn-confirm-condense')?.addEventListener('click', saveRoadmapCondenseModal);
+
+    document.getElementById('btn-close-history-modal')?.addEventListener('click', closeRoadmapHistoryModal);
+    document.getElementById('btn-close-history-footer')?.addEventListener('click', closeRoadmapHistoryModal);
+    document.getElementById('btn-history-undo')?.addEventListener('click', () => {
+      if (!window.RoadmapEngine) return;
+      RoadmapEngine.undoLastAction();
+      openRoadmapHistoryModal();
+      renderRoadmapView();
+    });
+
+    // G. Dynamic Event Delegation for 120-Day Content Area
+    document.getElementById('roadmap-120-content-area')?.addEventListener('click', (e) => {
+      // 1. Checkbox click for bulk selection
+      const chk = e.target.closest('.roadmap-120-day-checkbox');
+      if (chk) {
+        const dayNum = parseInt(chk.dataset.day, 10);
+        if (chk.checked) {
+          selectedRoadmap120Days.add(dayNum);
+        } else {
+          selectedRoadmap120Days.delete(dayNum);
+        }
+        const bulkBarEl = document.getElementById('roadmap-120-bulk-bar');
+        const bulkCountEl = document.getElementById('roadmap-120-bulk-count');
+        if (bulkBarEl && bulkCountEl) {
+          if (selectedRoadmap120Days.size > 0) {
+            bulkBarEl.style.display = 'flex';
+            bulkCountEl.textContent = `${selectedRoadmap120Days.size} Days Selected`;
+          } else {
+            bulkBarEl.style.display = 'none';
+          }
+        }
+        return;
+      }
+
+      // 2. Toggle Day Completed
+      const toggleCompleteBtn = e.target.closest('.btn-roadmap-toggle-complete');
+      if (toggleCompleteBtn) {
+        const dayNum = parseInt(toggleCompleteBtn.dataset.day, 10);
+        if (window.RoadmapEngine) {
+          const plan = RoadmapEngine.get120DayRoadmap(userStates);
+          const day = plan.days.find(d => d.dayNumber === dayNum);
+          if (day) {
+            RoadmapEngine.editDay(dayNum, { isCompleted: !day.isCompleted });
+            renderRoadmapView();
+            renderDashboard();
+          }
+        }
+        return;
+      }
+
+      // 3. Edit Day
+      const editDayBtn = e.target.closest('.btn-roadmap-edit-day');
+      if (editDayBtn) {
+        const dayNum = parseInt(editDayBtn.dataset.day, 10);
+        openRoadmapEditModal(dayNum);
+        return;
+      }
+
+      // 4. Insert Blank Buffer Day After
+      const insertAfterBtn = e.target.closest('.btn-roadmap-insert-after');
+      if (insertAfterBtn) {
+        const dayNum = parseInt(insertAfterBtn.dataset.day, 10);
+        openRoadmapInsertModal(dayNum);
+        return;
+      }
+
+      // 5. Split Day Workload
+      const splitBtn = e.target.closest('.btn-roadmap-split-day');
+      if (splitBtn) {
+        const dayNum = parseInt(splitBtn.dataset.day, 10);
+        if (window.RoadmapEngine) {
+          RoadmapEngine.splitDay(dayNum);
+          renderRoadmapView();
+        }
+        return;
+      }
+
+      // 6. Shift From Day
+      const shiftFromBtn = e.target.closest('.btn-roadmap-shift-from');
+      if (shiftFromBtn) {
+        const dayNum = parseInt(shiftFromBtn.dataset.day, 10);
+        openRoadmapShiftModal(dayNum);
+        return;
+      }
+
+      // 7. Move Day Up / Down
+      const moveDayBtn = e.target.closest('.btn-roadmap-move-day');
+      if (moveDayBtn) {
+        const dayNum = parseInt(moveDayBtn.dataset.day, 10);
+        const dir = moveDayBtn.dataset.dir;
+        const targetDay = dir === 'up' ? dayNum - 1 : dayNum + 1;
+        if (window.RoadmapEngine && targetDay >= 1) {
+          RoadmapEngine.moveDay(dayNum, targetDay);
+          renderRoadmapView();
+        }
+        return;
+      }
+
+      // 8. Skip Task (Prompt reason and audit without marking mastered)
+      const skipBtn = e.target.closest('.btn-task-skip');
+      if (skipBtn) {
+        const dayNum = parseInt(skipBtn.dataset.day, 10);
+        const stream = skipBtn.dataset.stream;
+        const reason = prompt('Reason for skipping this task (will be logged in audit history, does NOT mark as mastered):', 'Already proficient');
+        if (reason !== null && window.RoadmapEngine) {
+          RoadmapEngine.skipTask(dayNum, stream, reason);
+          renderRoadmapView();
+        }
+        return;
+      }
+
+      // 9. Defer Task
+      const deferBtn = e.target.closest('.btn-task-defer');
+      if (deferBtn) {
+        const dayNum = parseInt(deferBtn.dataset.day, 10);
+        const stream = deferBtn.dataset.stream;
+        if (window.RoadmapEngine) {
+          RoadmapEngine.deferTask(dayNum, stream);
+          renderRoadmapView();
+        }
+        return;
+      }
+
+      // 10. Replace / Edit Task
+      const replaceBtn = e.target.closest('.btn-task-replace');
+      if (replaceBtn) {
+        const dayNum = parseInt(replaceBtn.dataset.day, 10);
+        openRoadmapEditModal(dayNum);
+        return;
+      }
+
+      // 11. Calendar Day Cell Click
+      const calCell = e.target.closest('.calendar-day-cell');
+      if (calCell) {
+        const dayNum = parseInt(calCell.dataset.day, 10);
+        openRoadmapEditModal(dayNum);
+        return;
+      }
+
+      // 12. Topic Progression Card Click
+      const topicCard = e.target.closest('.roadmap-120-topic-card');
+      if (topicCard) {
+        const topic = topicCard.dataset.topic;
+        activeRoadmap120View = 'list';
+        roadmap120SearchQuery = topic;
+        const searchInput = document.getElementById('roadmap-120-search-input');
+        if (searchInput) searchInput.value = topic;
+        renderRoadmapView();
+        return;
+      }
     });
 
     // 3. Delegate Dynamic Roadmap Actions (Open Modal, Toggle Done, Defer Rollover, Weekend Exam/Flashcards)
