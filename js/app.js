@@ -3640,7 +3640,13 @@
                   <span class="stream-box-title" style="color:var(--stream-learn-accent);">
                     <i class="fa-solid fa-book-open"></i> Stream A: Learn
                   </span>
-                  <span style="font-size:11px; color:var(--text-dim);">~${d.streams?.current_learning?.estimatedMinutes || 60}m</span>
+                  <div style="display:inline-flex; align-items:center; gap:6px;">
+                    <span style="font-size:11px; color:var(--text-dim);">~${d.streams?.current_learning?.estimatedMinutes || 60}m</span>
+                    <div class="quick-topic-shift-btns" title="Adjust '${escapeHtml(d.streams?.current_learning?.topic || '')}' topic order in roadmap">
+                      <button type="button" class="btn-quick-topic-shift" data-stream="current_learning" data-topic="${escapeHtml(d.streams?.current_learning?.topic || '')}" data-dir="up" title="Move Topic Up">▲</button>
+                      <button type="button" class="btn-quick-topic-shift" data-stream="current_learning" data-topic="${escapeHtml(d.streams?.current_learning?.topic || '')}" data-dir="down" title="Move Topic Down">▼</button>
+                    </div>
+                  </div>
                 </div>
                 <div style="font-size:14px; font-weight:700; color:#f8fafc; margin-top:4px;">
                   ${escapeHtml(d.streams?.current_learning?.topic || 'General DSA')}
@@ -3685,7 +3691,13 @@
                   <span class="stream-box-title" style="color:var(--stream-topic-accent);">
                     <i class="fa-solid fa-rotate-left"></i> Stream B: Revision
                   </span>
-                  <span style="font-size:11px; color:var(--text-dim);">~${d.streams?.foundation_revision?.estimatedMinutes || 35}m</span>
+                  <div style="display:inline-flex; align-items:center; gap:6px;">
+                    <span style="font-size:11px; color:var(--text-dim);">~${d.streams?.foundation_revision?.estimatedMinutes || 35}m</span>
+                    <div class="quick-topic-shift-btns" title="Adjust '${escapeHtml(d.streams?.foundation_revision?.topic || '')}' topic order in roadmap">
+                      <button type="button" class="btn-quick-topic-shift" data-stream="foundation_revision" data-topic="${escapeHtml(d.streams?.foundation_revision?.topic || '')}" data-dir="up" title="Move Topic Up">▲</button>
+                      <button type="button" class="btn-quick-topic-shift" data-stream="foundation_revision" data-topic="${escapeHtml(d.streams?.foundation_revision?.topic || '')}" data-dir="down" title="Move Topic Down">▼</button>
+                    </div>
+                  </div>
                 </div>
                 <div style="font-size:14px; font-weight:700; color:#f8fafc; margin-top:4px;">
                   ${escapeHtml(d.streams?.foundation_revision?.topic || 'Maths')}
@@ -3844,65 +3856,61 @@
     const container = document.getElementById('roadmap-120-content-area');
     if (!container) return;
 
-    // Group days by Stream A topics and Stream B topics
-    const streamATopicsMap = new Map();
-    const streamBTopicsMap = new Map();
-
-    plan120.days.forEach(d => {
-      if (d.isBufferDay) return;
-      if (d.streams?.current_learning?.topic) {
-        const t = d.streams.current_learning.topic;
-        if (!streamATopicsMap.has(t)) {
-          streamATopicsMap.set(t, { days: [], completed: 0, problems: new Set() });
-        }
-        const data = streamATopicsMap.get(t);
-        data.days.push(d.dayNumber);
-        if (d.isCompleted) data.completed++;
-        (d.streams.current_learning.problemIds || []).forEach(pid => data.problems.add(pid));
-      }
-
-      if (d.streams?.foundation_revision?.topic) {
-        const t = d.streams.foundation_revision.topic;
-        if (!streamBTopicsMap.has(t)) {
-          streamBTopicsMap.set(t, { days: [], completed: 0, problems: new Set() });
-        }
-        const data = streamBTopicsMap.get(t);
-        data.days.push(d.dayNumber);
-        if (d.isCompleted) data.completed++;
-        (d.streams.foundation_revision.problemIds || []).forEach(pid => data.problems.add(pid));
-      }
-    });
+    const streamATopicsList = window.RoadmapEngine ? RoadmapEngine.getTopicsList('current_learning') : [];
+    const streamBTopicsList = window.RoadmapEngine ? RoadmapEngine.getTopicsList('foundation_revision') : [];
 
     let html = `
       <div style="margin-top:16px; display:flex; flex-direction:column; gap:20px;">
         <!-- Stream A Topic Progression Matrix -->
         <div style="background:var(--bg-elevated); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:18px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
             <div>
               <h3 style="font-size:15px; font-weight:700; color:var(--stream-learn-accent); margin:0; display:flex; align-items:center; gap:8px;">
                 <i class="fa-solid fa-book-open"></i> Stream A: Current Learning Topic Progression
               </h3>
-              <span style="font-size:12px; color:var(--text-dim);">Sequential advance from Graphs through DP and FAANG interview preparation</span>
+              <span style="font-size:12px; color:var(--text-dim);">Sequential topic advance. Adjust topics up/down or drag cards to customize your study path.</span>
             </div>
-            <span class="badge" style="background:rgba(139,124,255,0.15); color:var(--stream-learn-accent); font-weight:700;">
-              ${streamATopicsMap.size} Topic Modules
-            </span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm btn-open-topic-reorder-modal" data-stream="current_learning">
+                <i class="fa-solid fa-arrows-up-down"></i> Adjust Stream A Topics
+              </button>
+              <span class="badge" style="background:rgba(139,124,255,0.15); color:var(--stream-learn-accent); font-weight:700;">
+                ${streamATopicsList.length} Topic Modules
+              </span>
+            </div>
           </div>
 
-          <div class="roadmap-120-topic-matrix">
-            ${Array.from(streamATopicsMap.entries()).map(([topic, data]) => {
-              const pct = data.days.length > 0 ? Math.round((data.completed / data.days.length) * 100) : 0;
+          <div class="roadmap-120-topic-matrix" id="topic-matrix-stream-a">
+            ${streamATopicsList.map((item, idx) => {
+              const pct = item.dayCount > 0 ? Math.round((item.completedCount / item.dayCount) * 100) : 0;
+              const isFirst = idx === 0;
+              const isLast = idx === streamATopicsList.length - 1;
               return `
-                <div class="roadmap-120-topic-card" data-topic="${escapeHtml(topic)}" style="cursor:pointer;" title="Click to filter roadmap by ${escapeHtml(topic)}">
+                <div class="roadmap-120-topic-card" data-stream="current_learning" data-topic="${escapeHtml(item.topic)}" data-index="${idx}" draggable="true" title="Click to filter day list, or use arrows to adjust order">
                   <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <div style="font-size:13.5px; font-weight:700; color:#f8fafc;">${escapeHtml(topic)}</div>
-                    <span class="badge" style="font-size:10px;">${data.completed} / ${data.days.length}d</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span class="topic-order-badge">#${item.order}</span>
+                      <div style="font-size:14px; font-weight:700; color:#f8fafc;">${escapeHtml(item.topic)}</div>
+                    </div>
+                    <div class="topic-adjust-btn-group">
+                      <button type="button" class="btn-topic-move" data-stream="current_learning" data-topic="${escapeHtml(item.topic)}" data-dir="up" ${isFirst ? 'disabled' : ''} title="Move '${escapeHtml(item.topic)}' Up in Roadmap">
+                        ▲ Up
+                      </button>
+                      <button type="button" class="btn-topic-move" data-stream="current_learning" data-topic="${escapeHtml(item.topic)}" data-dir="down" ${isLast ? 'disabled' : ''} title="Move '${escapeHtml(item.topic)}' Down in Roadmap">
+                        ▼ Down
+                      </button>
+                      <span class="topic-drag-handle" title="Drag to reorder topic" style="cursor:grab; font-size:16px; color:var(--text-dim); padding:0 4px;">⋮⋮</span>
+                    </div>
                   </div>
-                  <div style="font-size:11.5px; color:var(--text-dim); margin-top:4px;">
-                    Days ${Math.min(...data.days)}–${Math.max(...data.days)} • ${data.problems.size} Curated Problems
+                  <div style="font-size:12px; color:var(--text-dim); margin-top:4px;">
+                    Days ${item.startDay}–${item.endDay} (${item.dayCount} Days) • ${item.problemCount} Curated Problems
                   </div>
                   <div class="progress-bar-wrap" style="height:5px; margin-top:10px; background:rgba(255,255,255,0.06);">
                     <div class="progress-bar-fill" style="width:${pct}%; background:var(--stream-learn-accent);"></div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:var(--text-muted);">
+                    <span>${item.completedCount} / ${item.dayCount} Days Completed</span>
+                    <span style="color:var(--stream-learn-accent); font-weight:600;"><i class="fa-solid fa-filter"></i> Filter Days</span>
                   </div>
                 </div>
               `;
@@ -3912,32 +3920,54 @@
 
         <!-- Stream B Foundation Revision Progression Matrix -->
         <div style="background:var(--bg-elevated); border:1px solid var(--border-color); border-radius:var(--radius-lg); padding:18px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
             <div>
               <h3 style="font-size:15px; font-weight:700; color:var(--stream-topic-accent); margin:0; display:flex; align-items:center; gap:8px;">
                 <i class="fa-solid fa-rotate-left"></i> Stream B: Foundation Revision Topic Progression
               </h3>
-              <span style="font-size:12px; color:var(--text-dim);">Independent sequential foundation revision from Maths to Advanced Algorithms</span>
+              <span style="font-size:12px; color:var(--text-dim);">Independent foundation revision drills. Customize sequence to align with your weak spots.</span>
             </div>
-            <span class="badge" style="background:rgba(66,214,197,0.15); color:var(--stream-topic-accent); font-weight:700;">
-              ${streamBTopicsMap.size} Foundation Units
-            </span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button type="button" class="btn btn-secondary btn-sm btn-open-topic-reorder-modal" data-stream="foundation_revision">
+                <i class="fa-solid fa-arrows-up-down"></i> Adjust Stream B Topics
+              </button>
+              <span class="badge" style="background:rgba(66,214,197,0.15); color:var(--stream-topic-accent); font-weight:700;">
+                ${streamBTopicsList.length} Foundation Units
+              </span>
+            </div>
           </div>
 
-          <div class="roadmap-120-topic-matrix">
-            ${Array.from(streamBTopicsMap.entries()).map(([topic, data]) => {
-              const pct = data.days.length > 0 ? Math.round((data.completed / data.days.length) * 100) : 0;
+          <div class="roadmap-120-topic-matrix" id="topic-matrix-stream-b">
+            ${streamBTopicsList.map((item, idx) => {
+              const pct = item.dayCount > 0 ? Math.round((item.completedCount / item.dayCount) * 100) : 0;
+              const isFirst = idx === 0;
+              const isLast = idx === streamBTopicsList.length - 1;
               return `
-                <div class="roadmap-120-topic-card" data-topic="${escapeHtml(topic)}" style="cursor:pointer;" title="Click to filter roadmap by ${escapeHtml(topic)}">
+                <div class="roadmap-120-topic-card" data-stream="foundation_revision" data-topic="${escapeHtml(item.topic)}" data-index="${idx}" draggable="true" title="Click to filter day list, or use arrows to adjust order">
                   <div style="display:flex; justify-content:space-between; align-items:flex-start;">
-                    <div style="font-size:13.5px; font-weight:700; color:#f8fafc;">${escapeHtml(topic)}</div>
-                    <span class="badge" style="font-size:10px;">${data.completed} / ${data.days.length}d</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                      <span class="topic-order-badge stream-b">#${item.order}</span>
+                      <div style="font-size:14px; font-weight:700; color:#f8fafc;">${escapeHtml(item.topic)}</div>
+                    </div>
+                    <div class="topic-adjust-btn-group">
+                      <button type="button" class="btn-topic-move" data-stream="foundation_revision" data-topic="${escapeHtml(item.topic)}" data-dir="up" ${isFirst ? 'disabled' : ''} title="Move '${escapeHtml(item.topic)}' Up in Roadmap">
+                        ▲ Up
+                      </button>
+                      <button type="button" class="btn-topic-move" data-stream="foundation_revision" data-topic="${escapeHtml(item.topic)}" data-dir="down" ${isLast ? 'disabled' : ''} title="Move '${escapeHtml(item.topic)}' Down in Roadmap">
+                        ▼ Down
+                      </button>
+                      <span class="topic-drag-handle" title="Drag to reorder topic" style="cursor:grab; font-size:16px; color:var(--text-dim); padding:0 4px;">⋮⋮</span>
+                    </div>
                   </div>
-                  <div style="font-size:11.5px; color:var(--text-dim); margin-top:4px;">
-                    Days ${Math.min(...data.days)}–${Math.max(...data.days)} • ${data.problems.size} Drills
+                  <div style="font-size:12px; color:var(--text-dim); margin-top:4px;">
+                    Days ${item.startDay}–${item.endDay} (${item.dayCount} Days) • ${item.problemCount} Drills
                   </div>
                   <div class="progress-bar-wrap" style="height:5px; margin-top:10px; background:rgba(255,255,255,0.06);">
                     <div class="progress-bar-fill" style="width:${pct}%; background:var(--stream-topic-accent);"></div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:11px; color:var(--text-muted);">
+                    <span>${item.completedCount} / ${item.dayCount} Days Completed</span>
+                    <span style="color:var(--stream-topic-accent); font-weight:600;"><i class="fa-solid fa-filter"></i> Filter Days</span>
                   </div>
                 </div>
               `;
@@ -3947,6 +3977,57 @@
       </div>
     `;
     container.innerHTML = html;
+    initTopicsMatrixDragAndDrop();
+  }
+
+  function initTopicsMatrixDragAndDrop() {
+    ['topic-matrix-stream-a', 'topic-matrix-stream-b'].forEach(matrixId => {
+      const matrix = document.getElementById(matrixId);
+      if (!matrix) return;
+      let draggedCard = null;
+
+      matrix.querySelectorAll('.roadmap-120-topic-card').forEach(card => {
+        card.addEventListener('dragstart', (e) => {
+          draggedCard = card;
+          card.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', card.dataset.topic);
+        });
+
+        card.addEventListener('dragend', () => {
+          card.classList.remove('dragging');
+          matrix.querySelectorAll('.roadmap-120-topic-card').forEach(c => c.classList.remove('drag-over'));
+          draggedCard = null;
+        });
+
+        card.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          if (card !== draggedCard) {
+            card.classList.add('drag-over');
+          }
+        });
+
+        card.addEventListener('dragleave', () => {
+          card.classList.remove('drag-over');
+        });
+
+        card.addEventListener('drop', (e) => {
+          e.preventDefault();
+          card.classList.remove('drag-over');
+          if (!draggedCard || draggedCard === card) return;
+
+          const stream = card.dataset.stream;
+          const sourceTopic = draggedCard.dataset.topic;
+          const targetIndex = parseInt(card.dataset.index, 10);
+
+          if (window.RoadmapEngine && !isNaN(targetIndex)) {
+            RoadmapEngine.moveTopic(stream, sourceTopic, targetIndex);
+            renderRoadmapView();
+          }
+        });
+      });
+    });
   }
 
   function render120AuditView() {
@@ -4379,6 +4460,134 @@
 
   function closeRoadmapHistoryModal() {
     document.getElementById('roadmap-history-modal')?.classList.remove('open');
+  }
+
+  // --- TOPIC ADJUSTMENT & CUSTOMIZATION MODAL ---
+  let activeReorderStream = 'current_learning';
+
+  function openRoadmapAdjustTopicsModal(stream = 'current_learning') {
+    activeReorderStream = stream;
+    const modal = document.getElementById('roadmap-adjust-topics-modal');
+    if (!modal) return;
+
+    const tabA = document.getElementById('btn-adjust-tab-stream-a');
+    const tabB = document.getElementById('btn-adjust-tab-stream-b');
+    if (tabA && tabB) {
+      if (activeReorderStream === 'current_learning') {
+        tabA.className = 'btn btn-sm btn-primary btn-adjust-stream-tab';
+        tabB.className = 'btn btn-sm btn-secondary btn-adjust-stream-tab';
+      } else {
+        tabA.className = 'btn btn-sm btn-secondary btn-adjust-stream-tab';
+        tabB.className = 'btn btn-sm btn-primary btn-adjust-stream-tab';
+      }
+    }
+
+    renderRoadmapTopicsReorderList();
+    modal.classList.add('open');
+  }
+
+  function closeRoadmapAdjustTopicsModal() {
+    document.getElementById('roadmap-adjust-topics-modal')?.classList.remove('open');
+  }
+
+  function renderRoadmapTopicsReorderList() {
+    const container = document.getElementById('roadmap-topics-reorder-container');
+    const countBadge = document.getElementById('adjust-topics-count-badge');
+    if (!container || !window.RoadmapEngine) return;
+
+    const topicsList = RoadmapEngine.getTopicsList(activeReorderStream);
+    if (countBadge) countBadge.textContent = `${topicsList.length} Topics`;
+
+    if (topicsList.length === 0) {
+      container.innerHTML = '<div class="empty-state">No topics found in this stream.</div>';
+      return;
+    }
+
+    const isStreamA = activeReorderStream === 'current_learning';
+    let html = '';
+
+    topicsList.forEach((item, idx) => {
+      const isFirst = idx === 0;
+      const isLast = idx === topicsList.length - 1;
+      const dayRangeTxt = item.dayCount > 0 ? `Days ${item.startDay}–${item.endDay} (${item.dayCount} Days)` : '0 Days';
+
+      html += `
+        <div class="roadmap-topic-reorder-row" data-topic="${escapeHtml(item.topic)}" data-index="${idx}" draggable="true">
+          <span class="row-drag-handle" title="Drag to reorder" style="cursor:grab; font-size:16px; color:var(--text-dim); padding:0 4px;">⋮⋮</span>
+          <span class="topic-order-badge ${isStreamA ? '' : 'stream-b'}">#${item.order}</span>
+          <div class="row-topic-details">
+            <div class="row-topic-name">${escapeHtml(item.topic)}</div>
+            <div class="row-topic-meta">${dayRangeTxt} • ${item.problemCount} Curated Problems</div>
+          </div>
+          <div class="row-topic-actions">
+            <button type="button" class="btn btn-secondary btn-xs btn-modal-topic-top" data-topic="${escapeHtml(item.topic)}" ${isFirst ? 'disabled' : ''} title="Move to Top">
+              <span style="font-size:10px; font-weight:800; line-height:1;">▲▲</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-xs btn-modal-topic-up" data-topic="${escapeHtml(item.topic)}" ${isFirst ? 'disabled' : ''} title="Move Up">
+              <span style="font-size:12px; font-weight:800; line-height:1;">▲</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-xs btn-modal-topic-down" data-topic="${escapeHtml(item.topic)}" ${isLast ? 'disabled' : ''} title="Move Down">
+              <span style="font-size:12px; font-weight:800; line-height:1;">▼</span>
+            </button>
+            <button type="button" class="btn btn-secondary btn-xs btn-modal-topic-bottom" data-topic="${escapeHtml(item.topic)}" ${isLast ? 'disabled' : ''} title="Move to Bottom">
+              <span style="font-size:10px; font-weight:800; line-height:1;">▼▼</span>
+            </button>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = html;
+    initModalDragAndDrop();
+  }
+
+  function initModalDragAndDrop() {
+    const container = document.getElementById('roadmap-topics-reorder-container');
+    if (!container) return;
+
+    let draggedItem = null;
+
+    container.querySelectorAll('.roadmap-topic-reorder-row').forEach(row => {
+      row.addEventListener('dragstart', (e) => {
+        draggedItem = row;
+        row.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', row.dataset.topic);
+      });
+
+      row.addEventListener('dragend', () => {
+        row.classList.remove('dragging');
+        container.querySelectorAll('.roadmap-topic-reorder-row').forEach(r => r.classList.remove('drag-over'));
+        draggedItem = null;
+      });
+
+      row.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        if (row !== draggedItem) {
+          row.classList.add('drag-over');
+        }
+      });
+
+      row.addEventListener('dragleave', () => {
+        row.classList.remove('drag-over');
+      });
+
+      row.addEventListener('drop', (e) => {
+        e.preventDefault();
+        row.classList.remove('drag-over');
+        if (!draggedItem || draggedItem === row) return;
+
+        const sourceTopic = draggedItem.dataset.topic;
+        const targetIndex = parseInt(row.dataset.index, 10);
+
+        if (window.RoadmapEngine && !isNaN(targetIndex)) {
+          RoadmapEngine.moveTopic(activeReorderStream, sourceTopic, targetIndex);
+          renderRoadmapTopicsReorderList();
+          renderRoadmapView();
+        }
+      });
+    });
   }
 
   function renderActiveDayContent(activeTrack, currentWeek, currentDay) {
@@ -6935,6 +7144,77 @@
     });
 
     // D. Global Action Toolbar Buttons
+    document.getElementById('btn-roadmap-adjust-topics')?.addEventListener('click', () => {
+      openRoadmapAdjustTopicsModal('current_learning');
+    });
+
+    document.getElementById('btn-close-roadmap-adjust-modal')?.addEventListener('click', closeRoadmapAdjustTopicsModal);
+    document.getElementById('btn-close-topic-adjust')?.addEventListener('click', closeRoadmapAdjustTopicsModal);
+
+    document.getElementById('btn-adjust-tab-stream-a')?.addEventListener('click', () => {
+      openRoadmapAdjustTopicsModal('current_learning');
+    });
+    document.getElementById('btn-adjust-tab-stream-b')?.addEventListener('click', () => {
+      openRoadmapAdjustTopicsModal('foundation_revision');
+    });
+
+    document.getElementById('btn-reset-topic-order')?.addEventListener('click', () => {
+      if (!window.RoadmapEngine) return;
+      const streamName = activeReorderStream === 'current_learning' ? 'Current Learning' : 'Foundation Revision';
+      if (confirm(`Reset ${streamName} topic sequence back to default blueprint?`)) {
+        RoadmapEngine.resetTopicOrder(activeReorderStream);
+        renderRoadmapTopicsReorderList();
+        renderRoadmapView();
+      }
+    });
+
+    document.getElementById('roadmap-adjust-topics-modal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'roadmap-adjust-topics-modal') {
+        closeRoadmapAdjustTopicsModal();
+      }
+    });
+
+    document.getElementById('roadmap-topics-reorder-container')?.addEventListener('click', (e) => {
+      if (!window.RoadmapEngine) return;
+
+      const topBtn = e.target.closest('.btn-modal-topic-top');
+      if (topBtn) {
+        const topic = topBtn.dataset.topic;
+        RoadmapEngine.moveTopic(activeReorderStream, topic, 0);
+        renderRoadmapTopicsReorderList();
+        renderRoadmapView();
+        return;
+      }
+
+      const upBtn = e.target.closest('.btn-modal-topic-up');
+      if (upBtn) {
+        const topic = upBtn.dataset.topic;
+        RoadmapEngine.moveTopic(activeReorderStream, topic, 'up');
+        renderRoadmapTopicsReorderList();
+        renderRoadmapView();
+        return;
+      }
+
+      const downBtn = e.target.closest('.btn-modal-topic-down');
+      if (downBtn) {
+        const topic = downBtn.dataset.topic;
+        RoadmapEngine.moveTopic(activeReorderStream, topic, 'down');
+        renderRoadmapTopicsReorderList();
+        renderRoadmapView();
+        return;
+      }
+
+      const bottomBtn = e.target.closest('.btn-modal-topic-bottom');
+      if (bottomBtn) {
+        const topic = bottomBtn.dataset.topic;
+        const total = RoadmapEngine.getTopicsList(activeReorderStream).length;
+        RoadmapEngine.moveTopic(activeReorderStream, topic, total - 1);
+        renderRoadmapTopicsReorderList();
+        renderRoadmapView();
+        return;
+      }
+    });
+
     const onInsertDay = () => openRoadmapInsertModal(1);
     document.getElementById('btn-roadmap-insert-day')?.addEventListener('click', onInsertDay);
     document.getElementById('btn-roadmap-insert-buffer')?.addEventListener('click', onInsertDay);
@@ -7167,7 +7447,42 @@
         return;
       }
 
-      // 12. Topic Progression Card Click
+      // 12. Topic Up/Down and Quick Shift Controls
+      const topicMoveBtn = e.target.closest('.btn-topic-move');
+      if (topicMoveBtn) {
+        e.stopPropagation();
+        const stream = topicMoveBtn.dataset.stream;
+        const topic = topicMoveBtn.dataset.topic;
+        const dir = topicMoveBtn.dataset.dir;
+        if (window.RoadmapEngine) {
+          RoadmapEngine.moveTopic(stream, topic, dir);
+          renderRoadmapView();
+        }
+        return;
+      }
+
+      const quickTopicBtn = e.target.closest('.btn-quick-topic-shift');
+      if (quickTopicBtn) {
+        e.stopPropagation();
+        const stream = quickTopicBtn.dataset.stream;
+        const topic = quickTopicBtn.dataset.topic;
+        const dir = quickTopicBtn.dataset.dir;
+        if (window.RoadmapEngine && topic) {
+          RoadmapEngine.moveTopic(stream, topic, dir);
+          renderRoadmapView();
+        }
+        return;
+      }
+
+      const openReorderBtn = e.target.closest('.btn-open-topic-reorder-modal');
+      if (openReorderBtn) {
+        e.stopPropagation();
+        const stream = openReorderBtn.dataset.stream || 'current_learning';
+        openRoadmapAdjustTopicsModal(stream);
+        return;
+      }
+
+      // 13. Topic Progression Card Click (filter list by topic)
       const topicCard = e.target.closest('.roadmap-120-topic-card');
       if (topicCard) {
         const topic = topicCard.dataset.topic;

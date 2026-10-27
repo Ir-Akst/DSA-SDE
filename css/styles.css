@@ -6076,4 +6076,225 @@ pre,
   background: rgba(245, 190, 101, 0.12);
   color: #f5be65;
   border: 1px solid rgba(245, 190, 101, 0.25);
+}
+
+/* ========================================================
+   Topic Customization & Adjustment Styles (Up/Down & Drag)
+   ======================================================== */
+.roadmap-120-topic-card {
+  position: relative;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.roadmap-120-topic-card:hover {
+  border-color: rgba(139, 124, 255, 0.35);
+  box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.45);
+}
+
+.roadmap-120-topic-card.dragging {
+  opacity: 0.45;
+  transform: scale(0.97);
+  border: 1px dashed var(--primary);
+}
+
+.roadmap-120-topic-card.drag-over {
+  border: 2px solid var(--primary);
+  box-shadow: 0 0 16px rgba(139, 124, 255, 0.4);
+}
+
+.topic-order-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  background: rgba(139, 124, 255, 0.18);
+  color: #c4b5fd;
+  border: 1px solid rgba(139, 124, 255, 0.35);
+  letter-spacing: 0.4px;
+}
+
+.topic-order-badge.stream-b {
+  background: rgba(66, 214, 197, 0.18);
+  color: #5eead4;
+  border-color: rgba(66, 214, 197, 0.35);
+}
+
+.topic-adjust-btn-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-topic-move {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-topic-move:hover:not(:disabled) {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.btn-topic-move:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.topic-drag-handle {
+  color: var(--text-dim);
+  cursor: grab;
+  padding: 4px;
+  font-size: 13px;
+  transition: color 0.15s ease;
+}
+
+.topic-drag-handle:hover {
+  color: var(--primary);
+}
+
+.topic-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Micro topic move buttons on day cards */
+.quick-topic-shift-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn-quick-topic-shift {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text-dim);
+  font-size: 9.5px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-quick-topic-shift:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+/* Reorder Modal List */
+.roadmap-topics-reorder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.roadmap-topic-reorder-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.roadmap-topic-reorder-row:hover {
+  border-color: rgba(139, 124, 255, 0.35);
+  background: var(--bg-card-hover);
+}
+
+.roadmap-topic-reorder-row.dragging {
+  opacity: 0.45;
+  background: rgba(139, 124, 255, 0.1);
+  border: 1px dashed var(--primary);
+}
+
+.roadmap-topic-reorder-row.drag-over {
+  border: 2px solid var(--primary);
+  background: rgba(139, 124, 255, 0.15);
+}
+
+.roadmap-topic-reorder-row .row-drag-handle {
+  cursor: grab;
+  color: var(--text-dim);
+  padding: 4px;
+  font-size: 14px;
+}
+
+.roadmap-topic-reorder-row .row-drag-handle:active {
+  cursor: grabbing;
+}
+
+.roadmap-topic-reorder-row .row-topic-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.roadmap-topic-reorder-row .row-topic-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.roadmap-topic-reorder-row .row-topic-meta {
+  font-size: 11.5px;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.roadmap-topic-reorder-row .row-topic-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.roadmap-topic-reorder-row .row-topic-actions button {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #f1f5f9;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 11.5px;
+}
+
+.roadmap-topic-reorder-row .row-topic-actions button:hover:not(:disabled) {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.roadmap-topic-reorder-row .row-topic-actions button:disabled {
+  opacity: 0.22;
+  cursor: not-allowed;
+  border-color: transparent;
+  background: rgba(255, 255, 255, 0.02);
 }

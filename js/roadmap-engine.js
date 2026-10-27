@@ -174,6 +174,40 @@
       return res;
     },
 
+    getTopicsList(streamType = 'current_learning') {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return [];
+      return r120.getTopicsList(this.progress, streamType);
+    },
+
+    moveTopic(streamType = 'current_learning', topicName, direction) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.moveTopic(this.progress, streamType, topicName, direction);
+      this.saveProgress();
+      return res;
+    },
+
+    reorderTopics(streamType = 'current_learning', newTopicOrder = []) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.reorderTopics(this.progress, streamType, newTopicOrder);
+      this.saveProgress();
+      return res;
+    },
+
+    resetTopicOrder(streamType = 'current_learning') {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.resetTopicOrder(this.progress, streamType);
+      this.saveProgress();
+      return res;
+    },
+
     editDay(dayIndex, updates = {}) {
       if (!this.progress) this.initProgress();
       const r120 = getRoadmap120();

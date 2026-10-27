@@ -155,6 +155,32 @@
     SCHEMA_VERSION: 5,
     DEFAULT_TOTAL_DAYS: 120,
     MAX_HISTORY_ENTRIES: 30,
+    DEFAULT_STREAM_A_TOPICS: [
+      'Graphs',
+      'Binary Trees & BST',
+      'Dynamic Programming',
+      'Recursion & Backtracking',
+      'Greedy & Intervals',
+      'Heap / Priority Queue',
+      'Tries'
+    ],
+    DEFAULT_STREAM_B_TOPICS: [
+      'Basics & Math',
+      'Arrays & Hashing',
+      'Strings',
+      'Sliding Window & Two Pointers',
+      'Sorting',
+      'Binary Search',
+      'Linked List',
+      'Stack & Queue',
+      'Bit Manipulation',
+      'Recursion & Backtracking',
+      'Binary Trees & BST',
+      'Heap / Priority Queue',
+      'Graphs',
+      'Dynamic Programming',
+      'Greedy & Intervals'
+    ],
 
     /**
      * Normalize roadmap objects and days with standard getters and metadata aliases
@@ -990,6 +1016,192 @@
       day.tasks = newTasks;
       this.normalizeRoadmap(roadmap);
       return { success: true };
+    },
+
+    /**
+     * Get unique ordered topic list and statistics for a given stream
+     */
+    getTopicsList(progressRef, streamType = 'current_learning') {
+      const roadmap = this.get120DayRoadmap(progressRef);
+      if (!roadmap || !Array.isArray(roadmap.days)) return [];
+
+      const topicMap = new Map();
+      const topicOrder = [];
+
+      roadmap.days.forEach(day => {
+        if (day.isBufferDay) return;
+        const task = (day.tasks || []).find(t => t.stream === streamType);
+        if (!task || !task.topicId) return;
+
+        const topic = task.topicId;
+        if (!topicMap.has(topic)) {
+          topicMap.set(topic, {
+            topic,
+            days: [],
+            subtopics: new Set(),
+            problemIds: new Set(),
+            completedDays: 0,
+            tasks: []
+          });
+          topicOrder.push(topic);
+        }
+        const data = topicMap.get(topic);
+        data.days.push(day.sequenceIndex);
+        if (task.subtopicId) data.subtopics.add(task.subtopicId);
+        (task.problemIds || []).forEach(pid => data.problemIds.add(pid));
+        if (task.status === 'completed' || day.isCompleted) data.completedDays++;
+        data.tasks.push(task);
+      });
+
+      return topicOrder.map((topic, index) => {
+        const d = topicMap.get(topic);
+        return {
+          topic,
+          index,
+          order: index + 1,
+          dayCount: d.days.length,
+          startDay: d.days.length > 0 ? Math.min(...d.days) : 0,
+          endDay: d.days.length > 0 ? Math.max(...d.days) : 0,
+          completedCount: d.completedDays,
+          problemCount: d.problemIds.size,
+          problemIds: Array.from(d.problemIds),
+          subtopics: Array.from(d.subtopics)
+        };
+      });
+    },
+
+    /**
+     * Move an entire topic UP or DOWN (or to a target index) within a learning stream
+     * Re-allocates contiguous daily task assignments while strictly preserving completed task history & problem identity
+     */
+    moveTopic(progressRef, streamType = 'current_learning', topicName, directionOrNewIndex) {
+      const roadmap = this.get120DayRoadmap(progressRef);
+      if (!roadmap || !Array.isArray(roadmap.days)) {
+        return { success: false, message: 'Invalid roadmap' };
+      }
+
+      const topicList = this.getTopicsList(progressRef, streamType);
+      const topics = topicList.map(t => t.topic);
+      const currentIndex = topics.indexOf(topicName);
+      if (currentIndex === -1) {
+        return { success: false, message: `Topic "${topicName}" not found in ${streamType}` };
+      }
+
+      let targetIndex;
+      if (directionOrNewIndex === 'up') {
+        targetIndex = Math.max(0, currentIndex - 1);
+      } else if (directionOrNewIndex === 'down') {
+        targetIndex = Math.min(topics.length - 1, currentIndex + 1);
+      } else if (typeof directionOrNewIndex === 'number') {
+        targetIndex = Math.max(0, Math.min(topics.length - 1, directionOrNewIndex));
+      } else {
+        return { success: false, message: `Invalid direction: ${directionOrNewIndex}` };
+      }
+
+      if (targetIndex === currentIndex) {
+        return { success: true, message: 'Topic is already at requested position', unchanged: true, newIndex: targetIndex, topics };
+      }
+
+      const newTopicOrder = [...topics];
+      const [removed] = newTopicOrder.splice(currentIndex, 1);
+      newTopicOrder.splice(targetIndex, 0, removed);
+
+      const streamLabel = streamType === 'current_learning' ? 'Current Learning' : 'Foundation Revision';
+      const actionDesc = `Moved topic "${topicName}" ${directionOrNewIndex === 'up' || targetIndex < currentIndex ? 'up' : 'down'} to position ${targetIndex + 1} in ${streamLabel}`;
+
+      return this.reorderTopics(progressRef, streamType, newTopicOrder, { actionDesc });
+    },
+
+    /**
+     * Reorder topics in a stream according to a custom topic array
+     */
+    reorderTopics(progressRef, streamType = 'current_learning', newTopicOrder = [], options = {}) {
+      const roadmap = this.get120DayRoadmap(progressRef);
+      if (!roadmap || !Array.isArray(roadmap.days)) {
+        return { success: false, message: 'Invalid roadmap' };
+      }
+      if (!Array.isArray(newTopicOrder) || newTopicOrder.length === 0) {
+        return { success: false, message: 'Empty or invalid newTopicOrder array' };
+      }
+
+      const streamLabel = streamType === 'current_learning' ? 'Current Learning' : 'Foundation Revision';
+      const actionDesc = options.actionDesc || `Reordered topics in ${streamLabel}`;
+
+      this.pushUndoSnapshot(
+        roadmap,
+        'reorder_topics',
+        actionDesc
+      );
+
+      // Collect tasks grouped by topic for this stream across all non-buffer days
+      const tasksByTopic = new Map();
+      const learningDays = [];
+
+      roadmap.days.forEach(day => {
+        if (day.isBufferDay) return;
+        const taskIdx = (day.tasks || []).findIndex(t => t.stream === streamType);
+        if (taskIdx === -1) return;
+
+        const task = day.tasks[taskIdx];
+        const topic = task.topicId || 'Other';
+        if (!tasksByTopic.has(topic)) {
+          tasksByTopic.set(topic, []);
+        }
+        tasksByTopic.get(topic).push(task);
+        learningDays.push({ day, taskIdx });
+      });
+
+      // Assemble reordered stream tasks pool
+      const reorderedStreamTasks = [];
+      newTopicOrder.forEach(topic => {
+        if (tasksByTopic.has(topic)) {
+          reorderedStreamTasks.push(...tasksByTopic.get(topic));
+          tasksByTopic.delete(topic);
+        }
+      });
+      // Append any unmentioned remaining topics if any
+      for (const [, tasks] of tasksByTopic.entries()) {
+        reorderedStreamTasks.push(...tasks);
+      }
+
+      // Reassign tasks back into learning days
+      const totalToAssign = Math.min(learningDays.length, reorderedStreamTasks.length);
+      for (let i = 0; i < totalToAssign; i++) {
+        const { day, taskIdx } = learningDays[i];
+        const newTask = deepClone(reorderedStreamTasks[i]);
+        newTask.taskId = `task_${day.sequenceIndex}_${streamType === 'current_learning' ? 'learn' : 'revise'}`;
+        day.tasks[taskIdx] = newTask;
+      }
+
+      // Prerequisite Advisory Check
+      let advisory = null;
+      const GraphEngineRef = getGraphEngine();
+      if (GraphEngineRef && typeof GraphEngineRef.checkPrerequisites === 'function') {
+        const firstTopic = newTopicOrder[0];
+        if (firstTopic && (firstTopic.includes('DP') || firstTopic.includes('Dynamic Programming'))) {
+          advisory = 'Advisory: Dynamic Programming relies on recursion tree state analysis and array foundations.';
+        }
+      }
+
+      this.normalizeRoadmap(roadmap);
+
+      return {
+        success: true,
+        stream: streamType,
+        newTopicOrder,
+        advisory,
+        message: actionDesc
+      };
+    },
+
+    /**
+     * Reset topic sequence for a stream back to canonical curriculum blueprint
+     */
+    resetTopicOrder(progressRef, streamType = 'current_learning') {
+      const defaultOrder = streamType === 'current_learning' ? this.DEFAULT_STREAM_A_TOPICS : this.DEFAULT_STREAM_B_TOPICS;
+      return this.reorderTopics(progressRef, streamType, defaultOrder, {
+        actionDesc: `Reset topic sequence to blueprint default for ${streamType === 'current_learning' ? 'Current Learning' : 'Foundation Revision'}`
+      });
     },
 
     /**

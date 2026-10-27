@@ -11403,6 +11403,73 @@ async function runAll() {
       assert.ok(summary.coreCoveragePct >= 80, 'Core pattern coverage must be at least 80%');
       assert.strictEqual(summary.catalogSize, 479, 'Must match full catalog size of 479 master problems');
     });
+
+    test('46.16: Topic Customization & Up/Down Adjustment Invariant', () => {
+      RoadmapEngine.restoreDefaultRoadmap();
+      RoadmapEngine.initProgress();
+
+      // Verify baseline initial topic list for Stream A
+      const initialTopicsA = RoadmapEngine.getTopicsList('current_learning');
+      assert.strictEqual(initialTopicsA.length, 7);
+      assert.strictEqual(initialTopicsA[0].topic, 'Graphs');
+      assert.strictEqual(initialTopicsA[0].order, 1);
+      assert.strictEqual(initialTopicsA[0].dayCount, 30);
+      assert.strictEqual(initialTopicsA[1].topic, 'Binary Trees & BST');
+      assert.strictEqual(initialTopicsA[1].order, 2);
+      assert.strictEqual(initialTopicsA[1].dayCount, 25);
+      assert.strictEqual(initialTopicsA[2].topic, 'Dynamic Programming');
+      assert.strictEqual(initialTopicsA[2].order, 3);
+      assert.strictEqual(initialTopicsA[2].dayCount, 30);
+
+      // Move Dynamic Programming UP (position 3 -> 2)
+      const moveUpRes = RoadmapEngine.moveTopic('current_learning', 'Dynamic Programming', 'up');
+      assert.strictEqual(moveUpRes.success, true);
+
+      const afterMoveUp = RoadmapEngine.getTopicsList('current_learning');
+      assert.strictEqual(afterMoveUp[0].topic, 'Graphs');
+      assert.strictEqual(afterMoveUp[1].topic, 'Dynamic Programming');
+      assert.strictEqual(afterMoveUp[1].startDay, 31);
+      assert.strictEqual(afterMoveUp[1].endDay, 60);
+      assert.strictEqual(afterMoveUp[2].topic, 'Binary Trees & BST');
+      assert.strictEqual(afterMoveUp[2].startDay, 61);
+      assert.strictEqual(afterMoveUp[2].endDay, 85);
+
+      // Move Dynamic Programming to the top (position 0)
+      const moveToTopRes = RoadmapEngine.moveTopic('current_learning', 'Dynamic Programming', 0);
+      assert.strictEqual(moveToTopRes.success, true);
+      const afterTop = RoadmapEngine.getTopicsList('current_learning');
+      assert.strictEqual(afterTop[0].topic, 'Dynamic Programming');
+      assert.strictEqual(afterTop[0].startDay, 1);
+      assert.strictEqual(afterTop[0].endDay, 30);
+      assert.strictEqual(afterTop[1].topic, 'Graphs');
+      assert.strictEqual(afterTop[1].startDay, 31);
+      assert.strictEqual(afterTop[1].endDay, 60);
+
+      // Undo reverts to previous snapshot
+      const undoRes = RoadmapEngine.undoLastAction();
+      assert.strictEqual(undoRes.success, true);
+      const afterUndo = RoadmapEngine.getTopicsList('current_learning');
+      assert.strictEqual(afterUndo[0].topic, 'Graphs');
+      assert.strictEqual(afterUndo[1].topic, 'Dynamic Programming');
+
+      // Reset restores canonical blueprint order
+      const resetRes = RoadmapEngine.resetTopicOrder('current_learning');
+      assert.strictEqual(resetRes.success, true);
+      const afterReset = RoadmapEngine.getTopicsList('current_learning');
+      assert.strictEqual(afterReset[0].topic, 'Graphs');
+      assert.strictEqual(afterReset[1].topic, 'Binary Trees & BST');
+      assert.strictEqual(afterReset[2].topic, 'Dynamic Programming');
+
+      // Foundation Revision Stream B topic adjustment
+      const initialB = RoadmapEngine.getTopicsList('foundation_revision');
+      assert.strictEqual(initialB.length, 15);
+      const moveBRes = RoadmapEngine.moveTopic('foundation_revision', 'Linked List', 'up');
+      assert.strictEqual(moveBRes.success, true);
+      const afterMoveB = RoadmapEngine.getTopicsList('foundation_revision');
+      const idxLL = afterMoveB.findIndex(t => t.topic === 'Linked List');
+      const idxBS = afterMoveB.findIndex(t => t.topic === 'Binary Search');
+      assert.ok(idxLL < idxBS, 'Linked List must now appear before Binary Search');
+    });
   });
 
   console.log(`TEST RESULTS: ${passedTests}/${totalTests} Passed (${failedTests} Failed)`);
