@@ -33,6 +33,15 @@
     return null;
   };
 
+  const getRevisionEligibilityEngine = () => {
+    try {
+      if (typeof window !== 'undefined' && window.RevisionEligibilityEngine) return window.RevisionEligibilityEngine;
+      if (typeof global !== 'undefined' && global.RevisionEligibilityEngine) return global.RevisionEligibilityEngine;
+      if (typeof require !== 'undefined') return require('./revision-eligibility-engine');
+    } catch (_) { }
+    return null;
+  };
+
   const getGraphEngine = () => {
     try {
       if (typeof window !== 'undefined' && window.GraphEngine) return window.GraphEngine;
@@ -87,8 +96,24 @@
     if (cData && typeof cData.getStreamADay === 'function') {
       return cData.getStreamADay(dayNum);
     }
-    let topic = 'Graphs';
-    let subtopic = 'Graph Representation & Traversal';
+    let topic = 'Binary Trees & BST';
+    let subtopic = 'Binary Tree & BST Traversals and Patterns';
+    if (dayNum > 18 && dayNum <= 41) {
+      topic = 'Graphs';
+      subtopic = 'Graph Representation, BFS, DFS & Cycles';
+    } else if (dayNum > 41 && dayNum <= 64) {
+      topic = 'Dynamic Programming';
+      subtopic = 'DP State Transitions, 1D/2D & Tabulation';
+    } else if (dayNum > 64 && dayNum <= 76) {
+      topic = 'Greedy & Intervals';
+      subtopic = 'Greedy Choices & Interval Scheduling';
+    } else if (dayNum > 76 && dayNum <= 90) {
+      topic = 'Recursion & Backtracking';
+      subtopic = 'Backtracking, Tries & Advanced Patterns';
+    } else if (dayNum > 90) {
+      topic = 'Final Revision & Mock Phase';
+      subtopic = 'Comprehensive Review, Mock Interviews & Weak-Area Repair';
+    }
     if (dayNum > 30 && dayNum <= 55) {
       topic = 'Binary Trees & BST';
       subtopic = 'Binary Tree & BST Traversals and Patterns';
@@ -152,12 +177,14 @@
   };
 
   const Roadmap120Engine = {
-    SCHEMA_VERSION: 5,
+    SCHEMA_VERSION: 9,
+    DUAL_STREAM_MODE: 'connected', // v9: Buffer days distributed every 7 learning days
+    BUFFER_CALENDAR_DAYS: new Set([8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88]),
     DEFAULT_TOTAL_DAYS: 120,
     MAX_HISTORY_ENTRIES: 30,
     DEFAULT_STREAM_A_TOPICS: [
-      'Graphs',
       'Binary Trees & BST',
+      'Graphs',
       'Dynamic Programming',
       'Recursion & Backtracking',
       'Greedy & Intervals',
@@ -165,21 +192,23 @@
       'Tries'
     ],
     DEFAULT_STREAM_B_TOPICS: [
-      'Basics & Math',
       'Arrays & Hashing',
-      'Strings',
-      'Sliding Window & Two Pointers',
-      'Sorting',
       'Binary Search',
       'Linked List',
       'Stack & Queue',
-      'Bit Manipulation',
-      'Recursion & Backtracking',
-      'Binary Trees & BST',
       'Heap / Priority Queue',
+      'Recursion & Backtracking',
+      'Mixed Weak Topics',
+      'Basics & Math',
+      'Sorting',
+      'Strings',
+      'Sliding Window & Two Pointers',
+      'Bit Manipulation',
+      'Binary Trees & BST',
       'Graphs',
       'Dynamic Programming',
-      'Greedy & Intervals'
+      'Greedy & Intervals',
+      'Tries'
     ],
 
     /**
@@ -196,7 +225,8 @@
       roadmap.metadata.createdAt = roadmap.createdAt || new Date().toISOString();
 
       roadmap.days.forEach(d => {
-        if (!Object.prototype.hasOwnProperty.call(d, 'dayNumber')) {
+        if (!Object.getOwnPropertyDescriptor(d, 'dayNumber')?.get) {
+          delete d.dayNumber;
           Object.defineProperty(d, 'dayNumber', {
             get() { return this.sequenceIndex; },
             set(v) { this.sequenceIndex = v; },
@@ -204,7 +234,8 @@
             enumerable: true
           });
         }
-        if (!Object.prototype.hasOwnProperty.call(d, 'isBufferDay')) {
+        if (!Object.getOwnPropertyDescriptor(d, 'isBufferDay')?.get) {
+          delete d.isBufferDay;
           Object.defineProperty(d, 'isBufferDay', {
             get() { return this.dayType === 'buffer'; },
             set(v) { this.dayType = v ? 'buffer' : 'learning'; },
@@ -212,7 +243,9 @@
             enumerable: true
           });
         }
-        if (!Object.prototype.hasOwnProperty.call(d, 'isCompleted')) {
+        if (!Object.getOwnPropertyDescriptor(d, 'isCompleted')?.get) {
+          const initialCompleted = d.isCompleted;
+          delete d.isCompleted;
           Object.defineProperty(d, 'isCompleted', {
             get() {
               if (this._isCompleted !== undefined) return this._isCompleted;
@@ -227,8 +260,10 @@
             configurable: true,
             enumerable: true
           });
+          if (initialCompleted !== undefined) d._isCompleted = !!initialCompleted;
         }
-        if (!Object.prototype.hasOwnProperty.call(d, 'streams')) {
+        if (!Object.getOwnPropertyDescriptor(d, 'streams')?.get) {
+          delete d.streams;
           Object.defineProperty(d, 'streams', {
             get() {
               const streamA = (this.tasks || []).find(t => t.stream === 'current_learning');
@@ -251,7 +286,7 @@
                   set skipReason(v) { streamA.skippedReason = v; },
                   get problemIds() { return streamA.problemIds || []; },
                   set problemIds(v) { streamA.problemIds = v; }
-                } : { topic: '', subtopic: '', learningObjectives: '', targetCount: 0, estimatedMinutes: 0, status: 'pending', problemIds: [] },
+                } : { topic: this.isBufferDay ? 'Buffer Day' : '', subtopic: this.isBufferDay ? 'Weekly Consolidation & Backlog Recovery' : '', learningObjectives: '', targetCount: 0, estimatedMinutes: 0, status: 'pending', problemIds: [] },
                 foundation_revision: streamB ? {
                   get topic() { return streamB.topicId; },
                   set topic(v) { streamB.topicId = v; },
@@ -269,7 +304,7 @@
                   set skipReason(v) { streamB.skippedReason = v; },
                   get problemIds() { return streamB.problemIds || []; },
                   set problemIds(v) { streamB.problemIds = v; }
-                } : { topic: '', subtopic: '', revisionObjectives: '', targetCount: 0, estimatedMinutes: 0, status: 'pending', problemIds: [] },
+                } : { topic: this.isBufferDay ? 'Buffer Day' : '', subtopic: this.isBufferDay ? 'Buffer Day — No Scheduled Revision' : '', revisionObjectives: '', targetCount: 0, estimatedMinutes: 0, status: 'pending', problemIds: [] },
                 srs_due: {
                   targetCount: 2,
                   estimatedMinutes: 20
@@ -293,40 +328,138 @@
      */
     generateBaselineTemplate(userStates = {}, options = {}) {
       const startDate = (options.startDate instanceof Date) ? options.startDate : (options.startDate ? new Date(options.startDate) : new Date());
-      const totalDays = Math.max(120, options.totalDays || this.DEFAULT_TOTAL_DAYS);
+      const totalDays = Math.max(14, options.totalDays || this.DEFAULT_TOTAL_DAYS);
       const days = [];
 
       const currData = getCurriculumData();
 
-      // Adaptive start offset: If user already mastered early graph problems in userStates, advance Stream A start
+      const isPedagogical = options.track === 'pedagogical' ||
+                            options.track === 'pedagogical_120' ||
+                            options.trackMode === 'pedagogical' ||
+                            options.mode === 'pedagogical' ||
+                            options.pedagogical === true;
+
+      if (isPedagogical) {
+        for (let dayNum = 1; dayNum <= totalDays; dayNum++) {
+          const dayDate = new Date(startDate);
+          dayDate.setDate(startDate.getDate() + (dayNum - 1));
+          const dateStr = toLocalDateString(dayDate);
+
+          const cycleDay = ((dayNum - 1) % 7) + 1;
+          const weekNum = Math.floor((dayNum - 1) / 7) + 1;
+
+          let dayType = 'learning';
+          if (cycleDay === 6) dayType = 'review';
+          else if (cycleDay === 7) dayType = 'assessment';
+
+          const bp = currData ? currData.getPedagogicalDay(dayNum) : null;
+          const planDayId = `day_${dayNum}`;
+          const tasks = [];
+
+          if (bp) {
+            const allSolved = bp.suggestedProblemIds.length > 0 && bp.suggestedProblemIds.every(id => {
+              const st = userStates[id];
+              return st && (st.stage >= 2 || st.solved || st.status === 'completed');
+            });
+
+            tasks.push({
+              taskId: `task_${dayNum}_learn`,
+              stream: 'current_learning',
+              topicId: bp.topic,
+              subtopicId: bp.subtopic,
+              objectives: bp.objectives,
+              problemIds: [...(bp.suggestedProblemIds || [])],
+              targetCount: bp.targetCount || bp.suggestedProblemIds.length,
+              estimatedMinutes: bp.estimatedMinutes || 60,
+              priority: 'high',
+              required: true,
+              prerequisites: [],
+              status: allSolved ? 'completed' : 'pending',
+              skippedReason: null,
+              skippedAt: null,
+              replacedFrom: null
+            });
+
+            tasks.push({
+              taskId: `task_${dayNum}_revise`,
+              stream: 'foundation_revision',
+              topicId: bp.topic,
+              subtopicId: 'Spaced Topic Recall',
+              objectives: 'Review retention of previously solved problems and active patterns.',
+              problemIds: [],
+              targetCount: 0,
+              estimatedMinutes: 20,
+              priority: 'normal',
+              required: false,
+              prerequisites: [],
+              status: 'pending',
+              skippedReason: null,
+              skippedAt: null,
+              replacedFrom: null
+            });
+
+            days.push({
+              planDayId,
+              sequenceIndex: dayNum,
+              scheduledDate: dateStr,
+              dayType: dayType,
+              phase: bp.phase,
+              topic: bp.topic,
+              subtopic: bp.subtopic,
+              notes: '',
+              bufferReason: '',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              tasks
+            });
+          }
+        }
+
+        const template = {
+          roadmapId: 'roadmap_120_master',
+          schemaVersion: 7,
+          track: 'pedagogical_120',
+          unmixed: true,
+          title: 'AlgoRecall 120-Day Pedagogical DSA Roadmap',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          settings: {
+            dailyMinutes: options.dailyMinutes || 120,
+            weeklyStudyDays: options.weeklyStudyDays || 5,
+            schedulingMode: 'roadmap_aligned',
+            shiftMode: 'aligned',
+            startDate: toLocalDateString(startDate),
+            bufferFrequency: 7,
+            maxDailyProblemTarget: 5
+          },
+          days,
+          history: []
+        };
+
+        return this.normalizeRoadmap(template);
+      }
+
+      // Adaptive start offset: If user already mastered early tree problems in userStates, advance Stream A start
       let streamAOffset = 0;
       if (userStates && Object.keys(userStates).length > 0) {
-        const graphBasics = [
-          'prob-224-graph-representation-adj-list-matrix',
-          'prob-225-bfs-traversal-of-graph',
-          'prob-226-number-of-provinces',
-          'prob-227-number-of-islands',
-          'prob-228-flood-fill',
-          'prob-229-rotting-oranges',
-          'prob-230-detect-cycle-undirected-bfs',
-          'prob-231-detect-cycle-undirected-dfs'
+        const treeBasics = [
+          'prob-196-invert-binary-tree',
+          'prob-197-maximum-depth-of-binary-tree',
+          'prob-198-diameter-of-binary-tree',
+          'prob-199-balanced-binary-tree',
+          'prob-200-same-tree',
+          'prob-201-symmetric-tree'
         ];
-        const masteredBasics = graphBasics.filter(id => {
+        const masteredBasics = treeBasics.filter(id => {
           const st = userStates[id];
           return st && (st.stage >= 2 || st.solved || st.status === 'completed');
         }).length;
 
         if (masteredBasics >= 3) {
-          streamAOffset = 4;
-          while (streamAOffset < 30) {
-            const bp = currData ? currData.getStreamADay(1 + streamAOffset) : getStreamABlueprint(1 + streamAOffset);
-            if (bp && (bp.subtopic.includes('Cycle') || bp.subtopic.includes('Topo') || bp.subtopic.includes('Bipartite'))) {
-              const hasCycleMastered = (userStates['prob-230-detect-cycle-undirected-bfs'] && userStates['prob-230-detect-cycle-undirected-bfs'].stage >= 2) ||
-                                       (userStates['prob-231-detect-cycle-undirected-dfs'] && userStates['prob-231-detect-cycle-undirected-dfs'].stage >= 2);
-              if (bp.subtopic.includes('Cycle') && hasCycleMastered) {
-                streamAOffset++;
-                continue;
-              }
+          streamAOffset = 2;
+          while (streamAOffset < 16) {
+            const bp = currData ? currData.getStreamADay(1 + streamAOffset) : null;
+            if (bp && (bp.subtopic.includes('LCA') || bp.subtopic.includes('View') || bp.subtopic.includes('Path') || bp.subtopic.toLowerCase().includes('traversal'))) {
               break;
             }
             streamAOffset++;
@@ -339,12 +472,11 @@
         dayDate.setDate(startDate.getDate() + (dayNum - 1));
         const dateStr = toLocalDateString(dayDate);
 
-        const cycleDay = ((dayNum - 1) % 7) + 1; // 1 to 7
-        const weekNum = Math.floor((dayNum - 1) / 7) + 1;
+        const BUFFER_SET = (currData && currData.BUFFER_CALENDAR_DAYS) || this.BUFFER_CALENDAR_DAYS || new Set([8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88]);
+        const isBuffer = dayNum <= 90 && BUFFER_SET.has(dayNum);
+        const isFinalPhase = dayNum >= 91;
 
-        let dayType = 'learning';
-        if (cycleDay === 6) dayType = 'review';
-        else if (cycleDay === 7) dayType = 'assessment';
+        let dayType = isBuffer ? 'buffer' : (isFinalPhase ? 'final_revision' : 'learning');
 
         const planDayId = `day_${dayNum}`;
         const tasks = [];
@@ -353,7 +485,64 @@
         const learnBlueprint = currData ? currData.getStreamADay(effectiveDayA) : getStreamABlueprint(effectiveDayA);
         const revBlueprint = currData ? currData.getStreamBDay(dayNum) : getStreamBBlueprint(dayNum);
 
-        if (dayType === 'learning') {
+        if (isBuffer) {
+          tasks.push({
+            taskId: `task_${dayNum}_buffer`,
+            stream: 'buffer',
+            topicId: 'Buffer Day',
+            subtopicId: 'Weekly Consolidation & Backlog Recovery',
+            objectives: 'Consolidate week\'s learning, reattempt weak problems from SRS, or rest.',
+            problemIds: [],
+            targetCount: 0,
+            estimatedMinutes: 0,
+            priority: 'low',
+            required: false,
+            isBuffer: true,
+            status: 'pending',
+            skippedReason: null,
+            skippedAt: null,
+            replacedFrom: null
+          });
+        } else if (isFinalPhase) {
+          const aProbs = (learnBlueprint && (learnBlueprint.suggestedProblemIds || learnBlueprint.problems)) || [];
+          tasks.push({
+            taskId: `task_${dayNum}_learn`,
+            stream: 'current_learning',
+            topicId: (learnBlueprint && learnBlueprint.topic) || 'Final Revision',
+            subtopicId: (learnBlueprint && learnBlueprint.subtopic) || 'Phase Review',
+            objectives: (learnBlueprint && (learnBlueprint.objectives || learnBlueprint.objective)) || 'Final preparation',
+            problemIds: [...aProbs],
+            targetCount: aProbs.length,
+            estimatedMinutes: (learnBlueprint && learnBlueprint.estimatedMinutes) || 60,
+            priority: 'high',
+            required: true,
+            phase: 'final_revision',
+            status: 'pending',
+            isMock: !!(learnBlueprint && learnBlueprint.isMock),
+            isAssessment: !!(learnBlueprint && learnBlueprint.isAssessment),
+            isDynamic: !!(learnBlueprint && learnBlueprint.isDynamic),
+            skippedReason: null,
+            skippedAt: null,
+            replacedFrom: null
+          });
+
+          tasks.push({
+            taskId: `task_${dayNum}_revise`,
+            stream: 'foundation_revision',
+            topicId: 'Final Phase',
+            subtopicId: 'All revision handled in Stream A',
+            objectives: 'Final Phase active: All revision and mock interviews are managed in Stream A.',
+            problemIds: [],
+            targetCount: 0,
+            estimatedMinutes: 0,
+            priority: 'low',
+            required: false,
+            status: 'pending',
+            skippedReason: null,
+            skippedAt: null,
+            replacedFrom: null
+          });
+        } else if (dayType === 'learning') {
           // Stream A Task: Current Learning
           tasks.push({
             taskId: `task_${dayNum}_learn`,
@@ -474,8 +663,9 @@
           sequenceIndex: dayNum,
           scheduledDate: dateStr,
           dayType,
+          isBufferDay: isBuffer,
           notes: '',
-          bufferReason: '',
+          bufferReason: isBuffer ? 'Weekly consolidation & backlog recovery' : '',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           tasks
@@ -490,8 +680,10 @@
       const template = {
         roadmapId: 'roadmap_120_master',
         schemaVersion: this.SCHEMA_VERSION,
+        track: options.track || 'dual_stream_120',
+        dualStreamMode: 'connected',
         unmixed: true,
-        title: '120-Day Topic-Wise DSA & SDE Roadmap',
+        title: 'AlgoRecall 120-Day Dual-Stream DSA Roadmap',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         settings: {
@@ -538,10 +730,283 @@
     get120DayRoadmap(progressRef, userStates = {}, options = {}) {
       if (!progressRef) return this.normalizeRoadmap(this.generateBaselineTemplate(userStates, options));
 
-      if (!progressRef.dsa120Roadmap || progressRef.dsa120Roadmap.schemaVersion !== this.SCHEMA_VERSION || !progressRef.dsa120Roadmap.unmixed) {
+      const isExplicitPedagogical = (options.track === 'pedagogical' ||
+                                   options.track === 'pedagogical_120' ||
+                                   options.mode === 'pedagogical');
+
+      const d1 = progressRef.dsa120Roadmap?.days?.[0];
+      const isLegacyDay1 = d1 && (
+        d1.topic === 'Basics & Math' ||
+        d1.subtopic === 'Language Basics & Syntax' ||
+        d1.streams?.current_learning?.topic === 'Basics & Math' ||
+        d1.streams?.current_learning?.subtopic === 'Language Basics & Syntax' ||
+        (Array.isArray(d1.tasks) && d1.tasks.some(t =>
+          t.topicId === 'Basics & Math' ||
+          t.subtopicId === 'Language Basics & Syntax' ||
+          t.revisionReason === 'Migrated from v7 fixed schedule' ||
+          (Array.isArray(t.problemIds) && t.problemIds.includes('prob-363-user-input-output-data-types'))
+        ))
+      );
+
+      if (isExplicitPedagogical) {
+        if (progressRef.dsa120Roadmap?.track !== 'pedagogical_120') {
+          progressRef.dsa120Roadmap = this.generatePedagogicalBaseline(userStates, options);
+        }
+      } else if (!progressRef.dsa120Roadmap || progressRef.dsa120Roadmap.track === 'pedagogical_120' || isLegacyDay1 || progressRef.activeTrack !== 'dual_stream_120') {
+        const oldNotes = {};
+        const oldCompleted = {};
+        if (progressRef.dsa120Roadmap?.days) {
+          progressRef.dsa120Roadmap.days.forEach(d => {
+            if (d.notes) oldNotes[d.dayNumber] = d.notes;
+            if (d.isCompleted) oldCompleted[d.dayNumber] = true;
+          });
+        }
+        progressRef.dsa120Roadmap = this.generateBaselineTemplate(userStates, { ...options, track: 'dual_stream_120' });
+        if (progressRef.dsa120Roadmap?.days) {
+          progressRef.dsa120Roadmap.days.forEach(d => {
+            if (oldNotes[d.dayNumber]) d.notes = oldNotes[d.dayNumber];
+            if (oldCompleted[d.dayNumber]) d.isCompleted = true;
+          });
+        }
+        progressRef.activeTrack = 'dual_stream_120';
+        progressRef.explicitlyChosePedagogicalTrack = false;
+      } else if (!progressRef.dsa120Roadmap.unmixed) {
         progressRef.dsa120Roadmap = this.generateBaselineTemplate(userStates, options);
       }
+      if (progressRef.dsa120Roadmap) {
+        if (progressRef.dsa120Roadmap.schemaVersion < 8) this.migrateToV8(progressRef, userStates);
+        if (progressRef.dsa120Roadmap.schemaVersion < 9) this.migrateToV9(progressRef, userStates);
+      }
       return this.normalizeRoadmap(progressRef.dsa120Roadmap);
+    },
+
+    /**
+     * Migrate roadmap to Schema v8 (Dual-Stream Connected Mode)
+     * Safe, idempotent migration that preserves all existing history.
+     */
+    migrateToV8(progressRef, userStates = {}) {
+      if (!progressRef) return { success: false, error: 'No progress reference provided' };
+      const roadmap = progressRef.dsa120Roadmap;
+      if (!roadmap) return { success: false, error: 'No roadmap found in progress' };
+
+      if (roadmap.schemaVersion >= 8) {
+        return { success: true, alreadyMigrated: true, schemaVersion: roadmap.schemaVersion };
+      }
+
+      const prevVersion = roadmap.schemaVersion || 7;
+
+      roadmap.metadata = roadmap.metadata || {};
+      roadmap.metadata.migrationHistory = roadmap.metadata.migrationHistory || [];
+      roadmap.metadata.migrationHistory.push({
+        migratedAt: new Date().toISOString(),
+        fromSchema: prevVersion,
+        toSchema: 8,
+        preservedFields: ['days', 'history', 'settings', 'track', 'days[].tasks[].status', 'days[].tasks[].problemIds']
+      });
+
+      if (Array.isArray(roadmap.days)) {
+        roadmap.days.forEach(day => {
+          if (!Array.isArray(day.tasks)) return;
+          day.tasks.forEach(task => {
+            if (task.stream === 'foundation_revision') {
+              if (task.eligibilityBased === undefined) task.eligibilityBased = false;
+              if (task.revisionReason === undefined) task.revisionReason = 'Migrated from v7 fixed schedule';
+            }
+          });
+        });
+      }
+
+      roadmap.schemaVersion = 8;
+      roadmap.dualStreamMode = 'connected';
+      roadmap.updatedAt = new Date().toISOString();
+      progressRef.dsa120Roadmap = roadmap;
+
+      return {
+        success: true,
+        migrated: true,
+        fromSchema: prevVersion,
+        schemaVersion: 8,
+        dualStreamMode: 'connected',
+        summary: 'Successfully migrated roadmap to Schema v8 (Dual-Stream Connected Mode).'
+      };
+    },
+
+    /**
+     * Migrate roadmap to Schema v9 (120-Day Dual-Stream with Buffer Days)
+     * Safe, idempotent migration that preserves all user solve history and notes.
+     */
+    migrateToV9(progressRef, userStates = {}) {
+      if (!progressRef) return { success: false, error: 'No progress reference provided' };
+      const roadmap = progressRef.dsa120Roadmap;
+      if (!roadmap) return { success: false, error: 'No roadmap found in progress' };
+
+      if (roadmap.schemaVersion >= 9) {
+        return { success: true, alreadyMigrated: true, schemaVersion: 9 };
+      }
+
+      const prevVersion = roadmap.schemaVersion || 8;
+      const BUFFER_SET = this.BUFFER_CALENDAR_DAYS || new Set([8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88]);
+
+      roadmap.metadata = roadmap.metadata || {};
+      roadmap.metadata.migrationHistory = roadmap.metadata.migrationHistory || [];
+      roadmap.metadata.migrationHistory.push({
+        migratedAt: new Date().toISOString(),
+        fromSchema: prevVersion,
+        toSchema: 9,
+        action: 'Inserted distributed buffer days every 7 learning days and structured final 30-day revision phase'
+      });
+
+      if (Array.isArray(roadmap.days)) {
+        roadmap.days.forEach(day => {
+          const dayNum = day.dayNumber || day.sequenceIndex;
+          if (dayNum <= 90 && BUFFER_SET.has(dayNum)) {
+            day.isBufferDay = true;
+            day.dayType = 'buffer';
+            if (!day.bufferReason) day.bufferReason = 'Weekly consolidation & backlog recovery';
+          }
+        });
+      }
+
+      roadmap.schemaVersion = 9;
+      roadmap.dualStreamMode = 'connected';
+      roadmap.updatedAt = new Date().toISOString();
+      progressRef.dsa120Roadmap = roadmap;
+
+      return {
+        success: true,
+        migrated: true,
+        fromSchema: prevVersion,
+        schemaVersion: 9,
+        summary: 'Successfully migrated roadmap to Schema v9 with distributed weekly buffer days.'
+      };
+    },
+
+
+    generatePedagogicalBaseline(userStates = {}, options = {}) {
+      return this.generateBaselineTemplate(userStates, { ...options, track: 'pedagogical_120' });
+    },
+
+    getPedagogical120Roadmap(progressRef, userStates = {}, options = {}) {
+      return this.get120DayRoadmap(progressRef, userStates, { ...options, track: 'pedagogical_120' });
+    },
+
+    getCurriculumProgress(progressRef, userStates = {}) {
+      const isPedagogical = progressRef?.activeTrack === 'pedagogical_120' || progressRef?.dsa120Roadmap?.track === 'pedagogical_120';
+      const roadmap = isPedagogical
+        ? (progressRef?.dsa120Roadmap && progressRef.dsa120Roadmap.track === 'pedagogical_120'
+            ? this.normalizeRoadmap(progressRef.dsa120Roadmap)
+            : this.generatePedagogicalBaseline(userStates))
+        : this.get120DayRoadmap(progressRef, userStates);
+
+      let currentCurriculumDay = 1;
+      let completedDaysCount = 0;
+      const allAssignedIds = new Set();
+      const solvedAssignedIds = new Set();
+
+      roadmap.days.forEach(d => {
+        const pIds = d.streams?.current_learning?.problemIds || [];
+        pIds.forEach(id => allAssignedIds.add(id));
+
+        const isDayDone = d.isCompleted || (pIds.length > 0 && pIds.every(id => {
+          const st = userStates[id];
+          return st && (st.stage >= 2 || st.solved || st.status === 'completed');
+        }));
+
+        if (isDayDone) {
+          completedDaysCount++;
+        } else if (currentCurriculumDay === 1 && !isDayDone) {
+          currentCurriculumDay = d.dayNumber;
+        }
+
+        pIds.forEach(id => {
+          const st = userStates[id];
+          if (st && (st.stage >= 2 || st.solved || st.status === 'completed')) {
+            solvedAssignedIds.add(id);
+          }
+        });
+      });
+
+      if (completedDaysCount === roadmap.days.length && roadmap.days.length > 0) {
+        currentCurriculumDay = roadmap.days.length;
+      }
+
+      const activeDay = roadmap.days.find(d => d.dayNumber === currentCurriculumDay) || roadmap.days[0];
+      const nextActionProbId = (activeDay.streams?.current_learning?.problemIds || []).find(id => {
+        const st = userStates[id];
+        return !st || (!st.solved && st.status !== 'completed' && (!st.stage || st.stage < 2));
+      }) || activeDay.streams?.current_learning?.problemIds?.[0] || null;
+
+      return {
+        currentCurriculumDay,
+        totalDays: roadmap.days.length,
+        completedDaysCount,
+        completionPercentage: Math.round((completedDaysCount / roadmap.days.length) * 100),
+        totalProblems: allAssignedIds.size,
+        solvedProblemsCount: solvedAssignedIds.size,
+        remainingProblemsCount: Math.max(0, allAssignedIds.size - solvedAssignedIds.size),
+        activeMilestoneTopic: activeDay.streams?.current_learning?.topic || activeDay.topic,
+        activeMilestoneSubtopic: activeDay.streams?.current_learning?.subtopic || activeDay.subtopic,
+        activeObjectives: activeDay.streams?.current_learning?.learningObjectives || activeDay.objectives,
+        nextActionProblemId: nextActionProbId,
+        activeDay
+      };
+    },
+
+    resumeCurriculum(progressRef, userStates = {}) {
+      const prog = this.getCurriculumProgress(progressRef, userStates);
+      return {
+        success: true,
+        dayNumber: prog.currentCurriculumDay,
+        topic: prog.activeMilestoneTopic,
+        subtopic: prog.activeMilestoneSubtopic,
+        problemIds: prog.activeDay?.streams?.current_learning?.problemIds || [],
+        nextActionProblemId: prog.nextActionProblemId,
+        message: `Resuming curriculum at Day ${prog.currentCurriculumDay}: ${prog.activeMilestoneTopic} — ${prog.activeMilestoneSubtopic}`
+      };
+    },
+
+    migrateToPedagogicalCurriculum(progressRef, userStates = {}) {
+      if (!progressRef) return { success: false, error: 'No progress reference provided' };
+      const prevVersion = progressRef.dsa120Roadmap?.schemaVersion || 6;
+      const prevTrack = progressRef.dsa120Roadmap?.track || 'striver_hero';
+      const customNotes = {};
+      if (progressRef.dsa120Roadmap?.days) {
+        progressRef.dsa120Roadmap.days.forEach(d => {
+          if (d.notes) customNotes[d.dayNumber] = d.notes;
+        });
+      }
+
+      const newRoadmap = this.generatePedagogicalBaseline(userStates);
+      newRoadmap.days.forEach(d => {
+        if (customNotes[d.dayNumber]) d.notes = customNotes[d.dayNumber];
+      });
+
+      newRoadmap.metadata = newRoadmap.metadata || {};
+      newRoadmap.metadata.migration = {
+        migratedAt: new Date().toISOString(),
+        fromSchema: prevVersion,
+        toSchema: 7,
+        fromTrack: prevTrack,
+        toTrack: 'pedagogical_120',
+        preserveSolveHistory: true
+      };
+
+      progressRef.dsa120Roadmap = newRoadmap;
+      progressRef.activeTrack = 'pedagogical_120';
+      progressRef.pedagogicalRoadmap = newRoadmap;
+      progressRef.migratedToPedagogical_v7 = true;
+
+      return {
+        success: true,
+        migrated: true,
+        schemaVersion: 7,
+        track: 'pedagogical_120',
+        activeTrack: 'pedagogical_120',
+        dsa120Roadmap: newRoadmap,
+        roadmap: newRoadmap,
+        userStates: progressRef.userStates || userStates || {},
+        summary: 'Successfully migrated roadmap to the 120-Day Pedagogical DSA Curriculum.'
+      };
     },
 
     /**
@@ -1677,7 +2142,29 @@
 
       // 2. Extract Stream A (Current Learning) and Stream B (Foundation Revision) tasks
       const streamATask = (activeDay.tasks || []).find(t => t.stream === 'current_learning') || null;
-      const streamBTask = (activeDay.tasks || []).find(t => t.stream === 'foundation_revision') || null;
+      let streamBTask = (activeDay.tasks || []).find(t => t.stream === 'foundation_revision') || null;
+
+      // Hoist probList so it's available to both REEngine and SRS loops below
+      const probList = Array.isArray(allProblems) && allProblems.length > 0 ? allProblems : (typeof DEFAULT_DSA_SHEETS !== 'undefined' ? DEFAULT_DSA_SHEETS : []);
+
+      // v8/v9: Live-compute Stream B using RevisionEligibilityEngine so it adapts to actual learner history
+      const REEngine = getRevisionEligibilityEngine();
+      if (REEngine && typeof REEngine.computeStreamBTask === 'function') {
+        try {
+          const dueSRSIds = typeof REEngine.getDueSRSIds === 'function'
+            ? REEngine.getDueSRSIds(userStates, probList)
+            : new Set();
+          const currData = getCurriculumData();
+          const dayNum = activeDay.sequenceIndex || activeDay.dayNumber || 1;
+          const streamBBlueprint = currData ? currData.getStreamBDay(dayNum) : null;
+          const liveStreamBTask = REEngine.computeStreamBTask(dayNum, userStates, probList, dueSRSIds, streamBBlueprint);
+          if (!streamBTask || !streamBTask._manuallyEdited) {
+            streamBTask = liveStreamBTask;
+          }
+        } catch (e) {
+          console.warn('[Roadmap120Engine] RevisionEligibilityEngine error:', e);
+        }
+      }
 
       // 3. Extract Stream C: Genuine live due SRS reviews directly from SRSEngine
       const now = (options.asOfDate instanceof Date) ? options.asOfDate : new Date();
@@ -1686,7 +2173,6 @@
       const dueSRSProblems = [];
       let totalOverdue = 0;
 
-      const probList = Array.isArray(allProblems) ? allProblems : [];
       probList.forEach(p => {
         if (!p || !p.id) return;
         const st = userStates[p.id];

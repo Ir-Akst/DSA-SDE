@@ -14,3 +14,7 @@ coverage/
 test-output.txt
 /data/
 !js/data/
+
+.agents/
+skills-lock.json
+temp_*.html

@@ -34,6 +34,16 @@
       (typeof require !== 'undefined' ? require('./gamification-engine') : null);
   }
 
+  function getMock() {
+    return (typeof window !== 'undefined' && window.MockEngine) ||
+      (typeof require !== 'undefined' ? require('./mock-engine') : null);
+  }
+
+  function getRoadmap() {
+    return (typeof window !== 'undefined' && window.RoadmapEngine) ||
+      (typeof require !== 'undefined' ? require('./roadmap-engine') : null);
+  }
+
   function getCatalog() {
     if (typeof window !== 'undefined' && Array.isArray(window.allProblems)) {
       return window.allProblems;
@@ -110,6 +120,130 @@
     }
   })();
 
+  const METRIC_REGISTRY = {
+    totalCatalogProblems: {
+      name: 'Total Catalog Problems',
+      definition: 'Count of canonical curated algorithmic problems in default dataset.',
+      sourceOfTruth: 'js/data/default-sheets.js',
+      denominator: 'None (Absolute Count)',
+      inclusionRules: 'All problems in curated 479-problem catalog.',
+      exclusionRules: 'Custom unverified problem IDs.',
+      nullHandling: 'Defaults to 479 if catalog unloaded.',
+      deduplicationPolicy: 'Distinct canonical problem IDs.',
+      limitations: 'Fixed to approved AlgoRecall curriculum.'
+    },
+    uniqueProblemsAttempted: {
+      name: 'Unique Problems Attempted',
+      definition: 'Distinct problem IDs with at least one recorded attempt, review, or session.',
+      sourceOfTruth: 'LearnerRepository.getUserStates() & TrainerEvents & MockHistory',
+      denominator: 'totalCatalogProblems',
+      inclusionRules: 'Any problem with lastReviewed, history entry, trainer event, or mock answer.',
+      exclusionRules: 'Viewed or bookmarked problems without solving attempts.',
+      nullHandling: 'Returns 0 if no learner data exists.',
+      deduplicationPolicy: 'Set of problem IDs across all learning streams.',
+      limitations: 'Does not reflect attempt depth or code completeness.'
+    },
+    verifiedSolvedProblems: {
+      name: 'Verified Solved Problems',
+      definition: 'Problems confirmed solved through automated external judging or test runner execution.',
+      sourceOfTruth: 'External automated judge verification records.',
+      denominator: 'uniqueProblemsAttempted',
+      inclusionRules: 'Explicitly verified evaluation events with verified: true.',
+      exclusionRules: 'Self-reported checkmarks or manual ratings.',
+      nullHandling: 'Returns 0 in offline/client-only environment.',
+      deduplicationPolicy: 'Unique canonical problem IDs.',
+      limitations: 'Browser client does not run untrusted arbitrary code; verified solves are strictly 0 without external judging.'
+    },
+    selfReportedSolvedProblems: {
+      name: 'Self-Reported Solved Problems',
+      definition: 'Distinct problem IDs marked solved by user via UI checkbox, SRS simple/medium, or trainer solve.',
+      sourceOfTruth: 'LearnerRepository.getUserStates()[id].solved || stage >= 1',
+      denominator: 'totalCatalogProblems',
+      inclusionRules: 'userStates[id].solved === true OR stage >= 1 with lastRating !== failed.',
+      exclusionRules: 'Unsolved problems, failed reviews, unverified external links.',
+      nullHandling: 'Returns 0 if empty.',
+      deduplicationPolicy: 'Distinct problem IDs.',
+      limitations: 'Relies on learner honesty and self-assessment accuracy.'
+    },
+    recallSuccessRate: {
+      name: 'Recall Success Rate',
+      definition: 'Percentage of completed SRS spaced repetition reviews rated simple, medium, or hard (non-failed).',
+      sourceOfTruth: 'userStates[id].history[].rating',
+      denominator: 'Total completed SRS review events in window',
+      inclusionRules: 'Historical reviews with rating in [simple, medium, hard, failed].',
+      exclusionRules: 'Mock interview answers, roadmap assignments without review.',
+      nullHandling: 'Returns null (insufficient data) if 0 reviews exist.',
+      deduplicationPolicy: 'Event-level timestamps.',
+      limitations: 'Subjective recall rating.'
+    },
+    cognitiveIndependenceRate: {
+      name: 'Cognitive Independence Rate',
+      definition: 'Percentage of terminal problem solves completed independently without progressive hints or solution reveals.',
+      sourceOfTruth: 'TrainerEvents & userStates[id].history[].hintsUsed',
+      denominator: 'Total terminal solves in window',
+      inclusionRules: 'Solves with 0 hints consumed and simple rating.',
+      exclusionRules: 'In-progress drafts, paused sessions, failed attempts.',
+      nullHandling: 'Returns null if 0 terminal attempts.',
+      deduplicationPolicy: 'Deduplicated across trainer events and SRS history by eventId.',
+      limitations: 'Heuristic measure of unassisted recall.'
+    },
+    mockCompletionRate: {
+      name: 'Mock Interview Completion Rate',
+      definition: 'Percentage of initiated mock interview sessions successfully submitted and graded vs abandoned.',
+      sourceOfTruth: 'LearnerRepository.getMockHistory()',
+      denominator: 'Total mock interview sessions in history',
+      inclusionRules: 'Sessions with status === completed.',
+      exclusionRules: 'Currently active mock sessions.',
+      nullHandling: 'Returns 0% if no sessions initiated.',
+      deduplicationPolicy: 'Unique sessionId.',
+      limitations: 'Early tab closures without submission may be logged as abandoned.'
+    },
+    topicMasteryScore: {
+      name: 'Topic Mastery Score',
+      definition: 'Weighted composite metric: Mastered problems (1.0x) + Retained/In-progress solves (0.5x) / Catalog topic total.',
+      sourceOfTruth: 'SRSEngine & userStates',
+      denominator: 'Total problems in canonical topic',
+      inclusionRules: 'Solved problems mapped to canonical topic taxonomy.',
+      exclusionRules: 'Unattempted problems, failed reviews.',
+      nullHandling: 'Returns 0% if unattempted.',
+      deduplicationPolicy: 'Canonical topic mapping via SRSEngine.canonicalizeTopic().',
+      limitations: 'Requires minimum 3 attempts before classifying health.'
+    },
+    ebbinghausDecayEstimate: {
+      name: 'Ebbinghaus Decay Estimate',
+      definition: 'Estimated mathematical retention probability R = e^(-t/S) based on elapsed time and stability.',
+      sourceOfTruth: 'Mathematical exponential decay model using Leitner stage intervals.',
+      denominator: 'N/A (Probability 0.0 to 1.0)',
+      inclusionRules: 'Active SRS records with lastReviewed timestamp.',
+      exclusionRules: 'Problems never reviewed in SRS or reset to stage 0.',
+      nullHandling: 'Returns null or 100% when no elapsed time since last review.',
+      deduplicationPolicy: 'Unique canonical problem IDs.',
+      limitations: 'Ebbinghaus retention values are mathematical decay approximations, not measured biological memory.'
+    },
+    consistencyScore: {
+      name: '30-Day Consistency Score',
+      definition: 'Percentage of active learning days over the trailing 30-day window.',
+      sourceOfTruth: 'Timestamped review and problem attempt events.',
+      denominator: '30 rolling calendar days',
+      inclusionRules: 'Any calendar day containing at least one recorded practice, revision, or mock event.',
+      exclusionRules: 'Passive page opens without problem interaction.',
+      nullHandling: 'Returns 0 when no events recorded.',
+      deduplicationPolicy: 'Local calendar day keys (YYYY-MM-DD).',
+      limitations: 'Measures active days rather than total clock hours spent.'
+    },
+    mockInterviewReadiness: {
+      name: 'Mock Interview Readiness',
+      definition: 'Aggregate assessment of time management, multi-rubric score, and question completion.',
+      sourceOfTruth: 'MockEngine session records and rubric evaluations.',
+      denominator: 'Total completed mock sessions',
+      inclusionRules: 'Finalized mock interview sessions with completed: true.',
+      exclusionRules: 'Abandoned or prematurely terminated mock sessions.',
+      nullHandling: 'Returns null or N/A when 0 mock sessions completed.',
+      deduplicationPolicy: 'Unique mock session IDs.',
+      limitations: 'Evaluations are based on self-reported outcomes and automated heuristic rubrics without human interviewers.'
+    }
+  };
+
   /**
    * Resolve active learner state bundle safely from repository or options
    * @param {Object} [options={}]
@@ -119,7 +253,15 @@
     const Repo = getRepo();
     const Gamification = getGamification();
 
-    const ctx = options.ctx || (Repo ? Repo.getActiveContext() : { type: 'guest', id: 'guest', isGuest: true });
+    const Mock = getMock();
+    const Roadmap = getRoadmap();
+    const rawCtx = options.ctx || options.context || (Repo ? Repo.getActiveContext() : { type: 'guest', id: 'guest', isGuest: true });
+    const ctx = {
+      id: rawCtx.id || rawCtx.userId || 'guest',
+      userId: rawCtx.userId || rawCtx.id || 'guest',
+      type: rawCtx.type || (rawCtx.isGuest ? 'guest' : 'account'),
+      isGuest: Boolean(rawCtx.isGuest)
+    };
 
     let userStates = options.userStates;
     if (!userStates && Repo) {
@@ -147,7 +289,25 @@
     const catalog = options.catalog || getCatalog();
     const gamification = options.gamification || (Gamification && typeof Gamification.getProgress === 'function' ? Gamification.getProgress() : null);
 
-    return { ctx, userStates, trainerEvents, drafts, catalog, gamification };
+    let mockHistory = options.mockHistory;
+    if (!mockHistory && Mock && typeof Mock.getMockHistory === 'function') {
+      mockHistory = Mock.getMockHistory(ctx) || [];
+    } else if (!mockHistory && Repo && typeof Repo.getMockHistory === 'function') {
+      mockHistory = Repo.getMockHistory(ctx) || [];
+    } else if (!mockHistory) {
+      mockHistory = [];
+    }
+
+    let roadmapProgress = options.roadmapProgress;
+    if (!roadmapProgress && Roadmap && typeof Roadmap.getProgress === 'function') {
+      roadmapProgress = Roadmap.getProgress() || {};
+    } else if (!roadmapProgress && Repo && typeof Repo.getRoadmapProgress === 'function') {
+      roadmapProgress = Repo.getRoadmapProgress(ctx) || {};
+    } else if (!roadmapProgress) {
+      roadmapProgress = {};
+    }
+
+    return { ctx, userStates, trainerEvents, drafts, mockHistory, roadmapProgress, catalog, gamification };
   }
 
   /**
@@ -431,11 +591,12 @@
       }
 
       const tObj = topicMap[topic];
-      const hasReviewed = Boolean(state.lastReviewed) || (Array.isArray(state.history) && state.history.length > 0);
+      const isAttempted = Boolean(state.lastReviewed) || (Array.isArray(state.history) && state.history.length > 0) || Boolean(state.solved) || (typeof state.attempts === 'number' && state.attempts > 0) || Boolean(state.lastRating);
+      const isSolved = Boolean(state.solved) || (typeof state.stage === 'number' && state.stage >= 1 && state.lastRating !== 'failed');
 
-      if (hasReviewed) {
+      if (isAttempted) {
         tObj.attemptedCount++;
-        if (state.stage >= 1 && state.lastRating !== 'failed') {
+        if (isSolved) {
           tObj.solvedCount++;
         }
       }
@@ -478,17 +639,42 @@
         ? Math.round((t.totalConfidence / t.confidenceRatedCount) * 10) / 10
         : null;
 
+      const accuracy = t.attemptedCount > 0
+        ? Math.round((t.solvedCount / t.attemptedCount) * 100)
+        : null;
+
+      let retentionStatus = 'unattempted';
+      if (t.attemptedCount > 0) {
+        if (t.masteredCount === t.totalInCatalog && t.totalInCatalog > 0) retentionStatus = 'mastered';
+        else if (masteryScore >= 70 || (accuracy !== null && accuracy >= 70)) retentionStatus = 'proficient';
+        else if ((t.attemptedCount >= 3 && accuracy !== null && accuracy < 50) || health === 'at_risk') retentionStatus = 'at-risk';
+        else retentionStatus = 'developing';
+      }
+
       return {
         topic: t.topic,
+        total: t.totalInCatalog,
         totalInCatalog: t.totalInCatalog,
+        attempted: t.attemptedCount,
         attemptedCount: t.attemptedCount,
+        solved: t.solvedCount,
         solvedCount: t.solvedCount,
+        selfReportedSolvedCount: t.solvedCount,
+        mastered: t.masteredCount,
         masteredCount: t.masteredCount,
+        due: t.dueCount,
         dueCount: t.dueCount,
+        overdue: t.overdueCount,
         overdueCount: t.overdueCount,
+        weakProblemsCount: 0,
+        weakProblemCount: 0,
         masteryScore,
+        accuracy,
         health,
-        avgConfidence
+        retentionStatus,
+        isAtRisk: (t.attemptedCount >= 3 && accuracy !== null && accuracy < 50) || retentionStatus === 'at-risk',
+        avgConfidence,
+        lastPracticeDate: null
       };
     });
 
@@ -587,6 +773,521 @@
    * @param {Object} [options={}] - { timeWindow: 'all' | '7d' | '30d' | '90d' | 'year', ctx: Object, useCache: boolean }
    * @returns {Object} Comprehensive analytics report
    */
+  /**
+   * SECTION 1: Learning Overview Aggregation
+   */
+  function computeLearningOverview(options = {}) {
+    const { userStates, catalog, roadmapProgress, gamification, mockHistory, trainerEvents } = resolveDataBundle(options);
+    const SRS = getSRS();
+
+    const totalCatalogProblems = Array.isArray(catalog) && catalog.length > 0 ? catalog.length : 479;
+
+    const attemptedIds = new Set();
+    let verifiedSolvedCount = 0;
+    let selfReportedSolvedCount = 0;
+
+    Object.entries(userStates).forEach(([pId, st]) => {
+      if (!st) return;
+      const hasHistory = Array.isArray(st.history) && st.history.length > 0;
+      const hasReview = Boolean(st.lastReviewed);
+      const isSolved = Boolean(st.solved) || (typeof st.stage === 'number' && st.stage >= 1 && st.lastRating !== 'failed');
+
+      if (hasHistory || hasReview || isSolved) {
+        attemptedIds.add(pId);
+      }
+      if (isSolved) {
+        selfReportedSolvedCount++;
+      }
+      if (st.verified === true) {
+        verifiedSolvedCount++;
+      }
+    });
+
+    if (trainerEvents && typeof trainerEvents === 'object') {
+      Object.values(trainerEvents).forEach(evt => {
+        if (!evt || !evt.problemId) return;
+        attemptedIds.add(evt.problemId);
+        if (evt.outcome && (evt.outcome.includes('solve') || evt.outcome === 'solution_reveal')) {
+          if (!userStates[evt.problemId] || !userStates[evt.problemId].solved) {
+            selfReportedSolvedCount++;
+          }
+        }
+      });
+    }
+
+    if (Array.isArray(mockHistory)) {
+      mockHistory.forEach(m => {
+        if (!m || !Array.isArray(m.answers)) return;
+        m.answers.forEach(ans => {
+          if (ans && ans.problemId) attemptedIds.add(ans.problemId);
+        });
+      });
+    }
+
+    const uniqueProblemsAttempted = attemptedIds.size;
+    const coveragePercent = totalCatalogProblems > 0 ? Math.round((selfReportedSolvedCount / totalCatalogProblems) * 100) : 0;
+
+    const activeRoadmapTitle = (roadmapProgress && roadmapProgress.title) || '120-Day Dual-Stream Roadmap';
+    const totalRoadmapAssignments = (roadmapProgress && roadmapProgress.totalTasks) || 0;
+    const completedRoadmapAssignments = (roadmapProgress && roadmapProgress.completedTasks) || 0;
+    const remainingRoadmapAssignments = Math.max(0, totalRoadmapAssignments - completedRoadmapAssignments);
+    const roadmapCompletionPercent = totalRoadmapAssignments > 0 ? Math.round((completedRoadmapAssignments / totalRoadmapAssignments) * 100) : 0;
+
+    const currentStreak = (gamification && typeof gamification.streak === 'number') ? gamification.streak : 0;
+    const totalPracticeSessions = uniqueProblemsAttempted;
+
+    return {
+      totalCatalogProblems,
+      uniqueProblemsAttempted,
+      verifiedSolvedProblems: verifiedSolvedCount,
+      selfReportedSolvedProblems: selfReportedSolvedCount,
+      coveragePercent,
+      activeRoadmapTitle,
+      totalRoadmapAssignments,
+      completedRoadmapAssignments,
+      remainingRoadmapAssignments,
+      roadmapCompletionPercent,
+      currentStreak,
+      totalPracticeSessions
+    };
+  }
+
+  /**
+   * SECTION 2: Topic Mastery Aggregator (Canonical 479 Problem Coverage)
+   */
+  function computeTopicMastery(options = {}) {
+    return computeTopicAnalytics(options);
+  }
+
+  /**
+   * SECTION 3: Retention & Spaced Revision Analytics
+   */
+  function computeRetentionAnalytics(options = {}) {
+    const { userStates } = resolveDataBundle(options);
+    const SRS = getSRS();
+    const todayStr = toLocalDateStr(new Date());
+
+    let dueReviews = 0;
+    let overdueReviews = 0;
+    let completedReviews = 0;
+    let successCount = 0;
+
+    const difficultyDistribution = { simple: 0, medium: 0, hard: 0, failed: 0 };
+    const stageDistribution = { stage0: 0, stage1: 0, stage2: 0, stage3: 0, stage4Plus: 0 };
+
+    Object.values(userStates).forEach(st => {
+      if (!st) return;
+
+      const stage = typeof st.stage === 'number' ? st.stage : 0;
+      if (stage === 0) stageDistribution.stage0++;
+      else if (stage === 1) stageDistribution.stage1++;
+      else if (stage === 2) stageDistribution.stage2++;
+      else if (stage === 3) stageDistribution.stage3++;
+      else stageDistribution.stage4Plus++;
+
+      if (SRS && typeof SRS.isDue === 'function' && SRS.isDue(st)) {
+        dueReviews++;
+        const nextStr = st.nextReviewDate ? toLocalDateStr(st.nextReviewDate) : '';
+        if (nextStr && nextStr < todayStr) {
+          overdueReviews++;
+        }
+      }
+
+      if (Array.isArray(st.history)) {
+        st.history.forEach(h => {
+          if (!h || !h.rating) return;
+          completedReviews++;
+          if (h.rating === 'simple') {
+            difficultyDistribution.simple++;
+            successCount++;
+          } else if (h.rating === 'medium') {
+            difficultyDistribution.medium++;
+            successCount++;
+          } else if (h.rating === 'hard') {
+            difficultyDistribution.hard++;
+            successCount++;
+          } else if (h.rating === 'failed') {
+            difficultyDistribution.failed++;
+          }
+        });
+      } else if (st.lastReviewed && st.lastRating) {
+        completedReviews++;
+        if (st.lastRating === 'simple') {
+          difficultyDistribution.simple++;
+          successCount++;
+        } else if (st.lastRating === 'medium') {
+          difficultyDistribution.medium++;
+          successCount++;
+        } else if (st.lastRating === 'hard') {
+          difficultyDistribution.hard++;
+          successCount++;
+        } else if (st.lastRating === 'failed') {
+          difficultyDistribution.failed++;
+        }
+      }
+    });
+
+    const recallSuccessRate = completedReviews > 0 ? Math.round((successCount / completedReviews) * 1000) / 10 : null;
+
+    return {
+      dueReviews,
+      overdueReviews,
+      completedReviews,
+      recallSuccessRate,
+      difficultyDistribution,
+      stageDistribution,
+      averageEstimatedRetention: null,
+      retentionDisclaimer: 'Ebbinghaus retention values are mathematical decay approximations, not measured biological memory.'
+    };
+  }
+
+  /**
+   * SECTION 4: Problem-Solving Performance & Terminal Outcomes
+   */
+  function computeProblemSolvingPerformance(options = {}) {
+    const { userStates, trainerEvents, catalog } = resolveDataBundle(options);
+    const windowCutoff = getTimeCutoff(options.timeWindow || 'all');
+
+    const probDiffMap = {};
+    if (Array.isArray(catalog)) {
+      catalog.forEach(p => {
+        if (p && p.id) probDiffMap[p.id] = p.difficulty || 'Medium';
+      });
+    }
+
+    let totalAttempts = 0;
+    let successfulSolves = 0;
+    let firstAttemptSolves = 0;
+    let repeatAttempts = 0;
+
+    const hintUsage = { zeroHints: 0, assisted: 0, solutionReveals: 0, failed: 0 };
+    const difficultyBreakdown = {
+      Easy: { attempts: 0, solved: 0 },
+      Medium: { attempts: 0, solved: 0 },
+      Hard: { attempts: 0, solved: 0 }
+    };
+
+    const seenProblems = new Set();
+
+    if (trainerEvents && typeof trainerEvents === 'object') {
+      Object.values(trainerEvents).forEach(evt => {
+        if (!evt) return;
+        const ts = evt.completedAt || evt.timestamp || 0;
+        if (windowCutoff > 0 && ts < windowCutoff) return;
+
+        totalAttempts++;
+        const pDiff = probDiffMap[evt.problemId] || 'Medium';
+        if (difficultyBreakdown[pDiff]) difficultyBreakdown[pDiff].attempts++;
+
+        const outcome = evt.outcome || '';
+        if (outcome === 'independent_solve') {
+          successfulSolves++;
+          hintUsage.zeroHints++;
+          if (difficultyBreakdown[pDiff]) difficultyBreakdown[pDiff].solved++;
+          if (!seenProblems.has(evt.problemId)) {
+            firstAttemptSolves++;
+            seenProblems.add(evt.problemId);
+          } else {
+            repeatAttempts++;
+          }
+        } else if (outcome === 'assisted_solve') {
+          successfulSolves++;
+          hintUsage.assisted++;
+          if (difficultyBreakdown[pDiff]) difficultyBreakdown[pDiff].solved++;
+        } else if (outcome === 'solution_reveal') {
+          successfulSolves++;
+          hintUsage.solutionReveals++;
+          if (difficultyBreakdown[pDiff]) difficultyBreakdown[pDiff].solved++;
+        } else {
+          hintUsage.failed++;
+        }
+      });
+    }
+
+    Object.entries(userStates).forEach(([pId, st]) => {
+      if (!st) return;
+      const pDiff = probDiffMap[pId] || 'Medium';
+
+      if (Array.isArray(st.history)) {
+        st.history.forEach(h => {
+          if (h.trainerEventId) return; // Deduplicated
+          const ts = h.date ? new Date(h.date).getTime() : 0;
+          if (windowCutoff > 0 && ts < windowCutoff) return;
+
+          totalAttempts++;
+          if (difficultyBreakdown[pDiff]) difficultyBreakdown[pDiff].attempts++;
+
+          const hints = typeof h.hintsUsed === 'number' ? h.hintsUsed : 0;
+          if (h.rating === 'failed') {
+            hintUsage.failed++;
+          } else {
+            successfulSolves++;
+            if (difficultyBreakdown[pDiff]) difficultyBreakdown[pDiff].solved++;
+            if (hints === 0) hintUsage.zeroHints++;
+            else if (hints >= 4) hintUsage.solutionReveals++;
+            else hintUsage.assisted++;
+          }
+        });
+      }
+    });
+
+    const solveSuccessRate = totalAttempts > 0 ? Math.round((successfulSolves / totalAttempts) * 1000) / 10 : null;
+
+    return {
+      totalAttempts,
+      successfulSolves,
+      solveSuccessRate,
+      firstAttemptSolves,
+      repeatAttempts,
+      hintUsage,
+      difficultyBreakdown
+    };
+  }
+
+  /**
+   * SECTION 5: Mock Interview Analytics
+   */
+  function computeMockAnalytics(options = {}) {
+    const { mockHistory } = resolveDataBundle(options);
+
+    let totalSessions = 0;
+    let completedCount = 0;
+    let abandonedCount = 0;
+    let scoreSum = 0;
+    let bestScore = 0;
+    let totalQuestionsEvaluated = 0;
+    let reviewRequiredCount = 0;
+    const topicsSet = new Set();
+
+    const gradeDistribution = {
+      strongHire: 0,
+      solidHire: 0,
+      borderline: 0,
+      notReady: 0,
+      abandoned: 0
+    };
+
+    if (Array.isArray(mockHistory)) {
+      mockHistory.forEach(m => {
+        if (!m) return;
+        totalSessions++;
+        if (m.status === 'completed') {
+          completedCount++;
+          let rawScore = typeof m.totalScore === 'number'
+            ? m.totalScore
+            : (typeof m.overallPercentage === 'number' ? m.overallPercentage : 0);
+          // Reconcile legacy 20-point scale with percentage: if rawScore <= 20 and > 0, scale to 100%
+          const score = (rawScore <= 20 && rawScore > 0) ? Math.round(rawScore * 5) : rawScore;
+          scoreSum += score;
+          if (score > bestScore) bestScore = score;
+
+          if (m.grade === 'Strong Hire') gradeDistribution.strongHire++;
+          else if (m.grade === 'Solid Hire') gradeDistribution.solidHire++;
+          else if (m.grade === 'Borderline') gradeDistribution.borderline++;
+          else gradeDistribution.notReady++;
+
+          if (Array.isArray(m.answers)) {
+            m.answers.forEach(ans => {
+              totalQuestionsEvaluated++;
+              if (ans.rubric && ans.rubric.correctness === 'failed') {
+                reviewRequiredCount++;
+              }
+              if (ans.topic) topicsSet.add(ans.topic);
+            });
+          }
+        } else if (m.status === 'abandoned') {
+          abandonedCount++;
+          gradeDistribution.abandoned++;
+        }
+      });
+    }
+
+    const completionRate = totalSessions > 0 ? Math.round((completedCount / totalSessions) * 100) : 0;
+    const averageScore = completedCount > 0 ? Math.round((scoreSum / completedCount) * 10) / 10 : 0;
+
+    const scoreOutOf20 = Math.round((averageScore / 5) * 10) / 10;
+    const bestScoreOutOf20 = Math.round((bestScore / 5) * 10) / 10;
+
+    return {
+      totalSessions,
+      completedCount,
+      abandonedCount,
+      completionRate,
+      averageScore,
+      bestScore,
+      scoreOutOf20,
+      bestScoreOutOf20,
+      gradeDistribution,
+      totalQuestionsEvaluated,
+      reviewRequiredCount,
+      topicsPracticed: Array.from(topicsSet),
+      provenance: 'Self-Reported Outcome & Multi-Rubric Evaluation'
+    };
+  }
+
+  /**
+   * SECTION 6: Activity & Consistency Analytics
+   */
+  function computeActivityConsistency(options = {}) {
+    const { userStates, trainerEvents, mockHistory, gamification } = resolveDataBundle(options);
+    const dailyActivityMap = {};
+
+    Object.values(userStates).forEach(st => {
+      if (!st) return;
+      if (Array.isArray(st.history)) {
+        st.history.forEach(h => {
+          const dStr = toLocalDateStr(h.date || h.reviewedAt);
+          if (dStr) dailyActivityMap[dStr] = (dailyActivityMap[dStr] || 0) + 1;
+        });
+      } else if (st.lastReviewed) {
+        const dStr = toLocalDateStr(st.lastReviewed);
+        if (dStr) dailyActivityMap[dStr] = (dailyActivityMap[dStr] || 0) + 1;
+      }
+    });
+
+    if (trainerEvents && typeof trainerEvents === 'object') {
+      Object.values(trainerEvents).forEach(evt => {
+        if (!evt || !evt.completedAt) return;
+        const dStr = toLocalDateStr(evt.completedAt);
+        if (dStr) dailyActivityMap[dStr] = (dailyActivityMap[dStr] || 0) + 1;
+      });
+    }
+
+    if (Array.isArray(mockHistory)) {
+      mockHistory.forEach(m => {
+        if (!m || !m.completedAt) return;
+        const dStr = toLocalDateStr(m.completedAt);
+        if (dStr) dailyActivityMap[dStr] = (dailyActivityMap[dStr] || 0) + 1;
+      });
+    }
+
+    // Trailing 30 days active count
+    const now = new Date();
+    let activeDaysLast30d = 0;
+    for (let i = 0; i < 30; i++) {
+      const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const dKey = toLocalDateStr(targetDate);
+      if (dailyActivityMap[dKey] && dailyActivityMap[dKey] > 0) {
+        activeDaysLast30d++;
+      }
+    }
+
+    const consistencyScore = Math.round((activeDaysLast30d / 30) * 100);
+    const currentStreak = (gamification && typeof gamification.streak === 'number') ? gamification.streak : 0;
+    const maxStreak = (gamification && typeof gamification.maxStreak === 'number') ? gamification.maxStreak : currentStreak;
+
+    return {
+      dailyActivityMap,
+      activeDaysLast30d,
+      consistencyScore,
+      currentStreak,
+      maxStreak,
+      totalActiveMinutes: 0
+    };
+  }
+
+  /**
+   * SECTION 7: Actionable Learning Intelligence & Recommendations
+   */
+  function generateRecommendations(options = {}) {
+    const overview = options.overview || computeLearningOverview(options);
+    const topics = options.topicMastery || options.topics || computeTopicMastery(options);
+    const retention = options.retention || computeRetentionAnalytics(options);
+    const mocks = options.mock || options.mocks || computeMockAnalytics(options);
+
+    const recommendations = [];
+
+    // Rec 1: Overdue or Due SRS Revisions (Priority 5 = High Priority)
+    const due = retention.dueReviews || 0;
+    const overdue = retention.overdueReviews || 0;
+    if (overdue > 0 || due > 0) {
+      recommendations.push({
+        id: 'rec_srs_due',
+        priority: 5,
+        title: overdue > 0 ? `Clear ${overdue} Overdue Revisions` : `Review ${due} Due Problems`,
+        reason: 'Retention decay accelerates when reviews pass their scheduled interval.',
+        supportingEvidence: `${due} due and ${overdue} overdue problems past their spaced due date.`,
+        recommendedAction: 'Open the Spaced Revision Center and clear high-priority cards.',
+        destination: '#/revision',
+        badge: overdue > 0 ? 'Critical Retention' : 'Spaced Revision',
+        actionLabel: 'Go to Revision Center'
+      });
+    }
+
+    // Rec 2: Weak Topic Recovery (Priority 4 = High Priority, Evidence: >= 3 attempts with accuracy < 50%)
+    const topicList = topics.topics || topics.weakestTopics || [];
+    const eligibleWeakTopic = topicList.find(t => {
+      const attempts = t.attempted !== undefined ? t.attempted : (t.attemptedCount || 0);
+      const acc = t.accuracy !== null && t.accuracy !== undefined ? t.accuracy : t.masteryScore;
+      return attempts >= 3 && acc !== null && acc < 50;
+    });
+
+    if (eligibleWeakTopic) {
+      const attempts = eligibleWeakTopic.attempted !== undefined ? eligibleWeakTopic.attempted : eligibleWeakTopic.attemptedCount;
+      const acc = eligibleWeakTopic.accuracy !== null && eligibleWeakTopic.accuracy !== undefined ? eligibleWeakTopic.accuracy : eligibleWeakTopic.masteryScore;
+      recommendations.push({
+        id: `rec_weak_topic_${eligibleWeakTopic.topic.replace(/\s+/g, '_').toLowerCase()}`,
+        priority: 4,
+        title: `Strengthen ${eligibleWeakTopic.topic}`,
+        reason: 'Repeated unsuccessful attempts or high failure rate detected in this core category.',
+        supportingEvidence: `${eligibleWeakTopic.weakProblemsCount || eligibleWeakTopic.weakProblemCount || 0} weak problems (${acc}% across ${attempts} attempted).`,
+        recommendedAction: `Practice foundational problems in ${eligibleWeakTopic.topic}.`,
+        destination: '#/problems',
+        badge: 'Targeted Practice',
+        actionLabel: `Explore ${eligibleWeakTopic.topic}`
+      });
+    }
+
+    // Rec 3: Active Roadmap Continuation (Priority 3 = Recommended)
+    if (overview.remainingRoadmapAssignments > 0) {
+      recommendations.push({
+        id: 'rec_continue_roadmap',
+        priority: 3,
+        title: `Continue ${overview.activeRoadmapTitle}`,
+        reason: 'Maintain consistent progression through your planned dual-stream curriculum.',
+        supportingEvidence: `${overview.completedRoadmapAssignments} of ${overview.totalRoadmapAssignments} roadmap tasks completed (${overview.roadmapCompletionPercent}%).`,
+        recommendedAction: 'Open your active learning dashboard and solve today’s assigned problems.',
+        destination: '#/dashboard',
+        badge: 'Curriculum',
+        actionLabel: 'Continue Learning'
+      });
+    }
+
+    // Rec 4: Mock Interview Diagnostic (Priority 2 = Optional)
+    if (overview.selfReportedSolvedProblems >= 10 && mocks.completedCount === 0) {
+      recommendations.push({
+        id: 'rec_first_mock',
+        priority: 2,
+        title: 'Calibrate Speed with a Mock Interview',
+        reason: 'You have solved over 10 problems but have not yet timed your execution under interview constraints.',
+        supportingEvidence: `${overview.selfReportedSolvedProblems} problems solved with zero recorded mock rounds.`,
+        recommendedAction: 'Start a 45-minute FAANG Standard or Blind 75 timed mock interview.',
+        destination: '#/mock',
+        badge: 'Interview Readiness',
+        actionLabel: 'Launch Mock Round'
+      });
+    }
+
+    // Rec 5: Baseline / Insufficient Evidence State (Priority 1 = Baseline)
+    if (overview.uniqueProblemsAttempted < 3) {
+      recommendations.push({
+        id: 'rec_initial_evidence',
+        priority: 1,
+        title: 'Establish Learning Baseline',
+        reason: 'AlgoRecall requires at least 3 completed problem attempts to generate deep statistical analytics.',
+        supportingEvidence: `Currently ${overview.uniqueProblemsAttempted} problems attempted.`,
+        recommendedAction: 'Browse the Problems Library or start Day 1 on your active roadmap.',
+        destination: '#/problems',
+        badge: 'Baseline Setup',
+        actionLabel: 'Browse Problem Library'
+      });
+    }
+
+    // Sort descending by priority (highest priority first)
+    return recommendations.sort((a, b) => b.priority - a.priority);
+  }
+
+
   function computeComprehensiveAnalytics(options = {}) {
     const { ctx } = resolveDataBundle(options);
     const windowKey = options.timeWindow || 'all';
@@ -604,17 +1305,39 @@
     const topicAnalytics = computeTopicAnalytics(options);
     const adherence = computeRevisionAdherence(options);
 
+    // Phase 7 Modules
+    const overview = computeLearningOverview(options);
+    const topicMastery = computeTopicMastery(options);
+    const retention = computeRetentionAnalytics(options);
+    const performance = computeProblemSolvingPerformance(options);
+    const mock = computeMockAnalytics(options);
+    const consistency = computeActivityConsistency(options);
+    const recommendations = generateRecommendations(options);
+
     const report = {
       generatedAt: Date.now(),
       timeWindow: windowKey,
       context: {
-        userId: ctx.id,
+        userId: ctx.userId || ctx.id,
+        id: ctx.id || ctx.userId,
         isGuest: ctx.isGuest
       },
+      // Stage 9 fields
       activity,
       effectiveness,
       topicAnalytics,
       adherence,
+      // Phase 7 fields
+      overview,
+      topicMastery,
+      retention,
+      performance,
+      problemSolving: performance,
+      mock,
+      consistency,
+      activityConsistency: consistency,
+      recommendations,
+      metricRegistry: METRIC_REGISTRY,
       provenance: {
         type: 'trainer_guided_self_reported',
         isExternallyVerified: false,
@@ -627,13 +1350,23 @@
   }
 
   return {
+    METRIC_REGISTRY,
     toLocalDateStr,
     getTimeCutoff,
     invalidateCache,
+    // Stage 9 Authoritative APIs
     computeLearningActivity,
     computeLearningEffectiveness,
     computeTopicAnalytics,
     computeRevisionAdherence,
-    computeComprehensiveAnalytics
+    computeComprehensiveAnalytics,
+    // Phase 7 Authoritative APIs
+    computeLearningOverview,
+    computeTopicMastery,
+    computeRetentionAnalytics,
+    computeProblemSolvingPerformance,
+    computeMockAnalytics,
+    computeActivityConsistency,
+    generateRecommendations
   };
 });

@@ -1,5 +1,5 @@
-/**
- * AlgoRecall — MigrationManager Module
+﻿/**
+ * AlgoRecall â€” MigrationManager Module
  * 
  * Safe, idempotent data migration manager for transitioning legacy un-namespaced
  * learner progress to authenticated user-scoped namespaces.
@@ -180,7 +180,7 @@
         if (result.roadmapCompletedDays > 0) {
           parts.push(`${result.roadmapCompletedDays} roadmap days finished`);
         }
-        result.summaryText = parts.join(' • ');
+        result.summaryText = parts.join(' â€¢ ');
       }
     } catch (e) {
       console.error('[MigrationManager] detectLegacyProgress error:', e);
@@ -379,6 +379,16 @@
       repo.saveFailures(data.failures, targetCtx);
       if (data.gamification) repo.saveGamification(data.gamification, targetCtx);
       if (data.roadmapProgress) repo.saveRoadmapProgress(data.roadmapProgress, targetCtx);
+      // v8: Tag migrated roadmap with dualStreamMode flag if present
+      if (data.roadmapProgress && data.roadmapProgress.dsa120Roadmap) {
+        const rm = data.roadmapProgress;
+        if (rm.dsa120Roadmap && rm.dsa120Roadmap.schemaVersion < 8) {
+          rm.dsa120Roadmap.schemaVersion = 8;
+          rm.dsa120Roadmap.dualStreamMode = 'connected';
+          rm.dsa120Roadmap.updatedAt = new Date().toISOString();
+          repo.saveRoadmapProgress(rm, targetCtx);
+        }
+      }
       if (data.settings) repo.saveSettings(data.settings, targetCtx);
       if (data.interventions) repo.saveInterventions(data.interventions, targetCtx);
       if (data.activeExamSession) repo.saveActiveExamSession(data.activeExamSession, targetCtx);

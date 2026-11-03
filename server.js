@@ -52,8 +52,8 @@ const COMPRESSIBLE_EXTENSIONS = new Set(['.html', '.css', '.js', '.json', '.svg'
 const RUNTIME_CONFIG_SCRIPT_ID = '__ALGORECALL_RUNTIME_CONFIG__';
 
 function getCacheControl(ext) {
-  if (ext === '.html') return 'no-cache, must-revalidate';
-  if (['.css', '.js', '.woff', '.woff2', '.ttf'].includes(ext)) return 'public, max-age=3600';
+  if (['.html', '.js', '.css'].includes(ext)) return 'no-store, no-cache, must-revalidate';
+  if (['.woff', '.woff2', '.ttf'].includes(ext)) return 'public, max-age=86400';
   if (['.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico'].includes(ext)) return 'public, max-age=86400';
   return 'no-cache';
 }

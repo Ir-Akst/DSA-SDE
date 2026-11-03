@@ -135,21 +135,21 @@ async function run() {
     throw new Error('Expected .btn-topic-move buttons on topic cards');
   }
 
-  // 3. Test moving a topic down (move Graphs down)
-  console.log('[Step 3] Testing Move Down on "Graphs" topic...');
+  // 3. Test moving a topic down (move Binary Trees & BST down)
+  console.log('[Step 3] Testing Move Down on "Binary Trees & BST" topic...');
   const firstTopicBefore = await evalInBrowser(`document.querySelector('#topic-matrix-stream-a .roadmap-120-topic-card')?.dataset?.topic`);
   console.log(`  - Stream A first topic before move: "${firstTopicBefore}"`);
 
   await evalInBrowser(`
-    const downBtn = document.querySelector('#topic-matrix-stream-a .btn-topic-move[data-topic="Graphs"][data-dir="down"]');
+    const downBtn = document.querySelector('#topic-matrix-stream-a .btn-topic-move[data-topic="Binary Trees & BST"][data-dir="down"]');
     if (downBtn) downBtn.click();
   `);
   await wait(600);
 
   const firstTopicAfter = await evalInBrowser(`document.querySelector('#topic-matrix-stream-a .roadmap-120-topic-card')?.dataset?.topic`);
   console.log(`  - Stream A first topic after move: "${firstTopicAfter}"`);
-  if (firstTopicAfter !== 'Binary Trees & BST') {
-    throw new Error(`Expected Binary Trees & BST to become #1, got: "${firstTopicAfter}"`);
+  if (firstTopicAfter !== 'Graphs') {
+    throw new Error(`Expected Graphs to become #1, got: "${firstTopicAfter}"`);
   }
   console.log('[Step 3 PASS] Topic successfully moved down; schedule adjusted!');
 
@@ -235,8 +235,8 @@ async function run() {
 
   const resetTopTopic = await evalInBrowser(`document.querySelector('.roadmap-topic-reorder-row')?.dataset?.topic`);
   console.log(`  - Topic after blueprint reset: "${resetTopTopic}"`);
-  if (resetTopTopic !== 'Graphs') {
-    throw new Error(`Expected Graphs after reset, got: "${resetTopTopic}"`);
+  if (resetTopTopic !== 'Binary Trees & BST') {
+    throw new Error(`Expected Binary Trees & BST after reset, got: "${resetTopTopic}"`);
   }
   console.log('[Step 8 PASS] Reset to blueprint successfully restored default sequence!');
 

@@ -197,6 +197,19 @@
      */
     processReview(problemState = {}, rating, timeSpentMinutes = 0, reviewNotes = "", confidence = null, options = {}) {
       const safeState = problemState || {};
+
+      // Idempotency safeguard: if this event was already processed, return existing state
+      const eventId = options.eventId || options.idempotencyKey || null;
+      if (eventId && Array.isArray(safeState.history)) {
+        const existingEntry = safeState.history.find(h => h && h.eventId === eventId);
+        if (existingEntry) {
+          return {
+            ...safeState,
+            idempotent: true,
+            eventId: eventId
+          };
+        }
+      }
       const rawDate = options.now || options.asOfDate || options.today || options.virtualDate;
       const now = (rawDate instanceof Date && !isNaN(rawDate.getTime()))
         ? new Date(rawDate)
@@ -301,6 +314,7 @@
       // Check mastery eligibility with anti-inflation safeguards
       const prevHistory = Array.isArray(safeState.history) ? safeState.history : [];
       const historyEntry = {
+        eventId: eventId,
         date: now.toISOString(),
         rating: rating,
         confidence: confVal,

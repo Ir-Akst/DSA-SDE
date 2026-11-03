@@ -66,10 +66,58 @@
           this.progress.selectedLearningTopic = this.progress.currentLearningTopic;
           this.progress.selectedRevisionTopic = this.progress.revisionTopic;
           if (this.progress.userLockedTopics === undefined) this.progress.userLockedTopics = false;
+          // Schema v11 Automatic Dual-Stream Migration (Trees & BST -> Final Phase)
           const r120 = getRoadmap120();
-          if (!this.progress.dsa120Roadmap || this.progress.dsa120Roadmap.schemaVersion !== 5 || !this.progress.dsa120Roadmap.unmixed) {
+          const targetSchemaVersion = (r120 && r120.SCHEMA_VERSION) || 9;
+          const day1 = this.progress.dsa120Roadmap?.days?.[0];
+          const hasV7LegacyDays = !day1 ||
+            day1.topic === 'Basics & Math' ||
+            day1.subtopic === 'Language Basics & Syntax' ||
+            day1.streams?.current_learning?.topic === 'Basics & Math' ||
+            day1.streams?.current_learning?.subtopic === 'Language Basics & Syntax' ||
+            (Array.isArray(day1.tasks) && day1.tasks.some(t =>
+              t.topicId === 'Basics & Math' ||
+              t.subtopicId === 'Language Basics & Syntax' ||
+              t.revisionReason === 'Migrated from v7 fixed schedule' ||
+              (Array.isArray(t.problemIds) && t.problemIds.includes('prob-363-user-input-output-data-types'))
+            ));
+          const needsDualStreamMigration = !this.progress.migratedToDualStream_v11 ||
+            !this.progress.dsa120Roadmap ||
+            hasV7LegacyDays ||
+            (this.progress.dsa120Roadmap.schemaVersion || 0) < targetSchemaVersion ||
+            this.progress.activeTrack === 'pedagogical_120' ||
+            this.progress.dsa120Roadmap.track === 'pedagogical_120';
+
+          if (needsDualStreamMigration) {
             if (r120) {
-              this.progress.dsa120Roadmap = r120.generateBaselineTemplate();
+              const oldNotes = {};
+              const oldCompleted = {};
+              if (this.progress.dsa120Roadmap?.days) {
+                this.progress.dsa120Roadmap.days.forEach(d => {
+                  if (d.notes) oldNotes[d.dayNumber] = d.notes;
+                  if (d.isCompleted) oldCompleted[d.dayNumber] = true;
+                });
+              }
+              this.progress.dsa120Roadmap = r120.generateBaselineTemplate(this.progress.userStates || {}, { track: 'dual_stream_120' });
+              if (this.progress.dsa120Roadmap?.days) {
+                this.progress.dsa120Roadmap.days.forEach(d => {
+                  if (oldNotes[d.dayNumber]) d.notes = oldNotes[d.dayNumber];
+                  if (oldCompleted[d.dayNumber]) d.isCompleted = true;
+                });
+              }
+              this.progress.activeTrack = 'dual_stream_120';
+              this.progress.migratedToDualStream_v11 = true;
+              this.progress.migratedToDualStream_v10 = true;
+              this.progress.migratedToDualStream_v9 = true;
+              this.progress.explicitlyChosePedagogicalTrack = false;
+              this.progress.explicitlyChoseLegacyTrack = false;
+              this.progress.migratedToPedagogical_v7 = true;
+              this.saveProgress();
+            }
+          } else if (!this.progress.dsa120Roadmap || !this.progress.dsa120Roadmap.unmixed) {
+            if (r120) {
+              this.progress.dsa120Roadmap = r120.generateBaselineTemplate(this.progress.userStates || {}, { track: 'dual_stream_120' });
+              this.saveProgress();
             }
           }
         }
@@ -82,7 +130,10 @@
     getDefaultProgress() {
       const r120 = getRoadmap120();
       return {
-        activeTrack: 'striver_hero',
+        activeTrack: 'dual_stream_120',
+        migratedToDualStream_v9: true,
+        migratedToDualStream_v10: true,
+        migratedToPedagogical_v7: true,
         selectedWeek: 1,
         selectedDay: 1,
         completedDays: {}, // e.g. { 'striver_hero_w1_d1': true }
@@ -100,7 +151,7 @@
         weeklyStudyDays: 5,
         userLockedTopics: false,
         skippedTasks: {},
-        dsa120Roadmap: r120 ? r120.generateBaselineTemplate() : null
+        dsa120Roadmap: r120 ? r120.generateBaselineTemplate({}, { track: 'dual_stream_120' }) : null
       };
     },
 
@@ -111,6 +162,49 @@
       if (!r120) return null;
       const res = r120.get120DayRoadmap(this.progress, userStates, options);
       this.saveProgress();
+      return res;
+    },
+
+    getPedagogicalRoadmap(userStates = {}, options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return null;
+      const res = r120.getPedagogical120Roadmap(this.progress, userStates, options);
+      this.saveProgress();
+      return res;
+    },
+
+    restorePedagogicalRoadmap(userStates = {}, options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      this.progress.activeTrack = 'pedagogical_120';
+      this.progress.explicitlyChosePedagogicalTrack = true;
+      this.progress.dsa120Roadmap = r120.generatePedagogicalBaseline(userStates, options);
+      this.saveProgress();
+      return { success: true, roadmap: this.progress.dsa120Roadmap };
+    },
+
+    getCurriculumProgress(userStates = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return null;
+      return r120.getCurriculumProgress(this.progress, userStates);
+    },
+
+    resumeCurriculum(userStates = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return null;
+      return r120.resumeCurriculum(this.progress, userStates);
+    },
+
+    migrateCurriculumToPedagogical(userStates = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      const res = r120.migrateToPedagogicalCurriculum(this.progress, userStates);
+      if (res.success) this.saveProgress();
       return res;
     },
 
@@ -291,9 +385,28 @@
       if (!this.progress) this.initProgress();
       const r120 = getRoadmap120();
       if (!r120) return { success: false };
+      this.progress.activeTrack = 'dual_stream_120';
+      this.progress.explicitlyChosePedagogicalTrack = false;
+      this.progress.explicitlyChoseLegacyTrack = false;
+      this.progress.migratedToDualStream_v9 = true;
+      this.progress.migratedToDualStream_v10 = true;
       const res = r120.restoreDefaultRoadmap(this.progress, userStates);
       this.saveProgress();
       return res;
+    },
+
+    restoreDualStreamRoadmap(userStates = {}, options = {}) {
+      if (!this.progress) this.initProgress();
+      const r120 = getRoadmap120();
+      if (!r120) return { success: false };
+      this.progress.activeTrack = 'dual_stream_120';
+      this.progress.explicitlyChosePedagogicalTrack = false;
+      this.progress.explicitlyChoseLegacyTrack = false;
+      this.progress.migratedToDualStream_v9 = true;
+      this.progress.migratedToDualStream_v10 = true;
+      this.progress.dsa120Roadmap = r120.generateBaselineTemplate(userStates, { ...options, track: 'dual_stream_120' });
+      this.saveProgress();
+      return { success: true, roadmap: this.progress.dsa120Roadmap };
     },
 
     getTodayAuthoritativePlan(allProblems = [], userStates = {}, options = {}) {
@@ -308,7 +421,6 @@
         const repo = getRepo();
         if (repo) {
           repo.saveRoadmapProgress(this.progress, ctx);
-          return;
         }
         const storage = getLocalStorage();
         if (storage) {
@@ -317,6 +429,325 @@
       } catch (e) {
         console.error('Error saving roadmap progress:', e);
       }
+    },
+
+    selectedRoadmapId: null,
+
+    getSelectedRoadmapId() {
+      return this.selectedRoadmapId || this.progress?.activeTrack || 'dual_stream_120';
+    },
+
+    setSelectedRoadmapId(trackId) {
+      this.selectedRoadmapId = trackId;
+      return this.selectedRoadmapId;
+    },
+
+    getActiveRoadmapId() {
+      return this.progress?.activeTrack || 'dual_stream_120';
+    },
+
+    setActiveRoadmap(trackId, userStates = {}) {
+      if (!this.progress) this.initProgress();
+      const validTracks = ['dual_stream_120', 'pedagogical_120', 'striver_hero', 'faang_60', 'blind_30'];
+      const isCustom = this.progress.customRoadmaps && this.progress.customRoadmaps[trackId];
+      if (!validTracks.includes(trackId) && !isCustom) {
+        return { success: false, error: 'Unknown roadmap track: ' + trackId };
+      }
+      this.progress.activeTrack = trackId;
+      if (trackId === 'pedagogical_120') {
+        this.progress.explicitlyChosePedagogicalTrack = true;
+      } else if (trackId === 'dual_stream_120') {
+        this.progress.explicitlyChosePedagogicalTrack = false;
+      } else if (trackId === 'striver_hero') {
+        this.progress.explicitlyChoseLegacyTrack = true;
+      }
+      this.saveProgress();
+      return { success: true, activeTrack: trackId };
+    },
+
+    getRoadmapCatalog(allProblems = [], userStates = {}) {
+      if (!this.progress) this.initProgress();
+      const activeId = this.getActiveRoadmapId();
+      const archived = this.progress.archivedRoadmaps || {};
+      const catalog = [];
+
+      // 1. Dual-Stream 120-Day Roadmap (Default Primary)
+      const dualStreamRoadmap = this.get120DayRoadmap(userStates);
+      const dsTotal = dualStreamRoadmap?.days?.length || 120;
+      const dsCompleted = (dualStreamRoadmap?.days || []).filter(d => d.isCompleted).length;
+      const dsPct = dsTotal > 0 ? Math.round((dsCompleted / dsTotal) * 100) : 0;
+      catalog.push({
+        id: 'dual_stream_120',
+        title: '🚀 120-Day Dual-Stream Roadmap (Trees & BST → Final Phase)',
+        description: 'Coordinated curriculum prioritizing Trees, Graphs, DP, and Greedy with concurrent foundation revision, 11 buffer days, and a 30-day mock interview final phase.',
+        duration: '120 Days (~17 Weeks)',
+        totalDays: dsTotal,
+        completedDays: dsCompleted,
+        progressPct: dsPct,
+        status: (activeId === 'dual_stream_120') ? 'Active' : (dsCompleted > 0 ? (dsCompleted === dsTotal ? 'Completed' : 'In Progress') : 'Not Started'),
+        isActive: (activeId === 'dual_stream_120'),
+        isArchived: !!archived['dual_stream_120'],
+        lastActivity: this.progress.updatedAt || new Date().toISOString(),
+        tags: ['Dual-Stream', 'Trees First', 'Buffer Days', 'Mock Phase', 'Interview Ready']
+      });
+
+      // 2. Pedagogical 120-Day Roadmap
+      const pedRoadmap = this.getPedagogicalRoadmap(userStates);
+      const pedTotal = pedRoadmap?.days?.length || 120;
+      const pedCompleted = (pedRoadmap?.days || []).filter(d => d.isCompleted).length;
+      const pedPct = pedTotal > 0 ? Math.round((pedCompleted / pedTotal) * 100) : 0;
+      catalog.push({
+        id: 'pedagogical_120',
+        title: '🎯 120-Day Pedagogical Roadmap (Foundations → SDE Ready)',
+        description: 'Structured sequential track building incrementally from syntax, math and arrays up to advanced graph algorithms and dynamic programming.',
+        duration: '120 Days (~17 Weeks)',
+        totalDays: pedTotal,
+        completedDays: pedCompleted,
+        progressPct: pedPct,
+        status: (activeId === 'pedagogical_120') ? 'Active' : (pedCompleted > 0 ? (pedCompleted === pedTotal ? 'Completed' : 'In Progress') : 'Not Started'),
+        isActive: (activeId === 'pedagogical_120'),
+        isArchived: !!archived['pedagogical_120'],
+        lastActivity: null,
+        tags: ['Pedagogical', 'Foundations First', 'Single-Stream', 'Beginner Friendly']
+      });
+
+      // 3. Striver SDE Sheet Track
+      const striverTotal = 84;
+      let striverDone = 0;
+      for (let d = 1; d <= 7; d++) {
+        if (this.isDayCompleted('striver_hero', 1, d)) striverDone++;
+      }
+      const striverPct = Math.round((striverDone / striverTotal) * 100);
+      catalog.push({
+        id: 'striver_hero',
+        title: '⚡ Striver SDE Sheet Track',
+        description: 'Comprehensive 479 Striver A2Z roadmap from elementary concepts to advanced interview patterns with daily recall assessment.',
+        duration: '84 Days (12 Weeks)',
+        totalDays: striverTotal,
+        completedDays: striverDone,
+        progressPct: striverPct,
+        status: (activeId === 'striver_hero') ? 'Active' : (striverDone > 0 ? 'In Progress' : 'Not Started'),
+        isActive: (activeId === 'striver_hero'),
+        isArchived: !!archived['striver_hero'],
+        lastActivity: null,
+        tags: ['Striver A2Z', 'SDE Sheet', 'Classic']
+      });
+
+      // 4. FAANG 60-Day Sprint
+      const faangTotal = 56;
+      let faangDone = 0;
+      for (let d = 1; d <= 7; d++) {
+        if (this.isDayCompleted('faang_60', 1, d)) faangDone++;
+      }
+      const faangPct = Math.round((faangDone / faangTotal) * 100);
+      catalog.push({
+        id: 'faang_60',
+        title: '💼 FAANG High-Frequency Sprint',
+        description: 'High-frequency interview problems from NeetCode 150 & Striver SDE top-asked algorithmic patterns for targeted tech preparation.',
+        duration: '56 Days (8 Weeks)',
+        totalDays: faangTotal,
+        completedDays: faangDone,
+        progressPct: faangPct,
+        status: (activeId === 'faang_60') ? 'Active' : (faangDone > 0 ? 'In Progress' : 'Not Started'),
+        isActive: (activeId === 'faang_60'),
+        isArchived: !!archived['faang_60'],
+        lastActivity: null,
+        tags: ['FAANG', 'High Frequency', 'Sprint']
+      });
+
+      // 5. Blind 75 Essentials
+      const blindTotal = 28;
+      let blindDone = 0;
+      for (let d = 1; d <= 7; d++) {
+        if (this.isDayCompleted('blind_30', 1, d)) blindDone++;
+      }
+      const blindPct = Math.round((blindDone / blindTotal) * 100);
+      catalog.push({
+        id: 'blind_30',
+        title: '⚡ Blind 75 Essentials',
+        description: 'Core 75 high-yield patterns covering array, string, tree, graph, and DP archetypes for urgent technical interview preparation.',
+        duration: '28 Days (4 Weeks)',
+        totalDays: blindTotal,
+        completedDays: blindDone,
+        progressPct: blindPct,
+        status: (activeId === 'blind_30') ? 'Active' : (blindDone > 0 ? 'In Progress' : 'Not Started'),
+        isActive: (activeId === 'blind_30'),
+        isArchived: !!archived['blind_30'],
+        lastActivity: null,
+        tags: ['Blind 75', 'Essentials', 'Fast-Track']
+      });
+
+      // 6. Custom Roadmaps
+      if (this.progress.customRoadmaps && typeof this.progress.customRoadmaps === 'object') {
+        Object.keys(this.progress.customRoadmaps).forEach(cId => {
+          const cRoadmap = this.progress.customRoadmaps[cId];
+          if (!cRoadmap) return;
+          const cTotal = cRoadmap.days?.length || 30;
+          const cDone = (cRoadmap.days || []).filter(d => d.isCompleted).length;
+          const cPct = cTotal > 0 ? Math.round((cDone / cTotal) * 100) : 0;
+          catalog.push({
+            id: cId,
+            title: cRoadmap.title || ('Custom Roadmap (' + cId + ')'),
+            description: cRoadmap.description || 'Learner-tailored custom algorithmic study schedule.',
+            duration: cTotal + ' Days',
+            totalDays: cTotal,
+            completedDays: cDone,
+            progressPct: cPct,
+            status: (activeId === cId) ? 'Active' : (cDone > 0 ? (cDone === cTotal ? 'Completed' : 'In Progress') : 'Not Started'),
+            isActive: (activeId === cId),
+            isArchived: !!archived[cId],
+            isCustom: true,
+            lastActivity: cRoadmap.updatedAt || null,
+            tags: ['Custom', 'User-Created']
+          });
+        });
+      }
+
+      return catalog;
+    },
+
+    getRoadmap(trackId, userStates = {}) {
+      if (!this.progress) this.initProgress();
+      if (!trackId || trackId === 'dual_stream_120') {
+        return this.get120DayRoadmap(userStates);
+      }
+      if (trackId === 'pedagogical_120') {
+        return this.getPedagogicalRoadmap(userStates);
+      }
+      if (this.progress.customRoadmaps && this.progress.customRoadmaps[trackId]) {
+        return this.progress.customRoadmaps[trackId];
+      }
+      return this.get120DayRoadmap(userStates);
+    },
+
+    saveRoadmap(trackId, roadmap) {
+      if (!this.progress) this.initProgress();
+      if (!roadmap) return { success: false, error: 'No roadmap provided' };
+      if (!trackId || trackId === 'dual_stream_120' || trackId === this.progress.activeTrack) {
+        this.save120DayRoadmap(roadmap);
+        return { success: true, trackId: 'dual_stream_120' };
+      }
+      if (trackId === 'pedagogical_120') {
+        this.progress.dsa120Roadmap = roadmap;
+        this.saveProgress();
+        return { success: true, trackId: 'pedagogical_120' };
+      }
+      if (this.progress.customRoadmaps && this.progress.customRoadmaps[trackId]) {
+        this.progress.customRoadmaps[trackId] = roadmap;
+        this.saveProgress();
+        return { success: true, trackId };
+      }
+      this.save120DayRoadmap(roadmap);
+      return { success: true, trackId };
+    },
+
+    createCustomRoadmap(data = {}, userStates = {}) {
+      if (!this.progress) this.initProgress();
+      this.progress.customRoadmaps = this.progress.customRoadmaps || {};
+      const r120 = getRoadmap120();
+      const customId = 'custom_' + Date.now();
+      const title = data.title?.trim() || 'Custom DSA Roadmap';
+      const description = data.description?.trim() || 'Customized DSA study schedule';
+      const totalDays = Math.max(14, Math.min(180, parseInt(data.totalDays, 10) || 60));
+      const startingTopic = data.startingTopic || 'Binary Trees & BST';
+      const streamMode = data.streamMode || 'dual_stream';
+
+      let template = null;
+      if (r120) {
+        template = r120.generateBaselineTemplate(userStates, {
+          totalDays,
+          track: streamMode === 'dual_stream' ? 'dual_stream_120' : 'pedagogical_120',
+          title,
+          description
+        });
+      }
+      if (!template) {
+        template = {
+          roadmapId: customId,
+          title,
+          description,
+          totalDays,
+          days: []
+        };
+      }
+      template.roadmapId = customId;
+      template.title = title;
+      template.description = description;
+      template.createdAt = new Date().toISOString();
+      template.updatedAt = new Date().toISOString();
+
+      this.progress.customRoadmaps[customId] = template;
+      this.saveProgress();
+      return { success: true, roadmapId: customId, roadmap: template };
+    },
+
+    archiveRoadmap(trackId) {
+      if (!this.progress) this.initProgress();
+      if (!trackId) return { success: false, error: 'No track ID' };
+      if (this.getActiveRoadmapId() === trackId) {
+        return { success: false, error: 'Cannot archive active roadmap' };
+      }
+      this.progress.archivedRoadmaps = this.progress.archivedRoadmaps || {};
+      this.progress.archivedRoadmaps[trackId] = true;
+      this.saveProgress();
+      return { success: true, isArchived: true };
+    },
+
+    unarchiveRoadmap(trackId) {
+      if (!this.progress) this.initProgress();
+      if (!trackId) return { success: false, error: 'No track ID' };
+      if (this.progress.archivedRoadmaps) {
+        delete this.progress.archivedRoadmaps[trackId];
+      }
+      this.saveProgress();
+      return { success: true, isArchived: false };
+    },
+
+    validateRoadmapSchedule(roadmap) {
+      if (!roadmap || !Array.isArray(roadmap.days)) {
+        return { valid: false, errors: ['Roadmap has no valid days array'], warnings: [], duplicates: [], conflicts: [] };
+      }
+      const errors = [];
+      const warnings = [];
+      const seenProblems = new Map();
+      const duplicates = [];
+
+      roadmap.days.forEach(d => {
+        const dNum = d.dayNumber || d.sequenceIndex;
+        if (!dNum) errors.push('Day missing sequence index');
+        if (d.dayType === 'learning') {
+          const taskA = (d.tasks || []).find(t => t.stream === 'current_learning');
+          const streamA = taskA || d.streams?.current_learning;
+          if (!streamA || (!streamA.topic && !streamA.topicId)) {
+            warnings.push('Day ' + dNum + ' has learning dayType but no assigned learning topic');
+          }
+          const probIds = taskA?.problemIds || streamA?.problemIds || [];
+          probIds.forEach(pId => {
+            if (seenProblems.has(pId)) {
+              duplicates.push({ problemId: pId, firstDay: seenProblems.get(pId), duplicateDay: dNum });
+            } else {
+              seenProblems.set(pId, dNum);
+            }
+          });
+        }
+      });
+
+      const conflicts = duplicates.map(d => ({
+        type: 'DUPLICATE_PROBLEM',
+        message: 'Problem "' + d.problemId + '" is assigned on Day ' + d.firstDay + ' and again on Day ' + d.duplicateDay
+      }));
+
+      if (duplicates.length > 0) {
+        warnings.push('Found ' + duplicates.length + ' problem ID(s) assigned across multiple study days');
+      }
+
+      return {
+        valid: errors.length === 0 && duplicates.length === 0,
+        errors,
+        warnings,
+        duplicates,
+        conflicts
+      };
     },
 
     toggleDayCompleted(trackId, weekNum, dayNum) {
@@ -2724,12 +3155,39 @@
       const valid = this.validateTopic(raw, false);
       if (valid) return valid;
 
+      // 120-Day Dual-Stream curriculum topic sequence priority:
+      // 1. Binary Trees & BST (Days 1–18)
+      // 2. Graphs (Days 19–41)
+      // 3. Dynamic Programming (Days 42–64)
+      // 4. Greedy & Intervals (Days 65–75)
+      // 5. Remaining DSA Patterns (Days 76–90)
+      const dualStreamPriority = [
+        'Binary Trees & BST',
+        'Graphs',
+        'Dynamic Programming',
+        'Greedy & Intervals',
+        'Arrays & Hashing',
+        'Sliding Window & Two Pointers',
+        'Stack & Queue',
+        'Linked List',
+        'Binary Search',
+        'Recursion & Backtracking',
+        'Heap / Priority Queue',
+        'Tries',
+        'Bit Manipulation',
+        'Basics & Math',
+        'Sorting'
+      ];
       if (Array.isArray(allProblems) && allProblems.length > 0) {
         const stats = this.getTopicCatalogStats(allProblems, userStates);
-        const firstUncompleted = stats.find(s => s.remainingLearningWorkload > 0 || s.unattempted > 0);
-        if (firstUncompleted) return firstUncompleted.topic;
+        for (const topName of dualStreamPriority) {
+          const s = stats.find(item => item.topic === topName);
+          if (s && (s.remainingLearningWorkload > 0 || s.unattempted > 0)) {
+            return topName;
+          }
+        }
       }
-      return 'Arrays & Hashing';
+      return 'Binary Trees & BST';
     },
 
     getSelectedLearningTopic(allProblems = [], userStates = {}) {

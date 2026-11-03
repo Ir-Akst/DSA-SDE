@@ -31,15 +31,24 @@
   };
 
   const DEFAULT_SETTINGS = {
-    theme: 'dark', // 'dark' | 'light'
+    theme: 'dark', // 'dark' | 'light' | 'high-contrast'
+    reducedMotion: false,
+    fontSize: 'standard', // 'standard' | 'large' | 'dyslexic'
+    targetDailyMinutes: 45,
+    targetDailyProblems: 3,
+    defaultDifficultyFilter: 'all', // 'all' | 'Easy' | 'Medium' | 'Hard'
+    preferredRoadmap: 'dual_stream_120',
+    studyReminderCadence: 'self_paced', // 'self_paced' | 'morning' | 'evening' | 'weekend'
+    compactMode: false,
+    showSolutionInsights: true,
+    srsReviewOrder: 'overdue_first', // 'overdue_first' | 'confidence_asc' | 'stage_asc' | 'random'
     aiProvider: 'offline', // 'offline' | 'openai' | 'gemini' | 'custom'
     aiApiKey: '',
     aiApiEndpoint: '',
     aiModel: 'default',
     enableGamification: true,
     enableStreakShield: true,
-    interviewStrictTimer: true,
-    targetDailyMinutes: 45
+    interviewStrictTimer: true
   };
 
   const _memoryStore = new Map();

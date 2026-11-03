@@ -30,6 +30,7 @@
     INTERVENTIONS: 'algorecall_interventions_v2',
     ACTIVE_EXAM: 'algorecall_active_exam_session_v2',
     ACTIVE_MOCK: 'algorecall_active_mock_session_v2',
+    ACTIVE_REVISION: 'algorecall_active_revision_session_v1',
     TRAINER_DRAFT_PREFIX: 'algorecall_trainer_draft_',
     TRAINER_EVENTS: 'algorecall_trainer_events_v2',
     MIGRATION_META: 'algorecall_migration_meta'
@@ -528,6 +529,19 @@
     return removeItem(KEYS.ACTIVE_MOCK, ctx);
   }
 
+  function getActiveRevisionSession(ctx) {
+    return getJSON(KEYS.ACTIVE_REVISION, null, ctx);
+  }
+
+  function saveActiveRevisionSession(session, ctx) {
+    if (!session) return removeItem(KEYS.ACTIVE_REVISION, ctx);
+    return setJSON(KEYS.ACTIVE_REVISION, session, ctx);
+  }
+
+  function clearActiveRevisionSession(ctx) {
+    return removeItem(KEYS.ACTIVE_REVISION, ctx);
+  }
+
   // =========================================================================
   // Solution Discovery Trainer Ephemeral Draft & Event Accessors (Stage 2)
   // =========================================================================
@@ -962,6 +976,9 @@
     getActiveMockSession,
     saveActiveMockSession,
     clearActiveMockSession,
+    getActiveRevisionSession,
+    saveActiveRevisionSession,
+    clearActiveRevisionSession,
     getTrainerDraft,
     saveTrainerDraft,
     clearTrainerDraft,
