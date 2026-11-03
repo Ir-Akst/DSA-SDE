@@ -67,19 +67,21 @@
    * @param {string|number|Date} dateInput
    * @returns {string}
    */
-  function toLocalDateStr(dateInput) {
-    if (!dateInput) return '';
-    try {
-      const d = (dateInput instanceof Date) ? dateInput : new Date(dateInput);
-      if (isNaN(d.getTime())) return '';
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    } catch (_) {
-      return '';
-    }
-  }
+  const toLocalDateStr = (typeof CoreUtils !== 'undefined' && CoreUtils.toLocalDateStr) ||
+    (typeof window !== 'undefined' && window.CoreUtils && window.CoreUtils.toLocalDateStr) ||
+    function(dateInput) {
+      if (!dateInput) return '';
+      try {
+        const d = (dateInput instanceof Date) ? dateInput : new Date(dateInput);
+        if (isNaN(d.getTime())) return '';
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      } catch (_) {
+        return '';
+      }
+    };
 
   /**
    * Filter cutoff timestamp for time windows

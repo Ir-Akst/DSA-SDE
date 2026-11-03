@@ -8497,16 +8497,18 @@
     container.innerHTML = headerHtml;
   }
 
-  // --- ESCAPE HTML HELPER ---
-  function escapeHtml(str) {
-    if (!str) return '';
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
-  }
+  // --- ESCAPE HTML HELPER (Consolidated with CoreUtils) ---
+  const escapeHtml = (typeof CoreUtils !== 'undefined' && CoreUtils.escapeHtml) ||
+    (typeof window !== 'undefined' && window.CoreUtils && window.CoreUtils.escapeHtml) ||
+    function(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    };
 
   // --- VIEW 8: PATTERNS HANDBOOK CONTROLLER ---
   let activePatternCategory = 'all';

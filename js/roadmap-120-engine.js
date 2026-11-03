@@ -80,10 +80,12 @@
     return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   };
 
-  const deepClone = (obj) => {
-    if (obj === null || typeof obj !== 'object') return obj;
-    return JSON.parse(JSON.stringify(obj));
-  };
+  const deepClone = (typeof CoreUtils !== 'undefined' && CoreUtils.deepClone) ||
+    (typeof window !== 'undefined' && window.CoreUtils && window.CoreUtils.deepClone) ||
+    ((obj) => {
+      if (obj === null || typeof obj !== 'object') return obj;
+      return JSON.parse(JSON.stringify(obj));
+    });
 
   // 120-Day Baseline Blueprint Definition
   // Primary authority is RoadmapCurriculumData (js/data/roadmap-120-curriculum.js)

@@ -109,6 +109,11 @@ test('css/styles.css remains the master consolidated stylesheet', () => {
   assert(styles.length > 100000, 'Master stylesheet must preserve all rules');
 });
 
+test('css parity: modular CSS files and canonical styles.css are strictly synchronized', () => {
+  const { verifyParity } = require('../scripts/sync-css.js');
+  assert.doesNotThrow(() => verifyParity(), 'CSS parity verification must succeed');
+});
+
 // 3. Documentation Verification
 console.log('\n3. Architecture & Operational Documentation (docs/)');
 

@@ -175,12 +175,14 @@
   /**
    * Safe Median Calculation Helper
    */
-  function calculateMedian(arr) {
-    if (!Array.isArray(arr) || arr.length === 0) return null;
-    const sorted = [...arr].sort((a, b) => a - b);
-    const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
-  }
+  const calculateMedian = (typeof CoreUtils !== 'undefined' && CoreUtils.calculateMedian) ||
+    (typeof window !== 'undefined' && window.CoreUtils && window.CoreUtils.calculateMedian) ||
+    function(arr) {
+      if (!Array.isArray(arr) || arr.length === 0) return null;
+      const sorted = [...arr].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0 ? sorted[mid] : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+    };
 
   /**
    * Compute Complete Pilot Validation Metrics

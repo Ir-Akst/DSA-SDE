@@ -1,4 +1,6 @@
-/* AlgoRecall Design System - Tokens & Theming */
+/* ==========================================================================
+   AlgoRecall 2.0 Design Tokens & Color Palettes (Canonical Source: css/styles.css)
+   ========================================================================== */
 /* ==========================================================================
    AlgoRecall Design System - Ultra-Modern Glassmorphism Theme
    ========================================================================== */
@@ -167,4 +169,94 @@
     scroll-behavior: auto !important;
   }
 }
-
+
+
+/* --- High-Contrast & Theme Mode Tokens --- */
+/* ==========================================================================
+   AlgoRecall 2.0 - Phase 8: Settings, Accessibility & Release Styles
+   ========================================================================== */
+
+/* High-Contrast Theme */
+[data-theme="high-contrast"] {
+  --bg-main: #000000;
+  --bg-sidebar: #050505;
+  --bg-card: #0a0a0a;
+  --bg-card-hover: #141414;
+  --bg-elevated: #111111;
+  --bg-elevated-hover: #1f1f1f;
+  --bg-input: #000000;
+  --bg-modal: #0a0a0a;
+
+  --border-color: #ffffff;
+  --border-subtle: #aaaaaa;
+  --border-glow: #ffffff;
+
+  --primary: #38bdf8;
+  --primary-hover: #7dd3fc;
+  --primary-light: rgba(56, 189, 248, 0.25);
+  --primary-glow: rgba(56, 189, 248, 0.5);
+
+  --secondary: #facc15;
+  --secondary-hover: #fde047;
+  --secondary-light: rgba(250, 204, 21, 0.25);
+
+  --text-main: #ffffff;
+  --text-muted: #f1f5f9;
+  --text-dim: #cbd5e1;
+
+  --warning: #facc15;
+  --error: #ff4d4d;
+  --success: #22c55e;
+
+  --shadow-card: 0 0 0 2px #ffffff;
+  --shadow-elevated: 0 0 0 2px #ffffff;
+  --shadow-pop: 0 0 0 3px #ffffff;
+}
+
+[data-theme="high-contrast"] .card,
+[data-theme="high-contrast"] .settings-card,
+[data-theme="high-contrast"] .settings-section-card,
+[data-theme="high-contrast"] .problem-card {
+  border: 2px solid #ffffff !important;
+}
+
+[data-theme="high-contrast"] .btn {
+  border: 1px solid #ffffff !important;
+  font-weight: 700;
+}
+
+/* Reduced Motion Mode */
+.reduce-motion,
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Font Readability Scales */
+html.font-large,
+body.font-large,
+.font-large {
+  font-size: 110% !important;
+}
+
+html.font-dyslexic,
+body.font-dyslexic,
+.font-dyslexic {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', 'Trebuchet MS', sans-serif !important;
+  letter-spacing: 0.035em !important;
+  word-spacing: 0.08em !important;
+  line-height: 1.65 !important;
+}
+
+/* Settings Operational Layout */
+.settings-section-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg, 12px);
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow-card);
