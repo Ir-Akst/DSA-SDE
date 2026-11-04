@@ -1084,11 +1084,11 @@
     const badgeRoadmapEl = document.getElementById('dash-roadmap-title');
     if (badgeRoadmapEl) badgeRoadmapEl.innerHTML = `<i class="fa-solid fa-map"></i> ${trackName}`;
 
-    // Day Badges
+    // Day Badges & Header Subtitle
     const ctxDayEl = document.getElementById('dash-context-day-badge');
     if (ctxDayEl) ctxDayEl.textContent = `Day ${dayNumber} of ${totalDays}`;
     const badgeDayEl = document.getElementById('dash-day-number-badge');
-    if (badgeDayEl) badgeDayEl.innerHTML = `<i class="fa-solid fa-calendar-day"></i> Day ${dayNumber} of ${totalDays}`;
+    if (badgeDayEl) badgeDayEl.textContent = `DAY ${dayNumber} / ${totalDays}`;
 
     // Extract Stream A & Stream B problems
     let streamAProblems = [];
@@ -1127,6 +1127,9 @@
 
     const ctxTopicEl = document.getElementById('dash-context-topic');
     if (ctxTopicEl) ctxTopicEl.textContent = `${streamATopic}${streamASubtopic ? ' · ' + streamASubtopic : ''}`;
+
+    const dashSubtitleEl = document.getElementById('dash-subtitle');
+    if (dashSubtitleEl) dashSubtitleEl.textContent = `Work through ${streamATopic.toLowerCase()}, then revisit ${streamBTopic}.`;
 
     const dayTopicTitleEl = document.getElementById('dash-day-topic-title');
     if (dayTopicTitleEl) dayTopicTitleEl.textContent = streamATopic;
@@ -1198,13 +1201,28 @@
       }
     }
 
-    // Daily Progress Bar
+    // Daily Progress Bar & Redesign Metrics
+    const progMetricNum = document.getElementById('dash-progress-metric-num');
+    if (progMetricNum) progMetricNum.textContent = totalCompleted;
     const progTextEl = document.getElementById('dash-day-progress-text');
-    if (progTextEl) progTextEl.textContent = `${totalCompleted} of ${totalAssigned} Completed`;
+    if (progTextEl) progTextEl.textContent = `/ ${totalAssigned} problems`;
     const progPctEl = document.getElementById('dash-day-progress-percent');
     if (progPctEl) progPctEl.textContent = `${completionPct}%`;
     const progFillEl = document.getElementById('dash-day-progress-bar');
     if (progFillEl) progFillEl.style.width = `${completionPct}%`;
+
+    const splitAVal = document.getElementById('dash-stream-a-split-val');
+    if (splitAVal) splitAVal.textContent = `${streamASolved} / ${streamAProblems.length}`;
+    const splitBVal = document.getElementById('dash-stream-b-split-val');
+    if (splitBVal) splitBVal.textContent = `${streamBSolved} / ${streamBProblems.length}`;
+
+    const compAText = document.getElementById('stream-a-complete-text');
+    if (compAText) compAText.textContent = `${streamASolved} / ${streamAProblems.length} complete`;
+    const compBText = document.getElementById('stream-b-complete-text');
+    if (compBText) compBText.textContent = `${streamBSolved} / ${streamBProblems.length} complete`;
+
+    const todayCountBadge = document.getElementById('dash-today-problems-count-badge');
+    if (todayCountBadge) todayCountBadge.textContent = totalAssigned.toString().padStart(2, '0');
 
     // Celebration & Buffer Banners
     const celebBanner = document.getElementById('day-completed-celebration-banner');
@@ -1408,6 +1426,10 @@
       matchCountEl.textContent = `Showing ${filteredA.length + filteredB.length} of ${totalCount} problems`;
     }
 
+    // Identify first unsolved problem in assigned order for "UP NEXT" badge
+    const firstUnsolved = allAssigned.find(p => !isProbSolved(p));
+    const firstUnsolvedId = firstUnsolved ? firstUnsolved.id : null;
+
     // Render Stream A Rows
     const listAEl = document.getElementById('stream-a-problems-list');
     const containerAEl = document.getElementById('stream-a-problems-container');
@@ -1420,7 +1442,7 @@
         if (filteredA.length === 0) {
           listAEl.innerHTML = `<div class="dash-empty-filter-note" style="padding:14px; text-align:center; color:var(--text-muted); font-size:13px;">No Stream A problems match the active filter or search.</div>`;
         } else {
-          listAEl.innerHTML = filteredA.map(p => renderDashboardProblemRow(p)).join('');
+          listAEl.innerHTML = filteredA.map(p => renderDashboardProblemRow(p, p.id === firstUnsolvedId)).join('');
         }
       }
     }
@@ -1437,13 +1459,13 @@
         if (filteredB.length === 0) {
           listBEl.innerHTML = `<div class="dash-empty-filter-note" style="padding:14px; text-align:center; color:var(--text-muted); font-size:13px;">No Stream B problems match the active filter or search.</div>`;
         } else {
-          listBEl.innerHTML = filteredB.map(p => renderDashboardProblemRow(p)).join('');
+          listBEl.innerHTML = filteredB.map(p => renderDashboardProblemRow(p, p.id === firstUnsolvedId)).join('');
         }
       }
     }
   }
 
-  function renderDashboardProblemRow(p) {
+  function renderDashboardProblemRow(p, isUpNext) {
     if (!p) return '';
     const st = userStates[p.id];
     const isSolved = Boolean(st && (st.lastReviewed || st.solved));
@@ -1452,42 +1474,49 @@
     const hasNotes = Boolean((st?.quickNotes && Object.values(st.quickNotes).some(v => typeof v === 'string' && v.trim().length > 0)) || (st?.notes && st.notes.trim().length > 0));
     const diffClass = `badge-diff-${(p.difficulty || 'medium').toLowerCase()}`;
     const directUrl = (p.url && p.url.startsWith('http')) ? p.url : null;
+    const patternSubtitle = p.pattern || p.subtopic || p.topic || 'General';
 
     return `
       <div class="dash-problem-row ${isSolved ? 'solved' : ''}" data-id="${p.id}" id="dash-row-${p.id}">
-        <div class="dash-prob-left">
-          <button type="button" class="btn-prob-check btn-action-toggle-solve" data-id="${p.id}" title="${isSolved ? 'Mark as Unsolved' : 'Mark as Solved'}" aria-label="${isSolved ? 'Mark as Unsolved' : 'Mark as Solved'}">
-            <i class="${isSolved ? 'fa-solid fa-circle-check text-success' : 'fa-regular fa-circle'}"></i>
+        <div class="prob-cell-main">
+          <button type="button" class="btn-prob-check btn-action-toggle-solve ${isSolved ? 'checked' : ''}" data-id="${p.id}" title="${isSolved ? 'Mark as Unsolved' : 'Mark as Solved'}" aria-label="${isSolved ? 'Mark as Unsolved' : 'Mark as Solved'}">
+            <i class="${isSolved ? 'fa-solid fa-square-check' : 'fa-regular fa-square'} sr-only"></i>
+            ${isSolved ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>' : ''}
           </button>
-          <div class="dash-prob-info">
-            <div class="dash-prob-title-row">
+          <div class="prob-title-block">
+            <div class="prob-title-line">
               <a href="${directUrl || '#'}" target="_blank" rel="noopener noreferrer" class="dash-problem-title ${!directUrl ? 'url-disabled' : ''}" data-id="${p.id}">
-                ${p.title} <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                ${p.title}
               </a>
-              <span class="badge badge-prob-id">${p.id}</span>
-              <span class="${diffClass}">${p.difficulty || 'Medium'}</span>
-              ${isWeak ? '<span class="badge-prob-weak" title="Identified struggle or low confidence"><i class="fa-solid fa-triangle-exclamation"></i> Weak</span>' : ''}
-              ${hasNotes ? '<span class="badge-prob-notes" title="Mistake notes captured"><i class="fa-solid fa-note-sticky"></i> Notes</span>' : ''}
+              ${directUrl ? `<a href="${directUrl}" target="_blank" rel="noopener noreferrer" class="prob-open-icon btn-prob-open" data-id="${p.id}" title="Open problem external URL"><i class="fa-solid fa-arrow-up-right-from-square sr-only"></i><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></a>` : `<span class="prob-open-icon btn-prob-open disabled" data-id="${p.id}"><svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg></span>`}
+              ${isUpNext ? '<span class="badge-up-next">UP NEXT</span>' : ''}
+              <span class="badge badge-prob-id sr-only">${p.id}</span>
             </div>
-            <div class="dash-prob-tags">
-              <span class="badge badge-topic" style="background:rgba(255,255,255,0.05); color:#94a3b8; font-size:11px; padding:2px 7px; border-radius:4px;">${p.topic || 'General'}</span>
-              ${p.pattern ? `<span class="badge badge-pattern" style="font-size:11px; padding:2px 7px; border-radius:4px;">${p.pattern}</span>` : ''}
-            </div>
+            <div class="prob-subtext">${escapeHtml(patternSubtitle)}</div>
           </div>
         </div>
-        <div class="dash-prob-actions">
-          <button type="button" class="btn-prob-bookmark btn-action-bookmark ${isBookmarked ? 'bookmarked' : ''}" data-id="${p.id}" title="${isBookmarked ? 'Remove Bookmark' : 'Bookmark Problem'}" aria-label="${isBookmarked ? 'Remove Bookmark' : 'Bookmark Problem'}">
-            <i class="${isBookmarked ? 'fa-solid' : 'fa-regular'} fa-bookmark"></i>
+
+        <div class="prob-cell-diff">
+          <span class="${diffClass}">${p.difficulty || 'Medium'}</span>
+        </div>
+
+        <div class="prob-cell-actions">
+          <button type="button" class="btn-prob-action btn-dash-open-notes ${hasNotes ? 'has-notes' : ''}" data-id="${p.id}" title="Quick Notes &amp; Mistake Capture" aria-label="Notes">
+            <i class="${hasNotes ? 'fa-solid' : 'fa-regular'} fa-note-sticky sr-only"></i>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
           </button>
-          <button type="button" class="btn btn-sm btn-ghost btn-dash-open-notes" data-id="${p.id}" title="Quick Notes & Mistake Capture">
-            <i class="fa-regular fa-note-sticky"></i> <span class="action-btn-text">Notes</span>
+          <button type="button" class="btn-prob-action btn-dash-trainer" data-id="${p.id}" title="Open Solution Discovery Trainer" aria-label="Trainer">
+            <i class="fa-regular fa-lightbulb sr-only"></i>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="18" x2="15" y2="18"></line><line x1="10" y1="22" x2="14" y2="22"></line><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"></path></svg>
           </button>
-          <button type="button" class="btn btn-sm btn-outline-secondary btn-dash-trainer" data-id="${p.id}" title="Open Solution Discovery Trainer">
-            <i class="fa-solid fa-lightbulb"></i> <span class="action-btn-text">Trainer</span>
+          <button type="button" class="btn-prob-action btn-action-bookmark ${isBookmarked ? 'bookmarked' : ''}" data-id="${p.id}" title="${isBookmarked ? 'Remove Bookmark' : 'Bookmark Problem'}" aria-label="Bookmark">
+            <i class="${isBookmarked ? 'fa-solid text-warning' : 'fa-regular'} fa-bookmark sr-only"></i>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="${isBookmarked ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
           </button>
-          <a href="${directUrl || '#'}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary btn-prob-open ${!directUrl ? 'disabled' : ''}" data-id="${p.id}" title="Open Problem URL">
-            <i class="fa-solid fa-arrow-up-right-from-square"></i> <span>Open</span>
-          </a>
+          <button type="button" class="btn-prob-action btn-action-toggle-weak ${isWeak ? 'weak-active' : ''}" data-id="${p.id}" title="${isWeak ? 'Identified Weak Problem' : 'Flag as Weak'}" aria-label="Weak">
+            <i class="${isWeak ? 'fa-solid text-danger' : 'fa-regular'} fa-flag sr-only"></i>
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="${isWeak ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+          </button>
         </div>
       </div>
     `;

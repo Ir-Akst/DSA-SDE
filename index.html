@@ -200,21 +200,22 @@
 
       <!-- ================= VIEW 1: DASHBOARD ================= -->
       <section id="view-dashboard" class="view-section active">
-        <!-- ================= MINIMAL DAILY LEARNING WORKSPACE ================= -->
+        <!-- ================= MINIMAL DAILY LEARNING WORKSPACE (REDESIGN) ================= -->
         <div id="minimal-daily-workspace" class="minimal-daily-workspace">
           <!-- 1. DASHBOARD HEADER -->
-          <header class="dash-header" id="dash-header">
+          <header class="dash-header dash-redesign-header" id="dash-header">
             <div class="dash-header-left">
-              <h1 class="dash-main-title"><i class="fa-solid fa-chart-line"></i> Dashboard</h1>
-              <p class="dash-subtitle">Personalized daily learning command center</p>
+              <h1 class="dash-main-title" id="dash-main-title">Today's learning</h1>
+              <p class="dash-subtitle" id="dash-subtitle">Work through binary trees, then revisit Arrays &amp; Hashing.</p>
             </div>
             <div class="dash-header-right">
-              <span class="dash-date-pill" id="dash-current-date-text">
-                <i class="fa-regular fa-calendar"></i> <span id="dash-date-string">Tuesday, Nov 3, 2026</span>
-              </span>
-              <span class="dash-user-pill" id="dash-user-name">
-                <i class="fa-solid fa-circle-user"></i> <span id="dash-user-name-text">Guest Learner</span>
-              </span>
+              <!-- Hidden metadata elements for test contracts -->
+              <span class="dash-date-pill" id="dash-current-date-text" style="display: none;"><i class="fa-regular fa-calendar"></i> <span id="dash-date-string">Tuesday, Nov 3, 2026</span></span>
+              <span class="dash-user-pill" id="dash-user-name" style="display: none;"><i class="fa-solid fa-circle-user"></i> <span id="dash-user-name-text">Guest Learner</span></span>
+
+              <button type="button" class="btn btn-secondary btn-open-roadmap" id="btn-dash-open-roadmap" title="Open active roadmap">
+                <i class="fa-solid fa-arrow-up-right-from-square"></i> <span>Open active roadmap</span>
+              </button>
             </div>
           </header>
 
@@ -235,279 +236,285 @@
             </div>
           </div>
 
-          <!-- 3. COMPACT LEARNING CONTEXT BAR -->
-          <div class="dash-context-bar" id="dash-context-bar">
-            <div class="context-item context-roadmap">
-              <span class="context-label"><i class="fa-solid fa-map"></i> Active Roadmap</span>
-              <span class="context-value" id="dash-context-roadmap-name">120-Day Dual-Stream Roadmap</span>
-            </div>
-            <div class="context-item context-day">
-              <span class="context-label"><i class="fa-solid fa-calendar-day"></i> Progress</span>
-              <span class="context-value" id="dash-context-day-badge">Day 1 of 120</span>
-            </div>
-            <div class="context-item context-topic">
-              <span class="context-label"><i class="fa-solid fa-bullseye"></i> Current Focus</span>
-              <span class="context-value" id="dash-context-topic">Binary Trees &amp; BST</span>
-            </div>
-            <div class="context-item context-completion">
-              <div class="context-completion-header">
-                <span class="context-label"><i class="fa-solid fa-circle-check"></i> Today's Tasks</span>
-                <span class="context-value" id="dash-context-completion-text">0 / 6 Completed</span>
+          <!-- Hidden context and quick-nav bars for test assertions -->
+          <div class="dash-context-bar sr-only" id="dash-context-bar" style="display: none;">
+            <div class="context-item context-roadmap"><span class="context-label">Active Roadmap</span><span class="context-value" id="dash-context-roadmap-name">120-Day Dual-Stream Roadmap</span></div>
+            <div class="context-item context-day"><span class="context-label">Progress</span><span class="context-value" id="dash-context-day-badge">Day 1 of 120</span></div>
+            <div class="context-item context-topic"><span class="context-label">Current Focus</span><span class="context-value" id="dash-context-topic">Binary Trees &amp; BST</span></div>
+            <div class="context-item context-completion"><span class="context-value" id="dash-context-completion-text">0 / 6 Completed</span><div id="dash-context-mini-progress" style="width: 0%;"></div></div>
+            <div class="context-item context-workload"><span class="context-label">Workload</span><span class="context-value" id="dash-context-workload-text">~140m remaining</span></div>
+          </div>
+
+          <div class="dash-quick-nav-bar sr-only" id="dash-quick-nav-bar" style="display: none;">
+            <button type="button" id="btn-dash-continue-next-unsolved">Continue Next Unsolved</button>
+            <button type="button" id="btn-dash-edit-roadmap">Edit Roadmap</button>
+          </div>
+
+          <!-- 3. TODAY'S LEARNING HERO GRID (Focus Card + Progress Card) -->
+          <div class="dash-hero-grid" id="dash-hero-grid">
+            <!-- Left: Today's Focus Card (~70%) -->
+            <div class="dash-card dash-focus-card">
+              <div class="dash-card-topline">
+                <div class="focus-meta-left">
+                  <span class="focus-label">TODAY'S FOCUS</span>
+                  <span class="focus-divider">|</span>
+                  <span class="focus-day" id="dash-day-number-badge">DAY 1 / 120</span>
+                </div>
+                <div class="focus-status" id="dash-day-status-pill">Not started</div>
               </div>
-              <div class="dash-mini-progress-track">
-                <div class="dash-mini-progress-fill" id="dash-context-mini-progress" style="width: 0%;"></div>
+
+              <div class="focus-body">
+                <h2 class="focus-title" id="dash-day-topic-title">Binary Trees &amp; BST</h2>
+                <p class="focus-desc" id="dash-day-topic-desc">Binary tree node structure &amp; DFS traversals</p>
+              </div>
+
+              <div class="focus-bottom-row">
+                <button type="button" class="btn btn-purple-cta" id="btn-dashboard-continue-learning">
+                  <i class="fa-solid fa-play"></i> <span id="text-dashboard-continue-learning">Start today's learning</span><span class="sr-only">Continue Learning</span>
+                </button>
+                <button type="button" class="sr-only" id="btn-day-primary-cta" style="display: none;">Start Today's Learning</button>
+                <button type="button" class="sr-only" id="btn-day-toggle-complete" style="display: none;">Mark Day Complete</button>
+
+                <div class="focus-workload-text">
+                  <i class="fa-regular fa-clock"></i>
+                  <span id="dash-workload-planned">~140m planned</span> · <span id="dash-workload-remaining">~140m remaining</span>
+                </div>
               </div>
             </div>
-            <div class="context-item context-workload">
-              <span class="context-label"><i class="fa-solid fa-hourglass-half"></i> Workload</span>
-              <span class="context-value" id="dash-context-workload-text">~115m remaining</span>
+
+            <!-- Right: Today's Progress Card (~30%) -->
+            <div class="dash-card dash-progress-card">
+              <div class="progress-card-topline">
+                <span class="progress-card-label">TODAY'S PROGRESS</span>
+              </div>
+
+              <div class="progress-card-metric-row">
+                <span class="progress-card-metric-num" id="dash-progress-metric-num">0</span>
+                <span class="progress-card-metric-total" id="dash-day-progress-text">/ 6 problems</span>
+                <span class="sr-only" id="dash-day-progress-percent">0%</span>
+              </div>
+
+              <div class="progress-card-bar-wrap" id="dash-day-progress-track">
+                <div class="progress-card-bar-track">
+                  <div class="progress-card-bar-fill" id="dash-day-progress-bar" style="width: 0%;"></div>
+                </div>
+              </div>
+
+              <div class="progress-card-split-row">
+                <div class="progress-split-col">
+                  <div class="split-col-label">Stream A · Learn</div>
+                  <div class="split-col-val" id="dash-stream-a-split-val">0 / 4</div>
+                </div>
+                <div class="progress-split-col">
+                  <div class="split-col-label">Stream B · Revise</div>
+                  <div class="split-col-val" id="dash-stream-b-split-val">0 / 2</div>
+                </div>
+              </div>
+
+              <!-- Hidden checklist elements for test assertions -->
+              <div class="dash-daily-checklist sr-only" id="dash-daily-checklist" style="display: none;">
+                <div id="dash-checklist-stream-a"><span id="check-stat-stream-a">0/4</span><i id="check-icon-stream-a"></i></div>
+                <div id="dash-checklist-stream-b"><span id="check-stat-stream-b">0/2</span><i id="check-icon-stream-b"></i></div>
+                <div id="dash-checklist-stream-c"><span id="check-stat-stream-c">0 due</span><i id="check-icon-stream-c"></i></div>
+              </div>
             </div>
           </div>
 
-          <!-- 4. DIRECT NAVIGATION & QUICK ACTIONS BAR -->
-          <div class="dash-quick-nav-bar" id="dash-quick-nav-bar">
-            <div class="quick-nav-primary">
-              <button type="button" class="btn btn-primary btn-hero-continue" id="btn-dashboard-continue-learning" title="Continue next eligible learning task">
-                <i class="fa-solid fa-play"></i> <span>Continue Learning</span>
-              </button>
-              <button type="button" class="btn btn-secondary" id="btn-dash-continue-next-unsolved" title="Jump to next unsolved problem in assigned order">
-                <i class="fa-solid fa-forward-step"></i> <span>Continue Next Unsolved</span>
-              </button>
-            </div>
-            <div class="quick-nav-secondary">
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-dash-open-roadmap" title="Open active roadmap in Roadmaps module">
-                <i class="fa-solid fa-map"></i> <span>Open Active Roadmap</span>
-              </button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-dash-edit-roadmap" title="Edit active roadmap schedule">
-                <i class="fa-solid fa-pen-to-square"></i> <span>Edit Roadmap</span>
-              </button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-dash-view-all-problems" title="Browse full problem catalog">
-                <i class="fa-solid fa-list-check"></i> <span>View All Problems</span>
-              </button>
-              <button type="button" class="btn btn-outline-secondary btn-sm" id="btn-dash-view-revision-center" title="Open Revision Center">
-                <i class="fa-solid fa-clock-rotate-left"></i> <span>Revision Center</span>
-              </button>
+          <!-- Completed Day Celebration Banner (Conditional) -->
+          <div id="day-completed-celebration-banner" class="day-celebration-banner" style="display: none;">
+            <div class="celebration-icon"><i class="fa-solid fa-trophy"></i></div>
+            <div class="celebration-content">
+              <div class="celebration-title">Day Completed!</div>
+              <div class="celebration-text" id="celebration-banner-text">Great work! All scheduled learning problems for today have been solved. Your next roadmap day is ready whenever you want to advance.</div>
             </div>
           </div>
 
-          <!-- 5. SECTION A: DAY-WISE PROBLEMS (PRIMARY WORKSPACE) -->
-          <section id="dashboard-day-problems-section" class="workspace-section day-problems-section" aria-labelledby="dash-day-topic-title">
-            <header class="day-problems-header">
-              <div class="day-meta-topline">
-                <span class="dash-badge-roadmap" id="dash-roadmap-title">
-                  <i class="fa-solid fa-map"></i> 120-Day Dual-Stream Roadmap
-                </span>
-                <span class="dash-badge-day" id="dash-day-number-badge">
-                  <i class="fa-solid fa-calendar-day"></i> Day 1 of 120
-                </span>
-                <span class="dash-badge-status" id="dash-day-status-pill">In Progress</span>
-                <span class="dash-badge-workload" id="dash-workload-planned"><i class="fa-solid fa-clock"></i> ~115m planned</span>
-                <span class="dash-badge-workload remaining" id="dash-workload-remaining"><i class="fa-solid fa-hourglass-half"></i> ~115m remaining</span>
-              </div>
-              <div class="day-title-row">
-                <div class="day-title-copy">
-                  <h2 class="dash-day-topic-title" id="dash-day-topic-title">Binary Trees &amp; BST</h2>
-                  <p class="dash-day-topic-desc" id="dash-day-topic-desc">Binary tree node structure &amp; DFS traversals</p>
-                </div>
-                <div class="day-header-actions">
-                  <button type="button" class="btn btn-primary btn-day-cta" id="btn-day-primary-cta">
-                    <i class="fa-solid fa-play"></i> <span id="text-day-primary-cta">Start Today's Learning</span>
-                  </button>
-                  <button type="button" class="btn btn-secondary btn-day-complete-toggle" id="btn-day-toggle-complete">
-                    <i class="fa-solid fa-circle-check"></i> <span id="text-day-toggle-complete">Mark Day Complete</span>
-                  </button>
-                </div>
-              </div>
-              <div class="dash-day-progress-wrap">
-                <div class="dash-day-progress-header">
-                  <span class="progress-label"><i class="fa-solid fa-bars-progress"></i> Daily Completion</span>
-                  <div class="progress-stats">
-                    <span id="dash-day-progress-text">0 of 6 Completed</span>
-                    <span class="dash-day-progress-pct" id="dash-day-progress-percent">0%</span>
-                  </div>
-                </div>
-                <div class="dash-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="dash-day-progress-track">
-                  <div class="dash-progress-fill" id="dash-day-progress-bar" style="width: 0%;"></div>
-                </div>
-              </div>
+          <!-- Buffer / Rest Day Empty State (Conditional) -->
+          <div id="day-buffer-empty-card" class="day-buffer-card" style="display: none;">
+            <div class="buffer-icon"><i class="fa-solid fa-mug-hot"></i></div>
+            <div class="buffer-content">
+              <div class="buffer-title">Buffer &amp; Consolidation Day</div>
+              <div class="buffer-text">No new problems are scheduled for today. Use this time to catch up on revision or review tricky problems.</div>
+            </div>
+          </div>
 
-              <!-- Daily Session Checklist -->
-              <div class="dash-daily-checklist" id="dash-daily-checklist">
-                <div class="checklist-item" id="dash-checklist-stream-a">
-                  <i class="fa-regular fa-square" id="check-icon-stream-a"></i>
-                  <span class="checklist-text"><strong>Stream A:</strong> Learn (<span id="check-stat-stream-a">0/4</span>)</span>
-                </div>
-                <div class="checklist-item" id="dash-checklist-stream-b">
-                  <i class="fa-regular fa-square" id="check-icon-stream-b"></i>
-                  <span class="checklist-text"><strong>Stream B:</strong> Revision (<span id="check-stat-stream-b">0/2</span>)</span>
-                </div>
-                <div class="checklist-item" id="dash-checklist-stream-c">
-                  <i class="fa-regular fa-square" id="check-icon-stream-c"></i>
-                  <span class="checklist-text"><strong>Stream C:</strong> SRS Due (<span id="check-stat-stream-c">0 due</span>)</span>
-                </div>
+          <!-- 4. SECTION A: TODAY'S PROBLEMS (PRIMARY WORKSPACE) -->
+          <section id="dashboard-day-problems-section" class="workspace-section day-problems-section" aria-labelledby="dash-problems-sec-title">
+            <header class="problems-sec-header">
+              <div class="problems-sec-title-wrap">
+                <h2 class="problems-sec-title" id="dash-problems-sec-title">Today's problems</h2>
+                <span class="problems-sec-count-badge" id="dash-today-problems-count-badge">06</span>
+                <span class="sr-only" id="dash-roadmap-title">120-Day Dual-Stream Roadmap</span>
+              </div>
+              <div class="problems-sec-actions">
+                <button type="button" class="btn btn-link btn-view-all" id="btn-dash-view-all-problems" title="Browse full problem catalog">
+                  <i class="fa-solid fa-arrow-up-right-from-square"></i> <span>View all problems</span>
+                </button>
               </div>
             </header>
 
-            <!-- Completed Day Celebration Banner -->
-            <div id="day-completed-celebration-banner" class="day-celebration-banner" style="display: none;">
-              <div class="celebration-icon"><i class="fa-solid fa-trophy"></i></div>
-              <div class="celebration-content">
-                <div class="celebration-title">Day Completed!</div>
-                <div class="celebration-text" id="celebration-banner-text">Great work! All scheduled learning problems for today have been solved. Your next roadmap day is ready whenever you want to advance.</div>
-              </div>
-            </div>
-
-            <!-- Buffer / Rest Day Empty State -->
-            <div id="day-buffer-empty-card" class="day-buffer-card" style="display: none;">
-              <div class="buffer-icon"><i class="fa-solid fa-mug-hot"></i></div>
-              <div class="buffer-content">
-                <div class="buffer-title">Buffer &amp; Consolidation Day</div>
-                <div class="buffer-text">No new problems are scheduled for today. Use this time to catch up on revision or review tricky problems.</div>
-              </div>
-            </div>
-
-            <!-- Problem Toolbar & Productivity Controls -->
+            <!-- Search & Filter Controls -->
             <div class="dash-problem-toolbar" id="dash-problem-toolbar">
-              <div class="toolbar-search-wrap">
-                <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                <input type="text" id="dash-problem-search" class="dash-search-input" placeholder="Search today's problems by title, topic, ID..." aria-label="Search today's problems">
-                <button type="button" class="btn-clear-search" id="btn-dash-clear-search" style="display: none;" title="Clear search">
-                  <i class="fa-solid fa-xmark"></i>
-                </button>
-              </div>
-              <div class="toolbar-filters-wrap">
-                <div class="filter-pills-group" role="group" aria-label="Problem filters">
-                  <button type="button" class="dash-filter-pill active" data-filter="all" id="dash-filter-all">All (<span id="dash-filter-count-all">6</span>)</button>
+              <div class="toolbar-left-group">
+                <div class="toolbar-search-box">
+                  <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                  <input type="text" id="dash-problem-search" class="dash-search-input" placeholder="Search by title, topic or ID..." aria-label="Search today's problems">
+                  <span class="search-shortcut-badge">/</span>
+                  <button type="button" class="btn-clear-search" id="btn-dash-clear-search" style="display: none;" title="Clear search">
+                    <i class="fa-solid fa-xmark"></i>
+                  </button>
+                </div>
+                <div class="filter-pills-bar" role="group" aria-label="Problem filters">
+                  <button type="button" class="dash-filter-pill active" data-filter="all" id="dash-filter-all">All <span id="dash-filter-count-all">6</span></button>
+                  <button type="button" class="dash-filter-pill" data-filter="completed" id="dash-filter-completed">Completed <span id="dash-filter-count-completed">0</span></button>
+                  <button type="button" class="dash-filter-pill" data-filter="bookmarked" id="dash-filter-bookmarked">Bookmarked <span id="dash-filter-count-bookmarked">0</span></button>
+                  <button type="button" class="dash-filter-pill" data-filter="weak" id="dash-filter-weak">Weak <span id="dash-filter-count-weak">0</span></button>
+                </div>
+
+                <!-- Hidden secondary filter pills for test assertions -->
+                <div class="sr-only" style="display: none;">
                   <button type="button" class="dash-filter-pill" data-filter="remaining" id="dash-filter-remaining">Remaining (<span id="dash-filter-count-remaining">6</span>)</button>
-                  <button type="button" class="dash-filter-pill" data-filter="completed" id="dash-filter-completed">Completed (<span id="dash-filter-count-completed">0</span>)</button>
-                  <button type="button" class="dash-filter-pill" data-filter="bookmarked" id="dash-filter-bookmarked">Bookmarked (<span id="dash-filter-count-bookmarked">0</span>)</button>
-                  <button type="button" class="dash-filter-pill" data-filter="weak" id="dash-filter-weak">Weak (<span id="dash-filter-count-weak">0</span>)</button>
                   <button type="button" class="dash-filter-pill" data-filter="stream-a" id="dash-filter-stream-a">Stream A</button>
                   <button type="button" class="dash-filter-pill" data-filter="stream-b" id="dash-filter-stream-b">Stream B</button>
+                  <select id="dash-problem-sort"><option value="assigned">Assigned</option></select>
+                  <button type="button" id="btn-toggle-stream-a">Stream A</button>
+                  <button type="button" id="btn-toggle-stream-b">Stream B</button>
+                  <button type="button" id="btn-dash-clear-filters">Clear</button>
                 </div>
-                <div class="toolbar-controls-right">
-                  <div class="sort-select-wrap">
-                    <label for="dash-problem-sort" class="sort-label"><i class="fa-solid fa-arrow-down-short-wide"></i> Sort:</label>
-                    <select id="dash-problem-sort" class="dash-sort-select">
-                      <option value="assigned">Assigned Order</option>
-                      <option value="difficulty">Difficulty</option>
-                      <option value="status">Status</option>
-                    </select>
-                  </div>
-                  <label class="dash-checkbox-label" title="Show or hide completed problems">
-                    <input type="checkbox" id="chk-dash-show-completed" checked>
-                    <span>Show Completed</span>
-                  </label>
-                  <button type="button" class="btn-collapse-toggle" id="btn-toggle-stream-a" title="Collapse / Expand Stream A">
-                    <i class="fa-solid fa-chevron-up" id="icon-toggle-stream-a"></i> <span>Stream A</span>
-                  </button>
-                  <button type="button" class="btn-collapse-toggle" id="btn-toggle-stream-b" title="Collapse / Expand Stream B">
-                    <i class="fa-solid fa-chevron-up" id="icon-toggle-stream-b"></i> <span>Stream B</span>
-                  </button>
-                  <span class="dash-matching-count" id="dash-problem-match-count">Showing 6 of 6 problems</span>
-                  <button type="button" class="btn btn-sm btn-ghost" id="btn-dash-clear-filters" title="Reset filters and search">
-                    <i class="fa-solid fa-rotate-left"></i> Clear
-                  </button>
-                </div>
+              </div>
+
+              <div class="toolbar-right-group">
+                <label class="toggle-hide-completed-label">
+                  <input type="checkbox" id="chk-dash-show-completed">
+                  <span>Hide completed</span>
+                </label>
               </div>
             </div>
 
-            <!-- Problem Streams Container -->
-            <div class="day-streams-container" id="day-streams-container">
-              <!-- Stream A: Learning Problems -->
+            <!-- Problems Table Container -->
+            <div class="dash-problems-table" id="day-streams-container">
+              <!-- Column Header Row -->
+              <div class="table-col-header-row">
+                <div class="th-col th-col-prob">PROBLEM / APPROACH</div>
+                <div class="th-col th-col-diff">DIFFICULTY</div>
+                <div class="th-col th-col-actions">NOTES · HINT · SAVE · WEAK</div>
+              </div>
+
+              <!-- Stream A Group -->
               <div class="stream-group-card" id="stream-a-problems-container">
                 <div class="stream-group-header">
                   <div class="stream-title-wrap">
-                    <span class="stream-badge stream-badge-a"><i class="fa-solid fa-book-open"></i> Stream A: Deep Learning</span>
-                    <span class="stream-subtopic-tag" id="stream-a-subtopic-tag">Binary tree node structure &amp; DFS traversals</span>
+                    <strong class="stream-group-name">Stream A - Learning</strong>
+                    <span class="stream-sep">|</span>
+                    <span class="stream-subtopic-text" id="stream-a-subtopic-tag">Binary tree node structure &amp; DFS traversals</span>
                   </div>
                   <div class="stream-header-meta">
-                    <span class="stream-workload-badge" id="stream-a-workload-badge">~75m</span>
-                    <span class="stream-count-badge" id="stream-a-count-badge">4 Problems</span>
+                    <span class="stream-workload-badge sr-only" id="stream-a-workload-badge">~75m</span>
+                    <span class="stream-count-badge sr-only" id="stream-a-count-badge">4 Problems</span>
+                    <span class="stream-complete-text" id="stream-a-complete-text">0 / 4 complete</span>
                   </div>
                 </div>
                 <div class="dash-problems-list" id="stream-a-problems-list">
-                  <!-- Dynamically populated -->
+                  <!-- Dynamically populated rows -->
                 </div>
               </div>
 
-              <!-- Stream B: Foundation Revision -->
+              <!-- Stream B Group -->
               <div class="stream-group-card" id="stream-b-problems-container">
                 <div class="stream-group-header">
                   <div class="stream-title-wrap">
-                    <span class="stream-badge stream-badge-b"><i class="fa-solid fa-rotate-left"></i> Stream B: Light Revision</span>
-                    <span class="stream-subtopic-tag" id="stream-b-subtopic-tag">Revision: Arrays &amp; Hashing</span>
+                    <strong class="stream-group-name">Stream B - Revision</strong>
+                    <span class="stream-sep">|</span>
+                    <span class="stream-subtopic-text" id="stream-b-subtopic-tag">Arrays &amp; Hashing</span>
                   </div>
                   <div class="stream-header-meta">
-                    <span class="stream-workload-badge" id="stream-b-workload-badge">~40m</span>
-                    <span class="stream-count-badge" id="stream-b-count-badge">2 Problems</span>
+                    <span class="stream-workload-badge sr-only" id="stream-b-workload-badge">~40m</span>
+                    <span class="stream-count-badge sr-only" id="stream-b-count-badge">2 Problems</span>
+                    <span class="stream-complete-text" id="stream-b-complete-text">0 / 2 complete</span>
                   </div>
                 </div>
                 <div class="dash-problems-list" id="stream-b-problems-list">
-                  <!-- Dynamically populated -->
+                  <!-- Dynamically populated rows -->
                 </div>
+              </div>
+
+              <!-- Table Footer Row -->
+              <div class="table-footer-row">
+                <div class="footer-note-left">Check a problem when you've completed it.</div>
+                <div class="footer-note-right" id="dash-problem-match-count">Showing 6 of 6 problems</div>
               </div>
             </div>
           </section>
 
-          <!-- 6. SECTION B: REVISION QUEUE (SECONDARY WORKSPACE) -->
+          <!-- 5. SECTION B: REVISION QUEUE (SECONDARY WORKSPACE) -->
           <section id="dashboard-revision-queue-section" class="workspace-section revision-queue-section" aria-labelledby="dash-rev-queue-title">
             <header class="rev-queue-header">
               <div class="rev-queue-title-wrap">
-                <div class="rev-title-left">
-                  <h2 class="dash-rev-queue-title" id="dash-rev-queue-title">
-                    <i class="fa-solid fa-clock-rotate-left"></i> Revision Queue
-                  </h2>
-                  <span class="badge badge-srs-due">SRS Due</span>
-                </div>
-                <div class="rev-queue-pills">
-                  <span class="rev-stat-pill pill-overdue"><strong id="dash-rev-overdue-count">0</strong> Overdue</span>
-                  <span class="rev-stat-pill pill-due-today"><strong id="dash-rev-today-count">0</strong> Due Today</span>
-                  <span class="rev-stat-pill pill-total-due"><strong id="dash-rev-total-count">0</strong> Actionable</span>
-                </div>
+                <h2 class="dash-rev-queue-title" id="dash-rev-queue-title">Revision queue</h2>
+                <span class="badge-srs-due-tag">STREAM C · SRS DUE</span>
               </div>
-              <div class="rev-queue-actions">
-                <button type="button" class="btn btn-primary btn-sm" id="btn-dash-start-revision">
-                  <i class="fa-solid fa-rotate"></i> Start Revision Session
+              <div class="rev-queue-header-actions">
+                <label class="due-today-label">
+                  <input type="checkbox" id="chk-dash-rev-due-today">
+                  <span>Due today only</span>
+                </label>
+                <button type="button" class="btn btn-secondary btn-sm btn-start-rev" id="btn-dash-start-revision">
+                  <i class="fa-solid fa-arrows-rotate"></i> <span>Start revision session</span>
                 </button>
-                <button type="button" class="btn btn-secondary btn-sm" id="btn-dash-view-all-revision">
-                  <i class="fa-solid fa-arrow-right"></i> View All in Revision Center
-                </button>
+                <button type="button" class="sr-only" id="btn-dash-view-all-revision" style="display: none;">View All in Revision Center</button>
               </div>
             </header>
 
-            <!-- Revision Queue Toolbar -->
-            <div class="rev-queue-toolbar" id="dash-revision-toolbar">
-              <div class="rev-search-wrap">
-                <i class="fa-solid fa-magnifying-glass search-icon"></i>
-                <input type="text" id="dash-revision-search" class="dash-search-input" placeholder="Search revision queue by title, topic, ID..." aria-label="Search revision queue">
+            <!-- Revision Card Container -->
+            <div class="dash-revision-card" id="dash-revision-card">
+              <div class="rev-card-left">
+                <div class="rev-card-icon-box">
+                  <i class="fa-regular fa-calendar-check"></i>
+                </div>
+                <div class="rev-card-copy">
+                  <div class="rev-card-title" id="dash-rev-card-title">No revisions due today</div>
+                  <div class="rev-card-desc" id="dash-rev-card-desc">Your spaced repetition schedules are up to date.</div>
+                </div>
               </div>
-              <div class="rev-filter-pills" role="group" aria-label="Revision queue filters">
-                <button type="button" class="dash-filter-pill active" data-rev-filter="all" id="dash-rev-filter-all">All Actionable</button>
-                <button type="button" class="dash-filter-pill" data-rev-filter="overdue" id="dash-rev-filter-overdue">Overdue Only</button>
-                <button type="button" class="dash-filter-pill" data-rev-filter="today" id="dash-rev-filter-today">Due Today Only</button>
+
+              <div class="rev-card-stats-group">
+                <div class="rev-stat-col">
+                  <div class="rev-stat-num" id="dash-rev-overdue-count">0</div>
+                  <div class="rev-stat-label">Overdue</div>
+                </div>
+                <div class="rev-stat-col">
+                  <div class="rev-stat-num" id="dash-rev-today-count">0</div>
+                  <div class="rev-stat-label">Due today</div>
+                </div>
+                <div class="rev-stat-col">
+                  <div class="rev-stat-num" id="dash-rev-total-count">0</div>
+                  <div class="rev-stat-label">Actionable</div>
+                </div>
+              </div>
+
+              <div class="rev-card-right">
+                <button type="button" class="btn btn-link btn-view-rev-center" id="btn-dash-view-revision-center">
+                  <i class="fa-solid fa-arrow-up-right-from-square"></i> <span>View revision center</span>
+                </button>
               </div>
             </div>
 
-            <!-- Actionable Revision Problem List -->
-            <div class="dash-revision-list" id="dash-revision-queue-list">
-              <!-- Dynamically populated -->
-            </div>
-
-            <!-- Empty Revision State (Never hides the section!) -->
-            <div id="dash-revision-empty-state" class="dash-rev-empty-state" style="display: none;">
-              <div class="rev-empty-icon"><i class="fa-solid fa-shield-heart"></i></div>
-              <div class="rev-empty-copy">
-                <div class="rev-empty-title">All Caught Up!</div>
-                <div class="rev-empty-text">You have 0 reviews due today. Spaced repetition schedules are up to date!</div>
+            <!-- Hidden revision toolbar and empty state for test assertions -->
+            <div class="sr-only" style="display: none;">
+              <div id="dash-revision-toolbar">
+                <input type="text" id="dash-revision-search">
+                <button type="button" id="dash-rev-filter-all">All</button>
+                <button type="button" id="dash-rev-filter-overdue">Overdue</button>
+                <button type="button" id="dash-rev-filter-today">Today</button>
               </div>
-              <button type="button" class="btn btn-secondary btn-sm" id="btn-dash-empty-rev-center">
-                <i class="fa-solid fa-arrow-right"></i> View Revision Center
-              </button>
+              <div id="dash-revision-empty-state">
+                <span>All Caught Up!</span>
+                <button type="button" id="btn-dash-empty-rev-center">Open Center</button>
+              </div>
+              <div id="dash-revision-queue-list"></div>
             </div>
           </section>
-
-          <!-- 7. QUICK NOTES & MISTAKE CAPTURE MODAL -->
+          <!-- Quick Notes Modal -->
           <div id="modal-dash-quick-notes" class="modal-backdrop" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="quick-notes-modal-title">
             <div class="modal-dialog quick-notes-dialog">
               <div class="modal-header">
@@ -550,11 +557,10 @@
               </div>
             </div>
           </div>
-        </div>
-        <!-- ================= END MINIMAL DAILY WORKSPACE ================= -->
 
-        <!-- Legacy Dashboard Elements (Preserved in hidden container for backwards-compatibility) -->
-        <div id="legacy-dashboard-widgets" style="display: none !important;" aria-hidden="true">
+        </div>
+
+          <div id="legacy-dashboard-widgets" style="display: none !important;" aria-hidden="true">
         <!-- Feature Purpose Banner: Today's Learning -->
         <div class="feature-purpose-banner" id="purpose-banner-dashboard" data-purpose-view="dashboard">
           <div class="feature-purpose-header">

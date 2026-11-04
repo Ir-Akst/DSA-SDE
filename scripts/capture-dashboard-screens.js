@@ -33,7 +33,7 @@ function capture(urlHash, width, height, filename) {
 }
 
 // 1. Dashboard Command Center Desktop (1280x1100 to show dual-stream & revision queue)
-capture('#/dashboard', 1280, 1100, 'dashboard_command_center_desktop.png');
+capture('#/dashboard', 1280, 1250, 'dashboard_command_center_desktop.png');
 
 // 2. Dashboard Command Center Mobile (390x844)
 capture('#/dashboard', 390, 844, 'dashboard_command_center_mobile.png');
