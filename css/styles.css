@@ -11534,3 +11534,453 @@ body.font-dyslexic,
     justify-content: flex-start !important;
   }
 }
+
+
+/* ==========================================================================
+   AlgoRecall 2.0 — Revision Center Redesign (Linear / Vercel Command Center)
+   Matches Dashboard Design System & Aesthetic Tokens
+   ========================================================================== */
+
+.rev-header {
+  margin-bottom: 20px;
+}
+
+.rev-hero-grid {
+  margin-bottom: 24px;
+}
+
+/* 4 Quick Stat Summary Cards */
+.rev-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.rev-summary-card {
+  background: #121723;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.rev-summary-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  background: #141b29;
+}
+
+.rev-summary-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.rev-summary-val {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.2;
+}
+
+.rev-summary-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+/* Revision Toolbar & Dropdowns */
+.rev-toolbar {
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.rev-dropdowns-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.dash-select-filter {
+  background: #0f141f;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 6px;
+  color: var(--text-main);
+  font-size: 12px;
+  padding: 6px 10px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.dash-select-filter:focus {
+  border-color: #7c5cfc;
+}
+
+.dash-select-filter option {
+  background: #121723;
+  color: var(--text-main);
+}
+
+/* Problem Table Columns & Rows */
+.rev-table-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.rev-prob-row {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  gap: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.15s ease;
+}
+
+.rev-prob-row:hover {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.rev-prob-row:last-child {
+  border-bottom: none;
+}
+
+.dash-col-problem {
+  flex: 2.2;
+  min-width: 0;
+}
+
+.dash-col-topic {
+  flex: 1.1;
+  min-width: 0;
+}
+
+.dash-col-diff {
+  width: 85px;
+  flex-shrink: 0;
+}
+
+.dash-col-stage {
+  width: 110px;
+  flex-shrink: 0;
+}
+
+.dash-col-due {
+  width: 95px;
+  flex-shrink: 0;
+}
+
+.dash-col-actions {
+  width: 160px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Semantic Badges & Pills */
+.dash-prob-title-link {
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: color 0.15s ease !important;
+}
+
+.dash-prob-title-link:hover {
+  color: #a78bfa !important;
+}
+
+.rev-table-header {
+  display: flex;
+  align-items: center;
+  padding: 10px 14px;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.table-footer-status {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 12px 16px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  font-size: 12px !important;
+  color: #64748b !important;
+}
+
+.rev-topic-pill {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.rev-stage-pill {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-dim);
+  background: rgba(255, 255, 255, 0.04);
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.rev-due-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.due-overdue {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.due-today {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+.due-upcoming {
+  background: rgba(124, 92, 252, 0.12);
+  color: #9f8bfd;
+  border: 1px solid rgba(124, 92, 252, 0.25);
+}
+
+.rev-btn-review {
+  background: #7c5cfc !important;
+  color: #ffffff !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  border: none !important;
+  cursor: pointer !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.rev-btn-review:hover {
+  opacity: 0.9 !important;
+}
+
+/* Queue Grouping Headers */
+.rev-group-header {
+  background: rgba(255, 255, 255, 0.02);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+}
+
+.rev-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Empty State Card */
+.rev-empty-card {
+  padding: 48px 24px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.rev-empty-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.rev-empty-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 0;
+}
+
+.rev-empty-desc {
+  font-size: 12.5px;
+  color: var(--text-dim);
+  max-width: 420px;
+  margin: 0;
+}
+
+/* Retention Insights Section */
+.rev-insights-section {
+  margin-top: 28px;
+}
+
+.rev-insights-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+
+.rev-insight-card {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rev-insight-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rev-insight-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+}
+
+.rev-insight-target {
+  font-size: 10px;
+  color: var(--success);
+  background: rgba(52, 211, 153, 0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.rev-insight-val {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  color: #f8fafc;
+}
+
+.rev-insight-sub {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.rev-dist-bars {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.rev-dist-item {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 6px 4px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rev-dist-num {
+  font-size: 13px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.rev-dist-tag {
+  font-size: 9.5px;
+  color: var(--text-dim);
+}
+
+.rev-dist-item.choice-again .rev-dist-num { color: var(--error); }
+.rev-dist-item.choice-hard .rev-dist-num { color: #f43f5e; }
+.rev-dist-item.choice-good .rev-dist-num { color: var(--warning); }
+.rev-dist-item.choice-easy .rev-dist-num { color: var(--success); }
+
+/* Responsive adjustments for Revision Center */
+@media (max-width: 900px) {
+  .rev-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rev-insights-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .dash-col-topic, .dash-col-stage {
+    display: none;
+  }
+  .rev-dropdowns-wrap {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .rev-summary-grid {
+    grid-template-columns: 1fr;
+  }
+  .rev-insights-grid {
+    grid-template-columns: 1fr;
+  }
+  .dash-col-diff {
+    display: none;
+  }
+  .rev-table-header {
+    display: none;
+  }
+  .rev-prob-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px;
+  }
+  .dash-col-problem {
+    flex: 1 1 100%;
+  }
+  .dash-col-actions {
+    flex: 1 1 100%;
+    justify-content: flex-start;
+    margin-top: 4px;
+  }
+}

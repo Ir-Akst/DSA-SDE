@@ -4375,7 +4375,7 @@
               <span class="badge badge-${recProblem.difficulty.toLowerCase()}">${recProblem.difficulty}</span>
               <span class="badge badge-srs-due" style="font-size:11px;">${recReason}</span>
             </h3>
-            <p>Topic: <strong>${recProblem.topic}</strong> â€¢ Pattern: <strong>${recProblem.pattern || 'Standard'}</strong> â€¢ Memory Status: <strong>${confStr}</strong></p>
+            <p>Topic: <strong>${escapeHtml(recProblem.topic)}</strong> &bull; Pattern: <strong>${escapeHtml(recProblem.pattern || 'Standard')}</strong> &bull; Memory Status: <strong>${confStr}</strong></p>
           </div>
         </div>
         <div class="revision-recommend-actions">
@@ -4398,6 +4398,64 @@
   let currentRevisionSort = 'urgency';
   let activeRecallSessionState = null;
 
+  function renderRevisionProblemRow(prob, meta = {}) {
+    const isBookmarked = Boolean(meta.isBookmarked);
+    const hasQuickNotes = Boolean(meta.hasQuickNotes);
+    const diffClass = (prob.difficulty || 'medium').toLowerCase();
+    const patternText = prob.pattern || prob.subtopic || 'Active recall';
+    const state = meta.state || {};
+    const stage = state.stage || 1;
+    const stabilityDays = state.stability ? (state.stability + 'd') : (stage + 'd');
+
+    let dueBadgeHtml = '';
+    if (meta.isOverdue) {
+      dueBadgeHtml = '<span class="rev-due-badge due-overdue">Overdue</span>';
+    } else if (meta.isDueToday) {
+      dueBadgeHtml = '<span class="rev-due-badge due-today">Due today</span>';
+    } else {
+      dueBadgeHtml = '<span class="rev-due-badge due-upcoming">' + (state.nextReviewDate || 'Upcoming') + '</span>';
+    }
+
+    return '<div class="rev-prob-row" data-problem-id="' + prob.id + '">' +
+      '<div class="dash-col-problem">' +
+      '<div class="dash-prob-title-row">' +
+      '<a href="' + (prob.url || '#') + '" target="_blank" rel="noopener noreferrer" class="dash-prob-title-link">' +
+      '<span>' + escapeHtml(prob.title) + '</span>' +
+      '<svg class="dash-arrow-icon" width="10" height="10" viewBox="0 0 16 16" fill="none"><path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</a>' +
+      '</div>' +
+      '<div class="dash-prob-subtitle">' + escapeHtml(patternText) + '</div>' +
+      '</div>' +
+      '<div class="dash-col-topic">' +
+      '<span class="rev-topic-pill" title="' + escapeHtml(prob.topic || 'General') + '">' + escapeHtml(prob.topic || 'General') + '</span>' +
+      '</div>' +
+      '<div class="dash-col-diff">' +
+      '<span class="dash-diff-pill diff-' + diffClass + '">' + (prob.difficulty || 'Medium') + '</span>' +
+      '</div>' +
+      '<div class="dash-col-stage">' +
+      '<span class="rev-stage-pill">Stage ' + stage + ' · ' + stabilityDays + '</span>' +
+      '</div>' +
+      '<div class="dash-col-due">' +
+      dueBadgeHtml +
+      '</div>' +
+      '<div class="dash-col-actions">' +
+      '<button type="button" class="dash-icon-btn btn-rev-start-one rev-btn-review" data-problem-id="' + prob.id + '" title="Launch Active Recall">' +
+      '<svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 2.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .76.43l8.5-5a.5.5 0 0 0 0-.86l-8.5-5a.5.5 0 0 0-.26-.07z"/></svg>' +
+      '<span>Review</span>' +
+      '</button>' +
+      '<button type="button" class="dash-icon-btn btn-rev-open-notes ' + (hasQuickNotes ? 'has-notes' : '') + '" data-problem-id="' + prob.id + '" title="Quick Notes" aria-label="Notes">' +
+      '<svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M3 2.5A1.5 1.5 0 0 1 4.5 1h7A1.5 1.5 0 0 1 13 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-7A1.5 1.5 0 0 1 3 13.5v-11z" stroke="currentColor" stroke-width="1.5"/><path d="M6 5h4M6 8h4M6 11h2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>' +
+      '</button>' +
+      '<button type="button" class="dash-icon-btn btn-rev-bookmark ' + (isBookmarked ? 'is-active' : '') + '" data-problem-id="' + prob.id + '" title="Bookmark" aria-label="Bookmark">' +
+      '<svg width="13" height="13" viewBox="0 0 16 16" fill="' + (isBookmarked ? '#f59e0b' : 'none') + '"><path d="M3.5 2.5A1.5 1.5 0 0 1 5 1h6a1.5 1.5 0 0 1 1.5 1.5v12.75a.75.75 0 0 1-1.19.61L8 12.83l-3.31 2.53A.75.75 0 0 1 3.5 14.75V2.5z" stroke="' + (isBookmarked ? '#f59e0b' : 'currentColor') + '" stroke-width="1.5"/></svg>' +
+      '</button>' +
+      '<a href="' + (prob.url || '#') + '" target="_blank" rel="noopener noreferrer" class="dash-icon-btn" title="Open verified problem page" aria-label="Open Link">' +
+      '<svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      '</a>' +
+      '</div>' +
+      '</div>';
+  }
+
   function renderRevisionQueue() {
     renderRevisionBanner();
     const tbody = document.getElementById('revision-queue-tbody');
@@ -4417,7 +4475,77 @@
       dateBadge.textContent = today.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    // 2. Populate 5 Overview Metric Cards
+    // 2. Populate Hero Focus Card
+    const focusHeading = document.getElementById('rev-focus-heading');
+    const focusDesc = document.getElementById('rev-focus-desc');
+    const heroStatusPill = document.getElementById('rev-hero-status-pill');
+    const heroActionableCount = document.getElementById('rev-hero-actionable-count');
+    const heroStatsLine = document.getElementById('rev-hero-stats-line');
+
+    const startDueCount = document.getElementById('start-revision-due-count');
+    if (startDueCount) startDueCount.textContent = metrics.dueNowCount;
+
+    const resumeBtn = document.getElementById('btn-resume-revision-session');
+    const resumeCount = document.getElementById('resume-session-count');
+    const startBtn = document.getElementById('btn-start-revision-session');
+    const activeSession = rsc.getActiveSession();
+
+    if (activeSession && activeSession.status === 'in_progress') {
+      const remaining = Math.max(0, activeSession.problemIds.length - activeSession.currentIndex);
+      if (resumeCount) resumeCount.textContent = remaining;
+      if (resumeBtn) resumeBtn.style.display = 'inline-flex';
+      if (startBtn) startBtn.style.display = 'none';
+      if (heroStatusPill) heroStatusPill.textContent = 'In progress';
+      if (focusHeading) focusHeading.textContent = 'Revision Session Active';
+      if (focusDesc) focusDesc.textContent = 'Resume your active recall session where you left off.';
+    } else {
+      if (resumeBtn) resumeBtn.style.display = 'none';
+      if (startBtn) startBtn.style.display = 'inline-flex';
+      if (metrics.dueNowCount > 0) {
+        if (heroStatusPill) heroStatusPill.textContent = 'Actionable reviews';
+        if (focusHeading) focusHeading.textContent = metrics.dueNowCount + (metrics.dueNowCount === 1 ? ' Problem Due Now' : ' Problems Due Now');
+        if (focusDesc) focusDesc.textContent = 'Review due problems before they become harder to recall.';
+      } else {
+        if (heroStatusPill) heroStatusPill.textContent = 'All caught up';
+        if (focusHeading) focusHeading.textContent = 'Revision Queue Clean';
+        if (focusDesc) focusDesc.textContent = 'No reviews are currently due. Your spaced repetition schedules are up to date.';
+      }
+    }
+
+    if (heroActionableCount) heroActionableCount.textContent = metrics.dueNowCount;
+    if (heroStatsLine) heroStatsLine.innerHTML = '~' + (metrics.dueNowCount * 5) + 'm planned · <span id="rev-hero-actionable-count">' + metrics.dueNowCount + '</span> actionable reviews';
+
+    // 3. Populate Retention Progress Card
+    const progressCompleted = document.getElementById('rev-progress-completed-val');
+    const progressTarget = document.getElementById('rev-progress-target-val');
+    const progressBarFill = document.getElementById('rev-progress-bar-fill');
+    const splitOverdue = document.getElementById('rev-split-overdue-val');
+    const splitDueToday = document.getElementById('rev-split-due-today-val');
+
+    const totalReviewsDay = metrics.completedReviewsToday + metrics.dueNowCount;
+    if (progressCompleted) progressCompleted.textContent = metrics.completedReviewsToday;
+    if (progressTarget) progressTarget.textContent = totalReviewsDay;
+    if (progressBarFill) {
+      const pct = totalReviewsDay > 0 ? Math.round((metrics.completedReviewsToday / totalReviewsDay) * 100) : (metrics.completedReviewsToday > 0 ? 100 : 0);
+      progressBarFill.style.width = pct + '%';
+    }
+    if (splitOverdue) splitOverdue.textContent = metrics.overdueCount;
+    if (splitDueToday) splitDueToday.textContent = metrics.dueTodayCount;
+
+    // 4. Populate 4 Summary Stat Cards & badge count
+    const statOverdue = document.getElementById('rev-stat-overdue');
+    const statDueToday = document.getElementById('rev-stat-due-today');
+    const statActionable = document.getElementById('rev-stat-actionable');
+    const statReviewedToday = document.getElementById('rev-stat-reviewed-today');
+    const queueBadge = document.getElementById('rev-queue-count-badge');
+
+    if (statOverdue) statOverdue.textContent = metrics.overdueCount;
+    if (statDueToday) statDueToday.textContent = metrics.dueTodayCount;
+    if (statActionable) statActionable.textContent = metrics.dueNowCount;
+    if (statReviewedToday) statReviewedToday.textContent = metrics.completedReviewsToday;
+    if (queueBadge) queueBadge.textContent = String(metrics.dueNowCount).padStart(2, '0');
+
+    // Backward compatibility metrics
     const overdueVal = document.getElementById('rev-metric-overdue-val');
     const overdueSub = document.getElementById('rev-metric-overdue-sub');
     if (overdueVal) overdueVal.textContent = metrics.overdueCount;
@@ -4443,28 +4571,13 @@
     if (completedVal) completedVal.textContent = metrics.completedReviewsToday;
     if (completedSub) completedSub.textContent = metrics.uniqueProblemsCompletedToday + ' unique problem' + (metrics.uniqueProblemsCompletedToday === 1 ? '' : 's');
 
-    // Header CTA counts & active session resume
-    const startDueCount = document.getElementById('start-revision-due-count');
-    if (startDueCount) startDueCount.textContent = metrics.dueNowCount;
-
-    const resumeBtn = document.getElementById('btn-resume-revision-session');
-    const resumeCount = document.getElementById('resume-session-count');
-    const activeSession = rsc.getActiveSession();
-    if (resumeBtn) {
-      if (activeSession && activeSession.status === 'in_progress') {
-        const remaining = Math.max(0, activeSession.problemIds.length - activeSession.currentIndex);
-        if (resumeCount) resumeCount.textContent = remaining;
-        resumeBtn.style.display = 'inline-flex';
-      } else {
-        resumeBtn.style.display = 'none';
-      }
-    }
-
-    // Filter tab count badges
+    // 5. Filter tab count badges
     const tabDue = document.getElementById('tab-count-due');
     if (tabDue) tabDue.textContent = metrics.dueNowCount;
     const tabOverdue = document.getElementById('tab-count-overdue');
     if (tabOverdue) tabOverdue.textContent = metrics.overdueCount;
+    const tabUpcoming = document.getElementById('tab-count-upcoming');
+    if (tabUpcoming) tabUpcoming.textContent = metrics.upcomingCount;
     const tabWeak = document.getElementById('tab-count-weak');
     if (tabWeak) tabWeak.textContent = metrics.weakCount;
     const tabBookmarked = document.getElementById('tab-count-bookmarked');
@@ -4490,7 +4603,7 @@
       }
     });
 
-    // Analytics section
+    // 6. Retention Insights Cards
     const accEl = document.getElementById('rev-analytics-accuracy');
     if (accEl) accEl.textContent = metrics.recallAccuracyPct !== null ? (metrics.recallAccuracyPct + '%') : '--%';
 
@@ -4504,18 +4617,29 @@
     if (distEasy) distEasy.textContent = metrics.ratingDistribution.easy;
 
     const weakTopicEl = document.getElementById('rev-analytics-weak-topic');
-    if (weakTopicEl) {
-      if (metrics.topWeakTopic && metrics.topWeakTopic !== 'None') {
+    const riskTopic = document.getElementById('rev-insight-risk-topic');
+    const riskSub = document.getElementById('rev-insight-risk-sub');
+    const upcomingInsight = document.getElementById('rev-insight-upcoming-val');
+
+    if (metrics.topWeakTopic && metrics.topWeakTopic !== 'None') {
+      if (weakTopicEl) {
         weakTopicEl.textContent = 'Top Risk: ' + metrics.topWeakTopic + ' (' + metrics.topWeakTopicCount + ')';
         weakTopicEl.style.display = 'inline-block';
-      } else {
+      }
+      if (riskTopic) riskTopic.textContent = metrics.topWeakTopic;
+      if (riskSub) riskSub.textContent = metrics.topWeakTopicCount + ' problems with low recall or failed review';
+    } else {
+      if (weakTopicEl) {
         weakTopicEl.textContent = 'Retention Healthy';
         weakTopicEl.style.display = 'inline-block';
       }
+      if (riskTopic) riskTopic.textContent = 'Healthy';
+      if (riskSub) riskSub.textContent = 'No weak or fragile clusters identified';
     }
+    if (upcomingInsight) upcomingInsight.textContent = metrics.upcomingCount;
 
-    // 3. Query filtered & deterministically sorted problems
-    const list = rsc.getFilteredQueue(allProblems, userStates, {
+    // 7. Query filtered & deterministically sorted problems
+    let list = rsc.getFilteredQueue(allProblems, userStates, {
       filter: currentRevisionFilter,
       search: currentRevisionSearch,
       topic: currentRevisionTopic,
@@ -4523,69 +4647,173 @@
       sort: currentRevisionSort
     });
 
+    // Check "Due today only" checkbox
+    const chkDueTodayOnly = document.getElementById('chk-revision-due-today-only');
+    if (chkDueTodayOnly && chkDueTodayOnly.checked) {
+      list = list.filter(p => {
+        const s = userStates[p.id];
+        return s && s.nextReviewDate === metrics.todayStr;
+      });
+    }
+
+    const container = document.getElementById('revision-queue-list-container');
+    const matchCountEl = document.getElementById('rev-match-count');
+
     tbody.innerHTML = '';
+    if (container) container.innerHTML = '';
+
     if (list.length === 0) {
-      tbody.innerHTML = '<tr>' +
-        '<td colspan="7" style="text-align:center; padding:36px 20px; color:var(--text-dim);">' +
-        '<div style="font-size:16px; margin-bottom:6px; color:var(--text-main);"><i class="fa-solid fa-check-circle" style="color:var(--success); margin-right:8px;"></i>No revision items found</div>' +
-        '<div style="font-size:12px;">No problems currently match filter criteria (\'' + currentRevisionFilter + '\').</div>' +
-        '</td>' +
-        '</tr>';
+      const isDueEmpty = currentRevisionFilter === 'due' && !currentRevisionSearch;
+      if (container) {
+        if (isDueEmpty) {
+          container.innerHTML = '<div class="rev-empty-card">' +
+            '<div class="rev-empty-icon-wrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/><path d="M9 16l2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>' +
+            '<h3 class="rev-empty-title">You\'re up to date</h3>' +
+            '<p class="rev-empty-desc">No reviews are currently due. Your next scheduled spaced repetition reviews will appear here.</p>' +
+            '</div>';
+        } else {
+          container.innerHTML = '<div class="rev-empty-card">' +
+            '<div class="rev-empty-icon-wrap"><svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" stroke-width="2"/></svg></div>' +
+            '<h3 class="rev-empty-title">No matching reviews</h3>' +
+            '<p class="rev-empty-desc">No problems match your current search and filter criteria.</p>' +
+            '<button type="button" class="btn btn-secondary btn-sm" id="btn-rev-reset-filters">Reset filters</button>' +
+            '</div>';
+        }
+      }
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:36px 20px; color:var(--text-dim);"><div style="font-size:16px; margin-bottom:6px; color:var(--text-main);"><i class="fa-solid fa-check-circle" style="color:var(--success); margin-right:8px;"></i>No revision items found</div><div style="font-size:12px;">No problems currently match filter criteria (\'' + currentRevisionFilter + '\').</div></td></tr>';
+      if (matchCountEl) matchCountEl.textContent = 'Showing 0 of 0 problems';
       return;
     }
 
+    if (matchCountEl) matchCountEl.textContent = 'Showing ' + list.length + ' of ' + allProblems.length + ' problems';
+
+    let htmlOutput = '';
+    const shouldGroup = !currentRevisionSearch && (currentRevisionFilter === 'due' || currentRevisionFilter === 'all');
+
+    if (shouldGroup) {
+      const overdueList = [];
+      const dueTodayList = [];
+      const upcomingList = [];
+      const otherList = [];
+
+      list.forEach(p => {
+        const state = userStates[p.id] || {};
+        const isMastered = Boolean(state.isMastered);
+        const nextDate = state.nextReviewDate;
+        if (nextDate && nextDate < metrics.todayStr && !isMastered) {
+          overdueList.push(p);
+        } else if (nextDate && nextDate === metrics.todayStr && !isMastered) {
+          dueTodayList.push(p);
+        } else if (nextDate && nextDate > metrics.todayStr && !isMastered) {
+          upcomingList.push(p);
+        } else {
+          otherList.push(p);
+        }
+      });
+
+      if (overdueList.length > 0) {
+        htmlOutput += '<div class="rev-group-header">' +
+          '<div class="rev-group-title"><span>Overdue Reviews</span> <span class="dash-badge-count" style="background:rgba(239,68,68,0.15); color:#ef4444; border-color:rgba(239,68,68,0.3); font-weight:700;">' + String(overdueList.length).padStart(2, '0') + '</span></div>' +
+          '<span style="color:var(--error); font-size:11px; font-weight:700;">Highest priority</span>' +
+          '</div>';
+        overdueList.forEach(p => {
+          const state = userStates[p.id] || {};
+          const hasQuickNotes = Boolean(state.quickNotes && (state.quickNotes.mistake || state.quickNotes.pattern || state.quickNotes.keyInsight || state.quickNotes.reminder));
+          htmlOutput += renderRevisionProblemRow(p, {
+            state,
+            isOverdue: true,
+            isDueToday: false,
+            isBookmarked: Boolean(state.isBookmarked),
+            hasQuickNotes
+          });
+        });
+      }
+
+      if (dueTodayList.length > 0) {
+        htmlOutput += '<div class="rev-group-header">' +
+          '<div class="rev-group-title"><span>Due Today</span> <span class="dash-badge-count" style="background:rgba(245,158,11,0.15); color:#f59e0b; border-color:rgba(245,158,11,0.3); font-weight:700;">' + String(dueTodayList.length).padStart(2, '0') + '</span></div>' +
+          '<span style="color:var(--warning); font-size:11px; font-weight:700;">Scheduled active recall</span>' +
+          '</div>';
+        dueTodayList.forEach(p => {
+          const state = userStates[p.id] || {};
+          const hasQuickNotes = Boolean(state.quickNotes && (state.quickNotes.mistake || state.quickNotes.pattern || state.quickNotes.keyInsight || state.quickNotes.reminder));
+          htmlOutput += renderRevisionProblemRow(p, {
+            state,
+            isOverdue: false,
+            isDueToday: true,
+            isBookmarked: Boolean(state.isBookmarked),
+            hasQuickNotes
+          });
+        });
+      }
+
+      if (upcomingList.length > 0 && currentRevisionFilter === 'all') {
+        htmlOutput += '<div class="rev-group-header">' +
+          '<div class="rev-group-title"><span>Upcoming Reviews</span> <span class="dash-badge-count" style="background:rgba(124,92,252,0.15); color:#9f8bfd; border-color:rgba(124,92,252,0.3); font-weight:700;">' + String(upcomingList.length).padStart(2, '0') + '</span></div>' +
+          '<span style="color:var(--primary-light); font-size:11px; font-weight:700;">Next 7 days</span>' +
+          '</div>';
+        upcomingList.forEach(p => {
+          const state = userStates[p.id] || {};
+          const hasQuickNotes = Boolean(state.quickNotes && (state.quickNotes.mistake || state.quickNotes.pattern || state.quickNotes.keyInsight || state.quickNotes.reminder));
+          htmlOutput += renderRevisionProblemRow(p, {
+            state,
+            isOverdue: false,
+            isDueToday: false,
+            isBookmarked: Boolean(state.isBookmarked),
+            hasQuickNotes
+          });
+        });
+      }
+
+      if (otherList.length > 0 && currentRevisionFilter === 'all') {
+        otherList.forEach(p => {
+          const state = userStates[p.id] || {};
+          const hasQuickNotes = Boolean(state.quickNotes && (state.quickNotes.mistake || state.quickNotes.pattern || state.quickNotes.keyInsight || state.quickNotes.reminder));
+          htmlOutput += renderRevisionProblemRow(p, {
+            state,
+            isOverdue: false,
+            isDueToday: false,
+            isBookmarked: Boolean(state.isBookmarked),
+            hasQuickNotes
+          });
+        });
+      }
+    } else {
+      list.forEach(p => {
+        const state = userStates[p.id] || {};
+        const isOverdue = Boolean(state.nextReviewDate && state.nextReviewDate < metrics.todayStr && !state.isMastered);
+        const isDueToday = Boolean(state.nextReviewDate && state.nextReviewDate === metrics.todayStr && !state.isMastered);
+        const hasQuickNotes = Boolean(state.quickNotes && (state.quickNotes.mistake || state.quickNotes.pattern || state.quickNotes.keyInsight || state.quickNotes.reminder));
+        htmlOutput += renderRevisionProblemRow(p, {
+          state,
+          isOverdue,
+          isDueToday,
+          isBookmarked: Boolean(state.isBookmarked),
+          hasQuickNotes
+        });
+      });
+    }
+
+    if (container) container.innerHTML = htmlOutput;
+
+    // Backward-compatibility tbody
     const fragment = document.createDocumentFragment();
     list.forEach(p => {
       const state = userStates[p.id] || {};
       const dueInfo = SRSEngine.getDueStatus(state);
       const conf = SRSEngine.getConfidence(state);
-      const isBookmarked = Boolean(state.isBookmarked);
-
       let confStars = '—';
       if (conf) {
-        confStars = '<span class="conf-badge conf-' + conf + '" title="' + SRSEngine.getConfidenceMeta(conf).label + '">★ ' + conf + '/5</span>';
+        confStars = '<span class="conf-badge conf-' + conf + '">★ ' + conf + '/5</span>';
       }
-
-      const isOverdue = state.nextReviewDate && state.nextReviewDate < metrics.todayStr && !state.isMastered;
-      const isDueToday = state.nextReviewDate && state.nextReviewDate === metrics.todayStr && !state.isMastered;
-
-      let dateBadgeStyle = "font-family:'JetBrains Mono', monospace; font-size:12px;";
-      if (isOverdue) {
-        dateBadgeStyle += ' color:var(--error); font-weight:700;';
-      } else if (isDueToday) {
-        dateBadgeStyle += ' color:var(--warning); font-weight:700;';
-      } else {
-        dateBadgeStyle += ' color:var(--text-dim);';
-      }
-
       const tr = document.createElement('tr');
       tr.innerHTML = '<td><span class="badge badge-srs-' + dueInfo.code + '">' + dueInfo.label + '</span></td>' +
-        '<td>' +
-        '<a href="' + (p.url || '#') + '" target="_blank" class="problem-title" rel="noopener noreferrer">' + escapeHtml(p.title) + '</a>' +
-        '<div style="font-size:11px; color:var(--text-dim); margin-top:2px;">' + escapeHtml(p.pattern || p.subtopic || '') + '</div>' +
-        '</td>' +
-        '<td><span style="font-size:12.5px;">' + escapeHtml(p.topic || 'General') + '</span></td>' +
+        '<td><a href="' + (p.url || '#') + '" target="_blank" class="problem-title">' + escapeHtml(p.title) + '</a></td>' +
+        '<td>' + escapeHtml(p.topic || 'General') + '</td>' +
         '<td><span class="badge badge-' + (p.difficulty || 'medium').toLowerCase() + '">' + (p.difficulty || 'Medium') + '</span></td>' +
-        '<td>' +
-        '<div style="display:flex; flex-direction:column; gap:2px;">' +
-        '<div>' + confStars + '</div>' +
-        '<div style="font-size:11px; color:var(--text-dim);">Stage ' + (state.stage || 1) + ' &bull; ' + (state.lastRating || 'none') + '</div>' +
-        '</div>' +
-        '</td>' +
-        '<td><span style="' + dateBadgeStyle + '">' + (state.nextReviewDate || 'N/A') + '</span></td>' +
-        '<td style="text-align:right;">' +
-        '<div style="display:inline-flex; align-items:center; gap:6px;">' +
-        '<button type="button" class="btn btn-secondary btn-sm btn-rev-bookmark" data-problem-id="' + p.id + '" title="' + (isBookmarked ? 'Remove Bookmark' : 'Bookmark Problem') + '" style="padding:4px 8px; color:' + (isBookmarked ? 'var(--warning)' : 'var(--text-dim)') + ';">' +
-        '<i class="fa-' + (isBookmarked ? 'solid' : 'regular') + ' fa-bookmark"></i>' +
-        '</button>' +
-        '<button type="button" class="btn btn-primary btn-sm btn-rev-start-one" data-problem-id="' + p.id + '" title="Launch Active Recall Session">' +
-        '<i class="fa-solid fa-play"></i> Review' +
-        '</button>' +
-        '<a href="' + (p.url || '#') + '" target="_blank" rel="noopener noreferrer" class="btn btn-secondary btn-sm" title="Open verified problem page" style="padding:4px 8px;">' +
-        '<i class="fa-solid fa-arrow-up-right-from-square"></i>' +
-        '</a>' +
-        '</div>' +
-        '</td>';
+        '<td><div>' + confStars + '</div><div>Stage ' + (state.stage || 1) + '</div></td>' +
+        '<td>' + (state.nextReviewDate || 'N/A') + '</td>' +
+        '<td><button type="button" class="btn btn-primary btn-sm btn-rev-start-one" data-problem-id="' + p.id + '">Review</button></td>';
       fragment.appendChild(tr);
     });
     tbody.appendChild(fragment);
@@ -11030,6 +11258,40 @@
         return;
       }
 
+            const revNotesBtn = e.target.closest('.btn-rev-open-notes');
+      if (revNotesBtn) {
+        const pid = revNotesBtn.dataset.problemId;
+        if (pid) openQuickNotesModal(pid);
+        return;
+      }
+
+      const resetRevBtn = e.target.closest('#btn-rev-reset-filters');
+      if (resetRevBtn) {
+        currentRevisionFilter = 'due';
+        currentRevisionSearch = '';
+        currentRevisionTopic = 'all';
+        currentRevisionDiff = 'all';
+        currentRevisionSort = 'urgency';
+        const sInput = document.getElementById('revision-search-input');
+        if (sInput) sInput.value = '';
+        const tSel = document.getElementById('revision-topic-filter');
+        if (tSel) tSel.value = 'all';
+        const dSel = document.getElementById('revision-difficulty-filter');
+        if (dSel) dSel.value = 'all';
+        const sortSel = document.getElementById('revision-sort-filter');
+        if (sortSel) sortSel.value = 'urgency';
+        const chkDue = document.getElementById('chk-revision-due-today-only');
+        if (chkDue) chkDue.checked = false;
+        renderRevisionQueue();
+        return;
+      }
+
+      const secStartRev = e.target.closest('#btn-start-revision-secondary');
+      if (secStartRev) {
+        launchActiveRecallSession();
+        return;
+      }
+
       const bookmarkBtn = e.target.closest('.btn-rev-bookmark');
       if (bookmarkBtn) {
         const pid = bookmarkBtn.dataset.problemId;
@@ -11124,6 +11386,13 @@
     if (revDiff) {
       revDiff.addEventListener('change', (e) => {
         currentRevisionDiff = e.target.value;
+        renderRevisionQueue();
+      });
+    }
+
+    const chkRevDueToday = document.getElementById('chk-revision-due-today-only');
+    if (chkRevDueToday) {
+      chkRevDueToday.addEventListener('change', () => {
         renderRevisionQueue();
       });
     }

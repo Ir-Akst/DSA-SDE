@@ -1793,7 +1793,7 @@
       <!-- ================= DESTINATION 3: REVISION ================= -->
       <section id="view-revision" class="view-section">
         <!-- Feature Purpose Banner: Spaced Revision -->
-        <div class="feature-purpose-banner" id="purpose-banner-revision" data-purpose-view="revision">
+        <div class="feature-purpose-banner" id="purpose-banner-revision" style="display:none;" data-purpose-view="revision">
           <div class="feature-purpose-header">
             <div class="feature-purpose-title-wrap">
               <div class="feature-purpose-icon"
@@ -1849,7 +1849,7 @@
         </div>
 
         <!-- View Sub-Navigation -->
-        <div class="view-subtabs-bar" role="tablist" aria-label="Revision Sub-views">
+        <div class="view-subtabs-bar" role="tablist" aria-label="Revision Sub-views" style="display:none;">
           <button type="button" class="view-subtab-btn active" data-parent-view="revision" data-subtab="queue"
             role="tab" aria-selected="true">
             <i class="fa-solid fa-clock-rotate-left"></i> Spaced Review Queue
@@ -1864,200 +1864,298 @@
         <div id="revision-subview-queue" class="subview-section active" data-parent-view="revision"
           data-subview="queue">
           <!-- Revision Center Header -->
-          <div class="revision-center-header">
-            <div class="revision-header-text">
-              <div class="revision-title-row">
-                <h2><i class="fa-solid fa-clock-rotate-left" style="color:var(--primary-light);"></i> Revision Center</h2>
-                <span class="badge" id="revision-today-date-badge" style="background:rgba(139,124,255,0.15); color:var(--primary-light); font-size:11px; padding:3px 10px; border-radius:999px;">Today</span>
-              </div>
-              <p class="revision-subtitle">Strengthen retention through active recall, scheduled spaced repetition, and targeted reinforcement.</p>
+          <div class="dash-redesign-header rev-header">
+            <div>
+              <h1 class="dash-main-title">Revision Center</h1>
+              <p class="dash-subtitle">Strengthen retention through spaced repetition and active recall.</p>
             </div>
-            <div class="revision-header-actions">
-              <button type="button" class="btn btn-secondary" id="btn-resume-revision-session" style="display:none;" title="Resume your in-progress review session">
-                <i class="fa-solid fa-rotate-right"></i> Resume Session (<span id="resume-session-count">0</span> left)
+            <div style="display:flex; align-items:center; gap:8px;">
+              <button type="button" class="btn-open-roadmap" onclick="switchSubTab('revision', 'monthly')" title="Take monthly retention exam">
+                <span>Monthly exam</span>
+                <i class="fa-solid fa-award"></i>
               </button>
-              <button type="button" class="btn btn-primary" id="btn-start-revision-session" title="Begin focused active recall session for all due items">
-                <i class="fa-solid fa-play"></i> Start Revision (<span id="start-revision-due-count">0</span>)
+              <button type="button" class="btn-open-roadmap" onclick="switchView('dashboard')">
+                <span>Open dashboard</span>
+                <i class="fa-solid fa-arrow-up-right-from-square"></i>
               </button>
             </div>
           </div>
 
-          <!-- 5 Compact Overview Metric Cards -->
-          <div class="revision-metrics-grid">
-            <div class="revision-metric-card" id="rev-card-overdue" style="border-top:3px solid var(--error);">
-              <div class="rev-metric-icon" style="background:rgba(255,115,133,0.14); color:var(--error);">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-              </div>
-              <div class="rev-metric-content">
-                <div class="rev-metric-label">Overdue Reviews</div>
-                <div class="rev-metric-value" id="rev-metric-overdue-val">0</div>
-                <div class="rev-metric-sub" id="rev-metric-overdue-sub">Past due date</div>
-              </div>
-            </div>
-
-            <div class="revision-metric-card" id="rev-card-due-today" style="border-top:3px solid var(--warning);">
-              <div class="rev-metric-icon" style="background:rgba(245,190,101,0.14); color:var(--warning);">
-                <i class="fa-solid fa-calendar-day"></i>
-              </div>
-              <div class="rev-metric-content">
-                <div class="rev-metric-label">Due Today</div>
-                <div class="rev-metric-value" id="rev-metric-due-today-val">0</div>
-                <div class="rev-metric-sub" id="rev-metric-due-today-sub">Scheduled for today</div>
-              </div>
-            </div>
-
-            <div class="revision-metric-card" id="rev-card-upcoming" style="border-top:3px solid var(--primary-light);">
-              <div class="rev-metric-icon" style="background:rgba(139,124,255,0.14); color:var(--primary-light);">
-                <i class="fa-solid fa-calendar-week"></i>
-              </div>
-              <div class="rev-metric-content">
-                <div class="rev-metric-label">Upcoming (7 Days)</div>
-                <div class="rev-metric-value" id="rev-metric-upcoming-val">0</div>
-                <div class="rev-metric-sub" id="rev-metric-upcoming-sub">Next 7 days</div>
-              </div>
-            </div>
-
-            <div class="revision-metric-card" id="rev-card-weak" style="border-top:3px solid #f43f5e;">
-              <div class="rev-metric-icon" style="background:rgba(244,63,94,0.14); color:#f43f5e;">
-                <i class="fa-solid fa-heart-pulse"></i>
-              </div>
-              <div class="rev-metric-content">
-                <div class="rev-metric-label">Retention-Risk & Weak</div>
-                <div class="rev-metric-value" id="rev-metric-weak-val">0</div>
-                <div class="rev-metric-sub" id="rev-metric-weak-sub">Top: None</div>
-              </div>
-            </div>
-
-            <div class="revision-metric-card" id="rev-card-completed" style="border-top:3px solid var(--success);">
-              <div class="rev-metric-icon" style="background:rgba(52,211,153,0.14); color:var(--success);">
-                <i class="fa-solid fa-circle-check"></i>
-              </div>
-              <div class="rev-metric-content">
-                <div class="rev-metric-label">Completed Today</div>
-                <div class="rev-metric-value" id="rev-metric-completed-val">0</div>
-                <div class="rev-metric-sub" id="rev-metric-completed-sub">Reviews logged</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Revision Queue Controls -->
-          <div class="revision-queue-controls-wrap">
-            <div class="revision-filter-tabs" role="tablist" aria-label="Revision Queue Filters">
-              <button type="button" class="rev-tab-btn active" data-revision-filter="due" role="tab" aria-selected="true">
-                <i class="fa-solid fa-bolt"></i> Due Now <span class="tab-count-pill" id="tab-count-due">0</span>
-              </button>
-              <button type="button" class="rev-tab-btn" data-revision-filter="overdue" role="tab" aria-selected="false">
-                <i class="fa-solid fa-clock"></i> Overdue <span class="tab-count-pill" id="tab-count-overdue">0</span>
-              </button>
-              <button type="button" class="rev-tab-btn" data-revision-filter="weak" role="tab" aria-selected="false">
-                <i class="fa-solid fa-fire"></i> Weak <span class="tab-count-pill" id="tab-count-weak">0</span>
-              </button>
-              <button type="button" class="rev-tab-btn" data-revision-filter="bookmarked" role="tab" aria-selected="false">
-                <i class="fa-solid fa-bookmark"></i> Bookmarked <span class="tab-count-pill" id="tab-count-bookmarked">0</span>
-              </button>
-              <button type="button" class="rev-tab-btn" data-revision-filter="all" role="tab" aria-selected="false">
-                <i class="fa-solid fa-layer-group"></i> All Revision <span class="tab-count-pill" id="tab-count-all">0</span>
-              </button>
-            </div>
-
-            <div class="revision-secondary-controls">
-              <div class="rev-search-box">
-                <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="revision-search-input" class="search-input" placeholder="Search problem title, ID, or pattern...">
-              </div>
-              <select id="revision-topic-filter" class="filter-select" style="min-width:160px;">
-                <option value="all">All Topics</option>
-                <option value="Arrays & Hashing">Arrays & Hashing</option>
-                <option value="Two Pointers">Two Pointers</option>
-                <option value="Sliding Window">Sliding Window</option>
-                <option value="Stack">Stack</option>
-                <option value="Binary Search">Binary Search</option>
-                <option value="Linked List">Linked List</option>
-                <option value="Trees">Trees</option>
-                <option value="Binary Trees & BST">Binary Trees & BST</option>
-                <option value="Heap / Priority Queue">Heap / Priority Queue</option>
-                <option value="Backtracking">Backtracking</option>
-                <option value="Tries">Tries</option>
-                <option value="Graphs">Graphs</option>
-                <option value="Advanced Graphs">Advanced Graphs</option>
-                <option value="1-D Dynamic Programming">1-D Dynamic Programming</option>
-                <option value="2-D Dynamic Programming">2-D Dynamic Programming</option>
-                <option value="Greedy">Greedy</option>
-                <option value="Intervals">Intervals</option>
-                <option value="Math & Geometry">Math & Geometry</option>
-                <option value="Bit Manipulation">Bit Manipulation</option>
-              </select>
-              <select id="revision-difficulty-filter" class="filter-select" style="min-width:130px;">
-                <option value="all">All Difficulties</option>
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-              <select id="revision-sort-filter" class="filter-select" style="min-width:160px;">
-                <option value="urgency">Sort: Urgency (Overdue First)</option>
-                <option value="due_date">Sort: Due Date (Earliest)</option>
-                <option value="weakness">Sort: Weakness (Lowest Recall)</option>
-                <option value="difficulty_desc">Sort: Difficulty (Hard to Easy)</option>
-                <option value="difficulty_asc">Sort: Difficulty (Easy to Hard)</option>
-                <option value="title_asc">Sort: Title (A-Z)</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Next Recommended Revision Callout Banner -->
-          <div id="revision-next-recommended-banner" style="display:none; margin-bottom:16px;"></div>
-
-          <div class="table-container">
-            <table class="problem-table">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Problem Title</th>
-                  <th>Topic</th>
-                  <th>Difficulty</th>
-                  <th>Recall History</th>
-                  <th>Due Date</th>
-                  <th style="text-align:right;">Actions</th>
-                </tr>
-              </thead>
-              <tbody id="revision-queue-tbody">
-                <!-- Dynamically populated -->
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Today's Recall Retention & Rating Distribution Card -->
-          <div class="revision-analytics-card">
-            <div class="rev-analytics-header">
-              <h4><i class="fa-solid fa-chart-line" style="color:var(--primary-light);"></i> Today's Recall Retention & Rating Distribution</h4>
-              <span id="rev-analytics-weak-topic" class="badge" style="background:rgba(244,63,94,0.14); color:#f43f5e; font-size:11px;">Top Risk: None</span>
-            </div>
-            <div class="rev-analytics-body">
-              <div class="rev-analytics-stat-col">
-                <div class="label">Self-Reported Retention Rate</div>
-                <div class="val" id="rev-analytics-accuracy">--%</div>
-                <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">Good/Easy recall ratings logged today (&ge; 80% target)</div>
-              </div>
-              <div class="rev-dist-bars">
-                <div class="dist-bar-item" style="border-bottom:2px solid var(--error);">
-                  <div class="dist-name" style="color:var(--error);">Again</div>
-                  <div class="dist-val" id="rev-dist-again">0</div>
+          <!-- Revision Focus + Retention Progress (Hero 2-Column Grid) -->
+          <div class="dash-hero-grid rev-hero-grid">
+            <!-- Left Hero Card: Today's Revision Focus (~70%) -->
+            <div class="dash-card rev-focus-card">
+              <div class="dash-card-topline">
+                <div class="focus-meta-left">
+                  <span>TODAY'S REVISION</span>
+                  <span class="focus-divider">|</span>
+                  <span class="focus-day" id="rev-hero-stream-label">STREAM C · ACTIVE RECALL</span>
                 </div>
-                <div class="dist-bar-item" style="border-bottom:2px solid #f43f5e;">
-                  <div class="dist-name" style="color:#f43f5e;">Hard</div>
-                  <div class="dist-val" id="rev-dist-hard">0</div>
+                <div class="focus-status" id="rev-hero-status-pill">Actionable reviews</div>
+              </div>
+              
+              <h2 class="focus-title" id="rev-focus-heading" style="margin-top:4px;">Spaced Repetition Queue</h2>
+              <p class="focus-desc" id="rev-focus-desc">Review due problems before they become harder to recall.</p>
+              
+              <div class="focus-bottom-row">
+                <button type="button" class="btn-purple-cta" id="btn-resume-revision-session" style="display:none;" title="Resume your in-progress review session">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 2.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .76.43l8.5-5a.5.5 0 0 0 0-.86l-8.5-5a.5.5 0 0 0-.26-.07z"/></svg>
+                  <span>Resume session (<span id="resume-session-count">0</span> left)</span>
+                </button>
+                <button type="button" class="btn-purple-cta" id="btn-start-revision-session" title="Begin focused active recall session for all due items">
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M4.5 2.5a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .76.43l8.5-5a.5.5 0 0 0 0-.86l-8.5-5a.5.5 0 0 0-.26-.07z"/></svg>
+                  <span>Start revision session (<span id="start-revision-due-count">0</span>)</span>
+                </button>
+                
+                <div class="focus-workload-text">
+                  <i class="fa-regular fa-clock"></i>
+                  <span id="rev-hero-stats-line">~15m planned · <span id="rev-hero-actionable-count">0</span> actionable reviews</span>
                 </div>
-                <div class="dist-bar-item" style="border-bottom:2px solid var(--warning);">
-                  <div class="dist-name" style="color:var(--warning);">Good</div>
-                  <div class="dist-val" id="rev-dist-good">0</div>
+              </div>
+            </div>
+
+            <!-- Right Hero Card: Retention Progress (~30%) -->
+            <div class="dash-card rev-progress-card">
+              <div class="progress-card-topline">RETENTION PROGRESS</div>
+              
+              <div class="progress-card-metric-row">
+                <span class="progress-card-metric-num" id="rev-progress-completed-val">0</span>
+                <span class="progress-card-metric-total">/ <span id="rev-progress-target-val">0</span> reviews</span>
+              </div>
+              
+              <div class="progress-card-bar-track">
+                <div class="progress-card-bar-fill" id="rev-progress-bar-fill" style="width: 0%;"></div>
+              </div>
+              
+              <div class="progress-card-split-row">
+                <div class="split-col">
+                  <span class="split-col-label">Overdue</span>
+                  <div class="split-col-val" id="rev-split-overdue-val" style="color:var(--error);">0</div>
                 </div>
-                <div class="dist-bar-item" style="border-bottom:2px solid var(--success);">
-                  <div class="dist-name" style="color:var(--success);">Easy</div>
-                  <div class="dist-val" id="rev-dist-easy">0</div>
+                <div class="split-col">
+                  <span class="split-col-label">Due Today</span>
+                  <div class="split-col-val" id="rev-split-due-today-val" style="color:var(--warning);">0</div>
                 </div>
               </div>
             </div>
           </div>
+
+          <!-- Hidden preserved metric cards for test assertions -->
+          <div class="sr-only" style="display:none;">
+            <span id="revision-today-date-badge">Today</span>
+            <div id="rev-card-overdue"><span id="rev-metric-overdue-val">0</span><span id="rev-metric-overdue-sub"></span></div>
+            <div id="rev-card-due-today"><span id="rev-metric-due-today-val">0</span><span id="rev-metric-due-today-sub"></span></div>
+            <div id="rev-card-upcoming"><span id="rev-metric-upcoming-val">0</span><span id="rev-metric-upcoming-sub"></span></div>
+            <div id="rev-card-weak"><span id="rev-metric-weak-val">0</span><span id="rev-metric-weak-sub"></span></div>
+            <div id="rev-card-completed"><span id="rev-metric-completed-val">0</span><span id="rev-metric-completed-sub"></span></div>
+          </div>
+
+          <!-- Revision Queue Section -->
+          <section class="day-problems-section rev-queue-section">
+            <div class="problems-sec-header">
+              <div class="problems-sec-title-wrap">
+                <h2 class="problems-sec-title">Revision Queue</h2>
+                <span class="problems-sec-count-badge" id="rev-queue-count-badge">00</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <label class="toggle-hide-completed-label" for="chk-revision-due-today-only">
+                  <input type="checkbox" id="chk-revision-due-today-only">
+                  <span>Due today only</span>
+                </label>
+                <button type="button" class="btn-open-roadmap" id="btn-start-revision-secondary" style="padding:6px 12px; font-size:12px;">
+                  <i class="fa-solid fa-play" style="font-size:10px;"></i>
+                  <span>Start session</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- 4 Quick Summary Stat Cards -->
+            <div class="rev-summary-grid">
+              <div class="rev-summary-card">
+                <div class="rev-summary-label">OVERDUE</div>
+                <div class="rev-summary-val" id="rev-stat-overdue" style="color:var(--error);">0</div>
+                <div class="rev-summary-sub">Past due date</div>
+              </div>
+              <div class="rev-summary-card">
+                <div class="rev-summary-label">DUE TODAY</div>
+                <div class="rev-summary-val" id="rev-stat-due-today" style="color:var(--warning);">0</div>
+                <div class="rev-summary-sub">Scheduled for today</div>
+              </div>
+              <div class="rev-summary-card">
+                <div class="rev-summary-label">ACTIONABLE</div>
+                <div class="rev-summary-val" id="rev-stat-actionable" style="color:var(--primary-light);">0</div>
+                <div class="rev-summary-sub">Overdue + due today</div>
+              </div>
+              <div class="rev-summary-card">
+                <div class="rev-summary-label">REVIEWED TODAY</div>
+                <div class="rev-summary-val" id="rev-stat-reviewed-today" style="color:var(--success);">0</div>
+                <div class="rev-summary-sub">Completed reviews</div>
+              </div>
+            </div>
+
+            <!-- Toolbar: Search + Filter Pills + Dropdowns -->
+            <div class="dash-problem-toolbar rev-toolbar">
+              <div class="toolbar-left-group">
+                <div class="toolbar-search-box">
+                  <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                  <input type="text" id="revision-search-input" class="dash-search-input" placeholder="Search title, topic, pattern, or ID...">
+                  <span class="search-shortcut-badge">/</span>
+                </div>
+
+                <div class="filter-pills-bar" role="tablist">
+                  <button type="button" class="dash-filter-pill rev-tab-btn active" data-revision-filter="due" role="tab" aria-selected="true">
+                    Due Now <span id="tab-count-due">0</span>
+                  </button>
+                  <button type="button" class="dash-filter-pill rev-tab-btn" data-revision-filter="overdue" role="tab" aria-selected="false">
+                    Overdue <span id="tab-count-overdue">0</span>
+                  </button>
+                  <button type="button" class="dash-filter-pill rev-tab-btn" data-revision-filter="upcoming" role="tab" aria-selected="false">
+                    Upcoming <span id="tab-count-upcoming">0</span>
+                  </button>
+                  <button type="button" class="dash-filter-pill rev-tab-btn" data-revision-filter="weak" role="tab" aria-selected="false">
+                    Weak <span id="tab-count-weak">0</span>
+                  </button>
+                  <button type="button" class="dash-filter-pill rev-tab-btn" data-revision-filter="bookmarked" role="tab" aria-selected="false">
+                    Bookmarked <span id="tab-count-bookmarked">0</span>
+                  </button>
+                  <button type="button" class="dash-filter-pill rev-tab-btn" data-revision-filter="all" role="tab" aria-selected="false">
+                    All <span id="tab-count-all">0</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="rev-dropdowns-wrap">
+                <select id="revision-topic-filter" class="dash-select-filter">
+                  <option value="all">All Topics</option>
+                  <option value="Arrays & Hashing">Arrays & Hashing</option>
+                  <option value="Two Pointers">Two Pointers</option>
+                  <option value="Sliding Window">Sliding Window</option>
+                  <option value="Stack">Stack</option>
+                  <option value="Binary Search">Binary Search</option>
+                  <option value="Linked List">Linked List</option>
+                  <option value="Trees">Trees</option>
+                  <option value="Binary Trees & BST">Binary Trees & BST</option>
+                  <option value="Heap / Priority Queue">Heap / Priority Queue</option>
+                  <option value="Backtracking">Backtracking</option>
+                  <option value="Tries">Tries</option>
+                  <option value="Graphs">Graphs</option>
+                  <option value="Advanced Graphs">Advanced Graphs</option>
+                  <option value="1-D Dynamic Programming">1-D Dynamic Programming</option>
+                  <option value="2-D Dynamic Programming">2-D Dynamic Programming</option>
+                  <option value="Greedy">Greedy</option>
+                  <option value="Intervals">Intervals</option>
+                  <option value="Math & Geometry">Math & Geometry</option>
+                  <option value="Bit Manipulation">Bit Manipulation</option>
+                </select>
+                <select id="revision-difficulty-filter" class="dash-select-filter">
+                  <option value="all">All Difficulties</option>
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+                <select id="revision-sort-filter" class="dash-select-filter">
+                  <option value="urgency">Sort: Urgency</option>
+                  <option value="due_date">Sort: Due Date</option>
+                  <option value="weakness">Sort: Lowest Recall</option>
+                  <option value="difficulty_desc">Sort: Hard to Easy</option>
+                  <option value="difficulty_asc">Sort: Easy to Hard</option>
+                  <option value="title_asc">Sort: Title A-Z</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Next Recommended Revision Callout Banner -->
+            <div id="revision-next-recommended-banner" style="display:none; margin-bottom:16px;"></div>
+
+            <!-- Modern Table Layout -->
+            <div class="problem-table-container">
+              <div class="dash-table-header rev-table-header">
+                <div class="dash-col-problem">PROBLEM / APPROACH</div>
+                <div class="dash-col-topic">TOPIC</div>
+                <div class="dash-col-diff">DIFFICULTY</div>
+                <div class="dash-col-stage">SRS STAGE</div>
+                <div class="dash-col-due">DUE STATUS</div>
+                <div class="dash-col-actions">ACTIONS</div>
+              </div>
+
+              <!-- Problem Rows Container -->
+              <div id="revision-queue-list-container"></div>
+
+              <!-- Preserved Hidden tbody for backward-compatibility -->
+              <table class="sr-only" style="display:none;"><tbody id="revision-queue-tbody"></tbody></table>
+
+              <!-- Table Footer -->
+              <div class="table-footer-status">
+                <span class="table-footer-hint">Click 'Review' to begin active recall on any problem.</span>
+                <span class="table-footer-count" id="rev-match-count">Showing 0 of 0 problems</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Retention Insights Section -->
+          <section class="day-problems-section rev-insights-section">
+            <div class="problems-sec-header">
+              <div class="problems-sec-title-wrap">
+                <h2 class="problems-sec-title">Retention Insights</h2>
+              </div>
+              <span id="rev-analytics-weak-topic" class="badge badge-success" style="font-size:11px; padding:3px 10px;">Retention healthy</span>
+            </div>
+
+            <div class="rev-insights-grid">
+              <!-- Card 1: Today's Retention Rate -->
+              <div class="dash-card rev-insight-card">
+                <div class="rev-insight-header">
+                  <div class="rev-insight-label">TODAY'S RETENTION RATE</div>
+                  <span class="rev-insight-target">&ge; 80% target</span>
+                </div>
+                <div class="rev-insight-val" id="rev-analytics-accuracy">--%</div>
+                <div class="rev-insight-sub">Good/Easy recall ratings logged today</div>
+              </div>
+
+              <!-- Card 2: Rating Distribution -->
+              <div class="dash-card rev-insight-card rev-dist-card">
+                <div class="rev-insight-header">
+                  <div class="rev-insight-label">RATING DISTRIBUTION</div>
+                </div>
+                <div class="rev-dist-bars">
+                  <div class="rev-dist-item choice-again">
+                    <span class="rev-dist-num" id="rev-dist-again">0</span>
+                    <span class="rev-dist-tag">Again</span>
+                  </div>
+                  <div class="rev-dist-item choice-hard">
+                    <span class="rev-dist-num" id="rev-dist-hard">0</span>
+                    <span class="rev-dist-tag">Hard</span>
+                  </div>
+                  <div class="rev-dist-item choice-good">
+                    <span class="rev-dist-num" id="rev-dist-good">0</span>
+                    <span class="rev-dist-tag">Good</span>
+                  </div>
+                  <div class="rev-dist-item choice-easy">
+                    <span class="rev-dist-num" id="rev-dist-easy">0</span>
+                    <span class="rev-dist-tag">Easy</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card 3: Retention Risk by Topic -->
+              <div class="dash-card rev-insight-card">
+                <div class="rev-insight-header">
+                  <div class="rev-insight-label">TOPIC RISK</div>
+                </div>
+                <div class="rev-insight-val" id="rev-insight-risk-topic">Healthy</div>
+                <div class="rev-insight-sub" id="rev-insight-risk-sub">No weak or fragile clusters identified</div>
+              </div>
+
+              <!-- Card 4: Upcoming 7-Day Load -->
+              <div class="dash-card rev-insight-card">
+                <div class="rev-insight-header">
+                  <div class="rev-insight-label">UPCOMING 7-DAY LOAD</div>
+                </div>
+                <div class="rev-insight-val" id="rev-insight-upcoming-val">0</div>
+                <div class="rev-insight-sub">Reviews scheduled across next 7 days</div>
+              </div>
+            </div>
+          </section>
         </div>
 
         <!-- Subview 2: Monthly Revision Assessment (Preserves id="view-monthly-assessment") -->

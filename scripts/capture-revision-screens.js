@@ -7,7 +7,7 @@ const ARTIFACT_DIR = 'C:\\Users\\Dell\\.gemini\\antigravity\\brain\\740364dc-bda
 const basePath = 'file:///' + path.join(process.cwd(), 'index.html').replace(/\\/g, '/');
 
 function capture(urlHash, width, height, filename) {
-  const userDataDir = path.join(process.cwd(), 'scratch', `temp_chrome_${width}_${Date.now()}`);
+  const userDataDir = path.join(process.cwd(), 'scratch', `temp_chrome_rev_${width}_${Date.now()}`);
   const outPath = path.join(ARTIFACT_DIR, filename);
   try {
     execFileSync(CHROME_PATH, [
@@ -15,7 +15,7 @@ function capture(urlHash, width, height, filename) {
       '--disable-gpu',
       '--no-sandbox',
       '--disable-dev-shm-usage',
-      '--virtual-time-budget=3000',
+      '--virtual-time-budget=4000',
       '--run-all-compositor-stages-before-draw',
       `--user-data-dir=${userDataDir}`,
       `--window-size=${width},${height}`,
@@ -32,9 +32,8 @@ function capture(urlHash, width, height, filename) {
   }
 }
 
-// 1. Revision Center Overview Desktop
-capture('#/revision', 1280, 950, 'revision_center_overview_desktop.png');
+// 1. Revision Center Command Center Desktop (1280x1500)
+capture('#/revision', 1280, 1500, 'revision_center_desktop.png');
 
-// 2. Revision Center Mobile
+// 2. Revision Center Mobile (390x844)
 capture('#/revision', 390, 844, 'revision_center_mobile.png');
-
