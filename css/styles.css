@@ -11984,3 +11984,1123 @@ body.font-dyslexic,
     margin-top: 4px;
   }
 }
+
+/* === AlgoRecall 2.0 UI Unification & Layout Standardization === */
+/* ==========================================================================
+   AlgoRecall 2.0 — Complete Website UI Unification & Layout Standardization
+   Standardized Dark Charcoal / Purple Developer-Tool Design System
+   Matches Dashboard & Revision Center Reference Standards
+   ========================================================================== */
+
+/* 1. Global View Layout & Cleanup */
+.view-section {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 24px 28px 48px;
+}
+
+/* Hide legacy feature purpose banners across all views */
+.feature-purpose-banner {
+  display: none !important;
+}
+
+/* Hide parent subtabs when visiting dedicated top-level views (/roadmaps, /mock) */
+#view-progress:has(#view-roadmap.active) > .view-subtabs-bar,
+#view-progress:has(#view-mock.active) > .view-subtabs-bar {
+  display: none !important;
+}
+
+/* Standardized Subtabs Navigation Bar (in Practice & Progress) */
+.view-subtabs-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 0 24px 0 !important;
+  border: none !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+
+.view-subtabs-bar::-webkit-scrollbar {
+  display: none !important;
+  height: 0 !important;
+}
+
+.view-subtab-btn {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 6px !important;
+  color: #94a3b8 !important;
+  padding: 7px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+  box-shadow: none !important;
+}
+
+.view-subtab-btn:hover {
+  background: #171e2e !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+.view-subtab-btn.active {
+  background: rgba(124, 92, 252, 0.15) !important;
+  color: #ffffff !important;
+  border-color: #7c5cfc !important;
+  font-weight: 600 !important;
+}
+
+.view-subtab-btn.active i {
+  color: #a78bfa !important;
+}
+
+/* 2. Standardized View Headers */
+.view-header-unification {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.view-header-unification .view-title {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+
+.view-header-unification .view-subtitle {
+  font-size: 13.5px !important;
+  color: #94a3b8 !important;
+  margin: 6px 0 0 0 !important;
+  font-weight: 400 !important;
+}
+
+.view-header-unification .view-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* 3. Standardized Form Controls (Inputs, Selects, Buttons) */
+input.search-input,
+input.filter-input,
+select.filter-select,
+select.form-select,
+.settings-select,
+.settings-input,
+#roadmap-search-input,
+#problem-search-input,
+#analytics-topic-search,
+#filter-platform,
+#filter-difficulty,
+#filter-status,
+#filter-company,
+#sort-problems,
+#mock-config-track,
+#mock-config-duration,
+#mock-config-difficulty,
+#mock-config-count,
+#mock-config-topic {
+  background: #0d121c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  color: #f1f5f9 !important;
+  font-size: 12.5px !important;
+  padding: 8px 12px !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+  box-sizing: border-box !important;
+}
+
+input.search-input:focus,
+select.filter-select:focus,
+.settings-select:focus,
+.settings-input:focus {
+  border-color: #7c5cfc !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(124, 92, 252, 0.25) !important;
+}
+
+/* Standardized Buttons */
+.btn-primary:not(.btn-action-open):not(.btn-ghost) {
+  background: #7c5cfc !important;
+  color: #ffffff !important;
+  border: 1px solid #7c5cfc !important;
+  border-radius: 6px !important;
+  font-weight: 600 !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-primary:not(.btn-action-open):not(.btn-ghost):hover {
+  background: #6d4bf5 !important;
+  border-color: #6d4bf5 !important;
+  transform: translateY(-1px) !important;
+}
+
+.btn-secondary {
+  background: #161c28 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+  border-radius: 6px !important;
+  font-weight: 500 !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-secondary:hover {
+  background: #1d2536 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* ==========================================================================
+   PAGE 1: ROADMAPS VIEW STANDARDIZATION
+   ========================================================================== */
+#view-roadmap {
+  padding: 0 !important;
+}
+
+.roadmap-library-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 24px !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+.roadmap-library-title h2 {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+
+.roadmap-library-title p {
+  font-size: 13.5px !important;
+  color: #94a3b8 !important;
+  margin: 6px 0 0 0 !important;
+  font-weight: 400 !important;
+}
+
+/* Controls Toolbar */
+.roadmap-library-controls {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 16px !important;
+  margin-bottom: 20px !important;
+  flex-wrap: wrap !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.roadmap-filter-tabs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: #0d121c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  padding: 3px !important;
+}
+
+.roadmap-filter-tab {
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  padding: 6px 12px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.roadmap-filter-tab:hover {
+  color: #ffffff !important;
+}
+
+.roadmap-filter-tab.active {
+  background: #1c2233 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.roadmap-search-sort {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+/* Roadmap Catalog Cards Grid */
+.roadmap-library-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)) !important;
+  gap: 16px !important;
+}
+
+.roadmap-card {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  padding: 22px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  transition: border-color 0.15s ease, transform 0.15s ease !important;
+  box-shadow: none !important;
+  min-height: 280px !important;
+}
+
+.roadmap-card:hover {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  transform: translateY(-2px) !important;
+}
+
+.roadmap-card.active-roadmap-card,
+.roadmap-card.active {
+  border-color: rgba(124, 92, 252, 0.45) !important;
+  background: #131726 !important;
+  box-shadow: 0 0 20px rgba(124, 92, 252, 0.08) !important;
+}
+
+.roadmap-card-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 12px !important;
+}
+
+.roadmap-card-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 6px 0 !important;
+  line-height: 1.3 !important;
+}
+
+.roadmap-card-desc {
+  font-size: 13px !important;
+  color: #94a3b8 !important;
+  line-height: 1.45 !important;
+  margin: 0 0 16px 0 !important;
+}
+
+.roadmap-card-badge-active {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: rgba(124, 92, 252, 0.15) !important;
+  color: #a78bfa !important;
+  border: 1px solid rgba(124, 92, 252, 0.3) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+}
+
+.roadmap-card-meta-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  font-size: 12px !important;
+  color: #64748b !important;
+  margin-bottom: 8px !important;
+}
+
+.roadmap-card-progress-bar {
+  height: 6px !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 999px !important;
+  overflow: hidden !important;
+  margin-bottom: 16px !important;
+}
+
+.roadmap-card-progress-fill {
+  height: 100% !important;
+  background: #7c5cfc !important;
+  border-radius: 999px !important;
+  transition: width 0.3s ease !important;
+}
+
+.roadmap-card-tags {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 6px !important;
+  margin-bottom: 20px !important;
+}
+
+.roadmap-card-tag {
+  background: #171d2b !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  color: #94a3b8 !important;
+  font-size: 11px !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+}
+
+.roadmap-card-actions {
+  display: flex !important;
+  gap: 10px !important;
+  margin-top: auto !important;
+}
+
+/* Roadmap Detail View Standardization */
+.roadmap-detail-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 16px 20px !important;
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  margin-bottom: 20px !important;
+  flex-wrap: wrap !important;
+  gap: 12px !important;
+}
+
+.roadmap-detail-tabs-bar {
+  display: flex !important;
+  gap: 4px !important;
+  background: #0d121c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  padding: 4px !important;
+  margin-bottom: 24px !important;
+  overflow-x: auto !important;
+}
+
+.roadmap-detail-tab-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  padding: 8px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+}
+
+.roadmap-detail-tab-btn:hover {
+  color: #ffffff !important;
+}
+
+.roadmap-detail-tab-btn.active {
+  background: #1c2233 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* ==========================================================================
+   PAGE 2: PROBLEMS LIBRARY STANDARDIZATION
+   ========================================================================== */
+#view-problems {
+  padding: 0 !important;
+}
+
+.problems-catalog-header,
+#view-problems .section-title-wrap {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 20px !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+#view-problems .section-title-wrap h2 {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+
+#view-problems .section-title-wrap span {
+  font-size: 13.5px !important;
+  color: #94a3b8 !important;
+  margin: 6px 0 0 0 !important;
+  font-weight: 400 !important;
+}
+
+/* Topic Navigation Pill Strip */
+.topic-pills-scroll-wrap::-webkit-scrollbar,
+.topic-pills-bar::-webkit-scrollbar,
+#problem-topic-pills::-webkit-scrollbar,
+#problem-topic-pills-wrap::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.topic-pills-scroll-wrap,
+.topic-pills-bar,
+#problem-topic-pills,
+#problem-topic-pills-wrap {
+  display: flex !important;
+  gap: 8px !important;
+  overflow-x: auto !important;
+  padding-bottom: 6px !important;
+  margin-bottom: 14px !important;
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+  border-bottom: none !important;
+}
+
+.topic-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  color: #94a3b8 !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+}
+
+.topic-pill:hover {
+  background: #171e2e !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.topic-pill.active {
+  background: #7c5cfc !important;
+  color: #ffffff !important;
+  border-color: #7c5cfc !important;
+  font-weight: 600 !important;
+}
+
+/* Curated Sheet Pills Bar */
+.sheet-pills-bar,
+#sheet-pills-container {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: 16px !important;
+  overflow-x: auto !important;
+  scrollbar-width: none !important;
+}
+
+.sheet-pills-bar::-webkit-scrollbar {
+  display: none !important;
+}
+
+.sheet-pill {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  background: #0d121c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  color: #94a3b8 !important;
+  padding: 5px 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+}
+
+.sheet-pill:hover {
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.sheet-pill.active {
+  background: #1c2233 !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  font-weight: 600 !important;
+}
+
+/* Secondary Filter Bar */
+.filter-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 16px !important;
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  padding: 12px 16px !important;
+}
+
+/* Table Container & Rows */
+#problem-catalog-table-container,
+.problem-table-container {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  overflow: hidden !important;
+  margin-bottom: 20px !important;
+}
+
+#all-problems-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+}
+
+#all-problems-table th {
+  background: #0f1420 !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.06em !important;
+  padding: 10px 14px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  text-align: left !important;
+}
+
+#all-problems-table td {
+  padding: 10px 14px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  font-size: 13px !important;
+  color: #cbd5e1 !important;
+  vertical-align: middle !important;
+}
+
+#all-problems-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+/* Problem title & direct link styling */
+.problem-title {
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: color 0.15s ease !important;
+}
+
+.problem-title:hover {
+  color: #a78bfa !important;
+  text-decoration: underline !important;
+}
+
+.btn-action-open {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  background: #171d2c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+  font-size: 11.5px !important;
+  padding: 4px 10px !important;
+  border-radius: 5px !important;
+  text-decoration: none !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-action-open:hover {
+  background: #1f273b !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+/* Subtopic Group Header Row */
+.subtopic-group-header-row td {
+  background: #0d111a !important;
+  padding: 10px 16px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.subtopic-header-bar {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+}
+
+.subtopic-order-badge {
+  background: rgba(124, 92, 252, 0.15) !important;
+  color: #a78bfa !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  margin-right: 8px !important;
+  text-transform: uppercase !important;
+}
+
+.subtopic-group-name {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  font-size: 13px !important;
+  margin-right: 8px !important;
+}
+
+.subtopic-group-topic {
+  color: #64748b !important;
+  font-size: 12px !important;
+}
+
+/* ==========================================================================
+   PAGE 3: MOCK INTERVIEWS STANDARDIZATION
+   ========================================================================== */
+#view-mock {
+  padding: 0 !important;
+}
+
+.mock-simulator-header,
+#view-mock .section-title-wrap {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 24px !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+#view-mock .section-title-wrap h2 {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+
+#view-mock .section-title-wrap span {
+  font-size: 13.5px !important;
+  color: #94a3b8 !important;
+  margin: 6px 0 0 0 !important;
+  font-weight: 400 !important;
+}
+
+/* Top 4-Metric Grid */
+#view-mock .stats-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 14px !important;
+  margin-bottom: 28px !important;
+}
+
+#view-mock .stat-card {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  padding: 18px 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  box-shadow: none !important;
+}
+
+#view-mock .stat-card::before {
+  display: none !important;
+}
+
+#view-mock .stat-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+  color: #64748b !important;
+}
+
+#view-mock .stat-value {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  line-height: 1.2 !important;
+  margin: 2px 0 !important;
+}
+
+#view-mock .stat-sub {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+}
+
+/* Quick Start Track Cards in Mock */
+#view-mock .roadmap-card[data-mock-track-preset] {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  padding: 20px !important;
+  min-height: 160px !important;
+  transition: border-color 0.15s ease, transform 0.15s ease !important;
+}
+
+#view-mock .roadmap-card[data-mock-track-preset]:hover {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  transform: translateY(-2px) !important;
+}
+
+#view-mock .roadmap-card.active[data-mock-track-preset] {
+  border-color: rgba(124, 92, 252, 0.45) !important;
+  background: #131726 !important;
+}
+
+#view-mock span[style*="color:#93c5fd"] {
+  color: #a78bfa !important;
+}
+
+/* Configuration Card */
+#view-mock div[style*="background:var(--bg-card)"] {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+}
+
+/* ==========================================================================
+   PAGE 4: PROGRESS & ANALYTICS STANDARDIZATION
+   ========================================================================== */
+#view-analytics {
+  padding: 0 !important;
+}
+
+.analytics-main-header,
+#view-analytics .section-title-wrap {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 24px !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+#view-analytics .section-title-wrap h2 {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+
+#view-analytics .section-title-wrap span {
+  font-size: 13.5px !important;
+  color: #94a3b8 !important;
+  margin: 6px 0 0 0 !important;
+  font-weight: 400 !important;
+}
+
+/* Timeframe Pills */
+.analytics-timeframe-pills {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: #0d121c !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  padding: 3px !important;
+}
+
+.analytics-time-pill {
+  background: transparent !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.analytics-time-pill:hover {
+  color: #ffffff !important;
+}
+
+.analytics-time-pill.active {
+  background: #1c2233 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Overview 6-Card Metric Grid */
+.analytics-overview-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)) !important;
+  gap: 14px !important;
+  margin-bottom: 28px !important;
+}
+
+.analytics-stat-card {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  padding: 20px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  box-shadow: none !important;
+  min-height: 130px !important;
+}
+
+.analytics-stat-card-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  margin-bottom: 8px !important;
+}
+
+.analytics-stat-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.07em !important;
+  text-transform: uppercase !important;
+  color: #64748b !important;
+}
+
+.analytics-stat-val {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 2px 0 !important;
+  line-height: 1.2 !important;
+}
+
+.analytics-stat-sub {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+}
+
+/* Analytics Sections (Cards) */
+.analytics-section-card {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  padding: 22px !important;
+  margin-bottom: 24px !important;
+  box-shadow: none !important;
+}
+
+.analytics-section-card h3 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 0 0 16px 0 !important;
+}
+
+/* Recommendations Card override */
+#analytics-recommendations-container {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  border-left: 3px solid #7c5cfc !important;
+}
+
+/* ==========================================================================
+   PAGE 5: SETTINGS & DATA HUB STANDARDIZATION
+   ========================================================================== */
+#view-settings {
+  padding: 0 !important;
+}
+
+#view-settings .section-title-wrap {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: flex-start !important;
+  margin-bottom: 24px !important;
+  flex-wrap: wrap !important;
+  gap: 16px !important;
+}
+
+#view-settings .section-title-wrap h2 {
+  font-size: 26px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  letter-spacing: -0.025em !important;
+  line-height: 1.2 !important;
+  margin: 0 !important;
+}
+
+#view-settings .section-title-wrap span {
+  font-size: 13.5px !important;
+  color: #94a3b8 !important;
+  margin: 6px 0 0 0 !important;
+  font-weight: 400 !important;
+}
+
+/* Settings Cards Grid */
+.settings-view-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(460px, 1fr)) !important;
+  gap: 20px !important;
+}
+
+.settings-card {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 10px !important;
+  padding: 24px !important;
+  box-shadow: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 20px !important;
+}
+
+.settings-card-header i {
+  color: #a78bfa !important;
+  background: rgba(124, 92, 252, 0.12) !important;
+  border: 1px solid rgba(124, 92, 252, 0.25) !important;
+}
+
+.settings-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.settings-row-title {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: #f1f5f9 !important;
+  margin-bottom: 4px !important;
+}
+
+.settings-row-desc {
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+  margin: 0 !important;
+  line-height: 1.4 !important;
+}
+
+/* Leitner Intervals Table */
+.leitner-intervals-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 12px 0 !important;
+  background: #0d121c !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.leitner-intervals-table th {
+  background: #121826 !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  padding: 10px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  text-align: left !important;
+}
+
+.leitner-intervals-table td {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  font-size: 12.5px !important;
+  color: #cbd5e1 !important;
+}
+
+/* Keyboard Shortcuts Table */
+.shortcuts-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 12px 0 !important;
+  background: #0d121c !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+.shortcuts-table th {
+  background: #121826 !important;
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  padding: 10px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07) !important;
+  text-align: left !important;
+}
+
+.shortcuts-table td {
+  padding: 10px 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  font-size: 12.5px !important;
+  color: #cbd5e1 !important;
+}
+
+kbd {
+  background: #1e2638 !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4) !important;
+  color: #f8fafc !important;
+  display: inline-block !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+  padding: 2px 6px !important;
+  margin: 0 2px !important;
+}
+
+/* Modals Modernization */
+.modal-overlay,
+.modal-backdrop {
+  background: rgba(0, 0, 0, 0.75) !important;
+  backdrop-filter: blur(8px) !important;
+}
+
+.modal-content,
+.modal-dialog {
+  background: #121723 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+  color: #f8fafc !important;
+}
+
+/* Responsive adjustments across all unified views */
+@media (max-width: 900px) {
+  #view-mock .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .settings-view-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .view-section {
+    padding: 16px 16px 36px !important;
+  }
+}
+
+@media (max-width: 600px) {
+  #view-mock .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .roadmap-library-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .analytics-overview-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .filter-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+}

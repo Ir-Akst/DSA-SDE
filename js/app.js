@@ -294,7 +294,7 @@
     const topicSelect = document.getElementById('filter-topic');
     if (topicSelect) {
       const currentSelected = topicSelect.value || 'all';
-      topicSelect.innerHTML = `<option value="all">ðŸ“‚ All Topics (${allProblems.length})</option>`;
+      topicSelect.innerHTML = `<option value="all">All Topics (${allProblems.length})</option>`;
       topics.forEach(topic => {
         const opt = document.createElement('option');
         opt.value = topic;
@@ -315,13 +315,13 @@
     if (fcTopicSelect) {
       const currentFc = fcTopicSelect.value || 'due';
       fcTopicSelect.innerHTML = `
-        <option value="due">âš¡ Problems Due for Review</option>
-        <option value="all">ðŸ“š All Master Problems (${allProblems.length})</option>
+        <option value="due">⚡ Problems Due for Review</option>
+        <option value="all">All Master Problems (${allProblems.length})</option>
       `;
       topics.forEach(topic => {
         const opt = document.createElement('option');
         opt.value = topic;
-        opt.textContent = `ðŸ“‚ ${topic} (${topicCounts[topic]})`;
+        opt.textContent = `${topic} (${topicCounts[topic]})`;
         fcTopicSelect.appendChild(opt);
       });
       if (['due', 'all', ...topics].includes(currentFc)) {
@@ -337,7 +337,7 @@
       topics.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t;
-        opt.textContent = `ðŸ“‚ ${t} (${topicCounts[t]} Problems)`;
+        opt.textContent = `${t} (${topicCounts[t]} Problems)`;
         daySwitchSelect.appendChild(opt);
       });
       if (curSwitch && topics.includes(curSwitch)) {
@@ -419,7 +419,7 @@
       subtopicCounts.set(sub, (subtopicCounts.get(sub) || 0) + 1);
     });
 
-    subtopicSelect.innerHTML = `<option value="all">ðŸ“‘ All Subtopics (${relevantProblems.length})</option>`;
+    subtopicSelect.innerHTML = `<option value="all">All Subtopics (${relevantProblems.length})</option>`;
     subtopicCounts.forEach((count, sub) => {
       const opt = document.createElement('option');
       opt.value = sub;
@@ -2265,7 +2265,7 @@
     const plan = RoadmapEngine.getDailyDSAPlan(currentMins, allProblems, userStates);
 
     if (budgetPill && plan.timeAllocation) {
-      budgetPill.innerHTML = `<span><i class="fa-solid fa-clock"></i> ${plan.timeAllocation.learnMinutes}m Learn â€¢ ${plan.timeAllocation.topicRevisionMinutes}m Topic Revise â€¢ ${plan.timeAllocation.spacedRevisionMinutes}m Spaced Revise â€¢ ${plan.timeAllocation.recallBufferMinutes}m Active Recall</span>`;
+      budgetPill.innerHTML = `<span><i class="fa-solid fa-clock"></i> ${plan.timeAllocation.learnMinutes}m Learn • ${plan.timeAllocation.topicRevisionMinutes}m Topic Revise • ${plan.timeAllocation.spacedRevisionMinutes}m Spaced Revise • ${plan.timeAllocation.recallBufferMinutes}m Active Recall</span>`;
     }
 
     if (headerSummary) {
@@ -2277,7 +2277,7 @@
     if (curProg) {
       const dayTag = document.getElementById('dsa-plan-curriculum-day-tag');
       const topicTag = document.getElementById('dsa-plan-curriculum-topic-tag');
-      if (dayTag) dayTag.textContent = `120-Day Roadmap â€¢ Day ${curProg.currentCurriculumDay}`;
+      if (dayTag) dayTag.textContent = `120-Day Roadmap • Day ${curProg.currentCurriculumDay}`;
       if (topicTag) topicTag.textContent = `${curProg.activeMilestoneTopic}: ${curProg.activeMilestoneSubtopic}`;
     }
 
@@ -2391,7 +2391,7 @@
     }
 
     // =========================================================================
-    // SECTION 2: LEARN â€” NEW QUESTIONS
+    // SECTION 2: LEARN — NEW QUESTIONS
     // =========================================================================
     const learnTopicTitle = document.getElementById('dsa-plan-learn-topic-title');
     const learnTimeBadge = document.getElementById('dsa-plan-learn-time-badge');
@@ -2450,7 +2450,7 @@
                 </div>
               </div>
               <button class="btn btn-sm btn-primary btn-replenish-stream" data-stream="learn" type="button">
-                <i class="fa-solid fa-bolt"></i> Next Question Available â€” Continue Learning
+                <i class="fa-solid fa-bolt"></i> Next Question Available — Continue Learning
               </button>
             </div>
           `;
@@ -2460,7 +2460,7 @@
     }
 
     // =========================================================================
-    // SECTION 3: TOPIC REVISION â€” TOPIC PRACTICE
+    // SECTION 3: TOPIC REVISION — TOPIC PRACTICE
     // =========================================================================
     const topicRevTitle = document.getElementById('dsa-plan-topic-revise-topic-title') || document.getElementById('dsa-plan-revise-topic-title');
     const topicRevTimeBadge = document.getElementById('dsa-plan-topic-revise-time-badge') || document.getElementById('dsa-plan-revise-time-badge');
@@ -2517,7 +2517,7 @@
     }
 
     // =========================================================================
-    // SECTION 4: SPACED REVISION â€” TIME-BASED SRS RECALL
+    // SECTION 4: SPACED REVISION — TIME-BASED SRS RECALL
     // =========================================================================
     const spacedRevTitle = document.getElementById('dsa-plan-spaced-revise-topic-title');
     const spacedRevTimeBadge = document.getElementById('dsa-plan-spaced-revise-time-badge');
@@ -2844,14 +2844,14 @@
     const nextDate = updatedState.nextReviewDate;
     const intervalDays = updatedState.intervalDays || 1;
 
-    let confirmMsg = `âœ“ Recorded "${outcomeLabel}" for "${p.title}".`;
+    let confirmMsg = `✓ Recorded "${outcomeLabel}" for "${p.title}".`;
     if (nextDate) {
       confirmMsg += ` Next review: ${nextDate} (${intervalDays}d interval).`;
     }
     if (nextTaskObj) {
       confirmMsg += ` Next task: "${nextTaskObj.task.title}".`;
     } else {
-      confirmMsg += ` ðŸŽ‰ Great job! All planned tasks completed.`;
+      confirmMsg += ` Great job! All planned tasks completed.`;
     }
     showPlanConfirmation(confirmMsg);
   }
@@ -2895,7 +2895,7 @@
           if (!window.RoadmapEngine) return;
           if (RoadmapEngine.isTaskSkippedToday(id)) {
             RoadmapEngine.unskipPlanTask(id);
-            showPlanConfirmation(`âœ“ Resumed task.`);
+            showPlanConfirmation(`✓ Resumed task.`);
           } else {
             RoadmapEngine.skipPlanTask(id);
             showPlanConfirmation(`Task skipped for now (stays in session queue). To move it to a future day, use Reschedule in your 120-Day Roadmap.`);
@@ -2918,7 +2918,7 @@
         const res = RoadmapEngine.replenishDailyPlan(stream, curMins, allProblems, userStates);
         renderDashboard();
         if (res && res.replenished && res.problem) {
-          showPlanConfirmation(`âœ“ Added "${res.problem.title}" to session.`);
+          showPlanConfirmation(`✓ Added "${res.problem.title}" to session.`);
           setTimeout(() => {
             const cardEl = document.getElementById(`plan-task-${res.problem.id}`);
             if (cardEl) {
@@ -3315,7 +3315,7 @@
       if (meta.color) badgeEl.style.color = meta.color;
     }
     if (titleEl) {
-      titleEl.textContent = `${rec.problemTitle} (${rec.difficulty} â€¢ ${rec.topic})`;
+      titleEl.textContent = `${rec.problemTitle} (${rec.difficulty} • ${rec.topic})`;
     }
     if (expEl) {
       expEl.textContent = rec.explanation;
@@ -3416,7 +3416,7 @@
     if (topicBadge) {
       if (rec.topic && rec.topic !== 'Daily Session Finished') {
         topicBadge.style.display = 'inline-flex';
-        topicBadge.textContent = rec.subtopic ? `${rec.topic} â€¢ ${rec.subtopic}` : rec.topic;
+        topicBadge.textContent = rec.subtopic ? `${rec.topic} • ${rec.subtopic}` : rec.topic;
       } else {
         topicBadge.style.display = 'none';
       }
@@ -3438,9 +3438,9 @@
       if (rec.type === 'session_complete') {
         impactText.textContent = 'All daily goals achieved. Prepared for tomorrow!';
       } else if (rec.type === 'spaced_review') {
-        impactText.textContent = 'Preserves memory retention â€¢ Advances Leitner stage â€¢ +20 XP';
+        impactText.textContent = 'Preserves memory retention • Advances Leitner stage • +20 XP';
       } else {
-        impactText.textContent = 'Advances retention stability â€¢ Updates roadmap progress â€¢ Awards +25 XP';
+        impactText.textContent = 'Advances retention stability • Updates roadmap progress • Awards +25 XP';
       }
     }
 
@@ -5783,7 +5783,7 @@
     activeRatingConfidence = SRSEngine.getConfidence(state) || 4;
 
     document.getElementById('modal-rating-title').textContent = `Rate Recall: ${p.title}`;
-    document.getElementById('modal-rating-subtitle').textContent = `${p.topic} â€¢ ${p.difficulty} â€¢ ${p.pattern || ''}`;
+    document.getElementById('modal-rating-subtitle').textContent = `${p.topic} • ${p.difficulty} • ${p.pattern || ''}`;
     document.getElementById('rating-modal-notes').value = '';
 
     // Reset Hint Used checkbox & Time Spent
@@ -5863,7 +5863,7 @@
     const nextDate = updatedState.nextReviewDate;
     const intervalDays = updatedState.intervalDays || 1;
 
-    let confirmMsg = `âœ“ Review recorded for "${probTitle}".`;
+    let confirmMsg = `✓ Review recorded for "${probTitle}".`;
     if (nextDate) {
       confirmMsg += ` Next review: ${nextDate} (${intervalDays}d interval).`;
     }
@@ -5878,7 +5878,7 @@
     const state = userStates[problemId];
 
     document.getElementById('detail-modal-title').textContent = p.title;
-    document.getElementById('detail-modal-meta').textContent = `${p.topic} â€¢ ${p.difficulty}${p.pattern ? ` â€¢ ${p.pattern}` : ''}`;
+    document.getElementById('detail-modal-meta').textContent = `${p.topic} • ${p.difficulty}${p.pattern ? ` • ${p.pattern}` : ''}`;
 
     // Reset sub-tabs to Overview
     document.querySelectorAll('#problem-detail-modal button[id^="tab-btn-detail-"]').forEach(b => b.classList.remove('active'));
@@ -6400,7 +6400,7 @@
 
     // Show Assessment Evaluation Modal
     renderAll();
-    alert(`ðŸŽ‰ Assessment Complete!\n\nScore: ${evaluation.percentage}%\nGrade: ${evaluation.grade}\n\n${evaluation.summary}`);
+    alert(`Assessment Complete!\n\nScore: ${evaluation.percentage}%\nGrade: ${evaluation.grade}\n\n${evaluation.summary}`);
   }
 
   // --- CROSS-DEVICE QUICK SYNC CONTROLLER ---
@@ -6465,7 +6465,7 @@
 
       populateTopicDropdown();
       renderAll();
-      alert(`ðŸŽ‰ Cross-Device Sync Successful!\n\nImported ${importedCount} reviewed questions & test history. All progress is now in sync on this device!`);
+      alert(`Cross-Device Sync Successful!\n\nImported ${importedCount} reviewed questions & test history. All progress is now in sync on this device!`);
       return true;
     } catch (e) {
       console.error('Failed to import sync code:', e);
@@ -7128,7 +7128,7 @@
       const actionBtnText = document.getElementById('btn-roadmap-primary-action-text');
 
       if (dayBadgeEl) dayBadgeEl.textContent = `Day ${curProg.currentCurriculumDay} of 120`;
-      if (headingEl) headingEl.textContent = `Day ${curProg.currentCurriculumDay}: ${curProg.activeMilestoneTopic} â€” ${curProg.activeMilestoneSubtopic}`;
+      if (headingEl) headingEl.textContent = `Day ${curProg.currentCurriculumDay}: ${curProg.activeMilestoneTopic} — ${curProg.activeMilestoneSubtopic}`;
       if (objEl) objEl.textContent = curProg.activeObjectives || 'Complete assigned foundational problems in sequence.';
       if (countEl) countEl.textContent = curProg.activeDay?.streams?.current_learning?.problemIds?.length || 4;
       if (minsEl) minsEl.textContent = curProg.activeDay?.streams?.current_learning?.estimatedMinutes || 60;
@@ -7205,7 +7205,7 @@
 
           let icon = isDayDone ? '<i class="fa-solid fa-check"></i>' : (day.isExamDay ? '<i class="fa-solid fa-trophy"></i>' : day.isReviewDay ? '<i class="fa-solid fa-bolt"></i>' : (hasCustomTopic ? '<i class="fa-solid fa-shuffle"></i>' : `<i class="fa-solid fa-code"></i>`));
           let dayName = dayNames[idx] || `Day ${day.dayNumber}`;
-          let label = day.isExamDay ? `Day 7: Weekend Test ðŸ†` : day.isReviewDay ? `Day 6: Flashcards âš¡` : `Day ${day.dayNumber} (${dayName})`;
+          let label = day.isExamDay ? `Day 7: Weekend Test ðŸ†` : day.isReviewDay ? `Day 6: Flashcards ⚡` : `Day ${day.dayNumber} (${dayName})`;
 
           pill.innerHTML = `${icon} <span>${label}</span>`;
           pill.addEventListener('click', () => {
@@ -7780,7 +7780,7 @@
                     </div>
                   </div>
                   <div style="font-size:12px; color:var(--text-dim); margin-top:4px;">
-                    Days ${item.startDay}â€“${item.endDay} (${item.dayCount} Days) â€¢ ${item.problemCount} Curated Problems
+                    Days ${item.startDay}–${item.endDay} (${item.dayCount} Days) • ${item.problemCount} Curated Problems
                   </div>
                   <div class="progress-bar-wrap" style="height:5px; margin-top:10px; background:rgba(255,255,255,0.06);">
                     <div class="progress-bar-fill" style="width:${pct}%; background:var(--stream-learn-accent);"></div>
@@ -7837,7 +7837,7 @@
                     </div>
                   </div>
                   <div style="font-size:12px; color:var(--text-dim); margin-top:4px;">
-                    Days ${item.startDay}â€“${item.endDay} (${item.dayCount} Days) â€¢ ${item.problemCount} Drills
+                    Days ${item.startDay}–${item.endDay} (${item.dayCount} Days) • ${item.problemCount} Drills
                   </div>
                   <div class="progress-bar-wrap" style="height:5px; margin-top:10px; background:rgba(255,255,255,0.06);">
                     <div class="progress-bar-fill" style="width:${pct}%; background:var(--stream-topic-accent);"></div>
@@ -7947,7 +7947,7 @@
           <div class="roadmap-120-audit-summary-card card-advanced">
             <div style="font-size:12px; font-weight:700; color:#f5be65; text-transform:uppercase; letter-spacing:0.5px;">Post-120 Extension</div>
             <div style="font-size:26px; font-weight:800; color:#f8fafc; margin-top:4px;">${summary.advancedCount + summary.optionalCount}</div>
-            <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">${summary.advancedCount} Advanced â€¢ ${summary.optionalCount} Optional Patterns</div>
+            <div style="font-size:12px; color:var(--text-dim); margin-top:2px;">${summary.advancedCount} Advanced • ${summary.optionalCount} Optional Patterns</div>
           </div>
 
           <div class="roadmap-120-audit-summary-card card-catalog">
@@ -7961,7 +7961,7 @@
           <div>
             <h3 style="font-size:16px; font-weight:700; color:#f8fafc; margin:0;">
               <i class="fa-solid fa-clipboard-check" style="color:var(--primary); margin-right:8px;"></i>
-              Curriculum Completeness Audit (Taxonomies Aâ€“N)
+              Curriculum Completeness Audit (Taxonomies A–N)
             </h3>
             <span style="font-size:12px; color:var(--text-dim);">Detailed breakdown of all 14 algorithmic domains, pattern classification, catalog problem coverage, and post-120 gaps</span>
           </div>
@@ -7991,7 +7991,7 @@
                   </div>
                   <div style="display:flex; align-items:center; gap:12px;">
                     <span style="font-size:12px; color:var(--text-dim);">
-                      Core: <strong style="color:#34d399;">${coreCovered}/${core.length}</strong> (${corePct}%) â€¢ Total: <strong>${total}</strong> patterns
+                      Core: <strong style="color:#34d399;">${coreCovered}/${core.length}</strong> (${corePct}%) • Total: <strong>${total}</strong> patterns
                     </span>
                   </div>
                 </div>
@@ -8386,7 +8386,7 @@
     topicsList.forEach((item, idx) => {
       const isFirst = idx === 0;
       const isLast = idx === topicsList.length - 1;
-      const dayRangeTxt = item.dayCount > 0 ? `Days ${item.startDay}â€“${item.endDay} (${item.dayCount} Days)` : '0 Days';
+      const dayRangeTxt = item.dayCount > 0 ? `Days ${item.startDay}–${item.endDay} (${item.dayCount} Days)` : '0 Days';
 
       html += `
         <div class="roadmap-topic-reorder-row" data-topic="${escapeHtml(item.topic)}" data-index="${idx}" draggable="true">
@@ -8394,7 +8394,7 @@
           <span class="topic-order-badge ${isStreamA ? '' : 'stream-b'}">#${item.order}</span>
           <div class="row-topic-details">
             <div class="row-topic-name">${escapeHtml(item.topic)}</div>
-            <div class="row-topic-meta">${dayRangeTxt} â€¢ ${item.problemCount} Curated Problems</div>
+            <div class="row-topic-meta">${dayRangeTxt} • ${item.problemCount} Curated Problems</div>
           </div>
           <div class="row-topic-actions">
             <button type="button" class="btn btn-secondary btn-xs btn-modal-topic-top" data-topic="${escapeHtml(item.topic)}" ${isFirst ? 'disabled' : ''} title="Move to Top">
@@ -8641,7 +8641,7 @@
       return;
     }
 
-    // Case 3: Normal Study Day (Days 1 to 5) - Unified Combined Daily Problem Queue (Capped at 2â€“4 total)
+    // Case 3: Normal Study Day (Days 1 to 5) - Unified Combined Daily Problem Queue (Capped at 2–4 total)
     const unifiedProblems = RoadmapEngine.getUnifiedDailyProblems(
       activeTrack,
       currentWeek.weekNumber,
@@ -8850,7 +8850,7 @@
               <div style="font-size:11.5px; font-weight:700; color:#fbbf24; display:flex; align-items:center; gap:6px; margin-bottom:4px;">
                 <i class="fa-solid fa-triangle-exclamation"></i> Key Invariants & Edge Cases
               </div>
-              <p>${p.edgeCases.join(' â€¢ ')}</p>
+              <p>${p.edgeCases.join(' • ')}</p>
             </div>
           ` : ''}
 
@@ -9203,11 +9203,11 @@
         const isSelf = activeUserId && m.id === activeUserId;
         let rankBadge = `<span style="font-size:14px; font-weight:700; color:var(--text-dim); width:24px; text-align:center;">#${rank}</span>`;
         if (rank === 1) {
-          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="1st Place">ðŸ¥‡</span>`;
+          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="1st Place">🥇</span>`;
         } else if (rank === 2) {
-          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="2nd Place">ðŸ¥ˆ</span>`;
+          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="2nd Place">🥈</span>`;
         } else if (rank === 3) {
-          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="3rd Place">ðŸ¥‰</span>`;
+          rankBadge = `<span style="font-size:18px; width:24px; text-align:center;" title="3rd Place">🥉</span>`;
         }
 
         const initial = (m.displayName || m.username || 'U').charAt(0).toUpperCase();
@@ -9246,8 +9246,8 @@
                   ${isSelf ? '<span class="badge badge-primary" style="font-size:10px; padding:2px 6px;">You</span>' : ''}
                 </div>
                 <div style="font-size:11.5px; color:var(--text-dim); display:flex; align-items:center; gap:8px;">
-                  <span>Lvl ${m.level || 1} â€¢ ${escapeHtml(m.tierTitle || 'Novice')}</span>
-                  <span>â€¢</span>
+                  <span>Lvl ${m.level || 1} • ${escapeHtml(m.tierTitle || 'Novice')}</span>
+                  <span>•</span>
                   <span>@${escapeHtml(m.username)}</span>
                 </div>
               </div>
@@ -9793,7 +9793,7 @@
       return;
     }
 
-    if (recTitle) recTitle.textContent = `${activeAuditRec.problemTitle} (${activeAuditRec.difficulty} â€¢ ${activeAuditRec.topic})`;
+    if (recTitle) recTitle.textContent = `${activeAuditRec.problemTitle} (${activeAuditRec.difficulty} • ${activeAuditRec.topic})`;
     if (recReason) recReason.textContent = activeAuditRec.explanation || 'Adaptive recommendation calculated.';
     if (recAction) recAction.textContent = activeAuditRec.action || 'explore';
     if (recCode) recCode.textContent = activeAuditRec.reasonCode || 'CURRICULUM_PROGRESSION';
@@ -9911,8 +9911,8 @@
         let log = `=== TIME-TRAVEL REPLAY VERIFICATION REPORT ===\n`;
         scenarios.forEach(scName => {
           const res = sim.runScenario(scName);
-          const hasVio = res.hasViolations ? `âš ï¸ ${res.violations.length} violation(s)` : 'âœ“ Clean';
-          log += `â€¢ Scenario "${scName}": ${res.totalSteps} steps executed | Virtual Date: ${res.finalVirtualDate.slice(0, 10)} | ${hasVio}\n`;
+          const hasVio = res.hasViolations ? `âš ï¸ ${res.violations.length} violation(s)` : '✓ Clean';
+          log += `• Scenario "${scName}": ${res.totalSteps} steps executed | Virtual Date: ${res.finalVirtualDate.slice(0, 10)} | ${hasVio}\n`;
           if (res.hasViolations) {
             res.violations.forEach(v => {
               log += `    - [${v.type}]: ${v.message}\n`;
@@ -10048,7 +10048,7 @@
 
         resultBox.innerHTML = `
           <div style="font-weight:700; margin-bottom:4px; font-size:13px;">
-            ${isOpt ? 'ðŸŽ¯ Optimal Complexity Analysis!' : 'âš ï¸ Suboptimal Complexity Detected'}
+            ${isOpt ? 'Optimal Complexity Analysis!' : 'âš ï¸ Suboptimal Complexity Detected'}
           </div>
           <p style="margin:0 0 6px 0; font-size:12px; color:var(--text-main);">${result.evaluation.time.message}</p>
           <p style="margin:0 0 6px 0; font-size:12px; color:var(--text-main);">${result.evaluation.space.message}</p>
@@ -10083,10 +10083,10 @@
       };
       const statusBadges = {
         mastered: '<span class="prereq-status-badge" style="background:rgba(16,185,129,0.2); color:#34d399; border:1px solid #10b981;">ðŸ† Mastered</span>',
-        proficient: '<span class="prereq-status-badge" style="background:rgba(6,182,212,0.2); color:#38bdf8; border:1px solid #06b6d4;">ðŸ”· Proficient</span>',
+        proficient: '<span class="prereq-status-badge" style="background:rgba(6,182,212,0.2); color:#38bdf8; border:1px solid #06b6d4;">Proficient</span>',
         learning: '<span class="prereq-status-badge" style="background:rgba(245,158,11,0.2); color:#fbbf24; border:1px solid #f59e0b;">â³ Learning</span>',
-        available: '<span class="prereq-status-badge" style="background:rgba(139,92,246,0.2); color:#c084fc; border:1px solid #8b5cf6;">ðŸš€ Available</span>',
-        locked: '<span class="prereq-status-badge" style="background:rgba(100,116,139,0.2); color:#94a3b8; border:1px solid #64748b;">ðŸ”’ Locked</span>'
+        available: '<span class="prereq-status-badge" style="background:rgba(139,92,246,0.2); color:#c084fc; border:1px solid #8b5cf6;">Available</span>',
+        locked: '<span class="prereq-status-badge" style="background:rgba(100,116,139,0.2); color:#94a3b8; border:1px solid #64748b;">Locked</span>'
       };
 
       const cardClass = statusClasses[node.status] || 'status-available';
@@ -10101,7 +10101,7 @@
         <div class="prereq-node-card ${cardClass}" id="graph-node-${node.id}">
           <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
             <div>
-              <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim);">Tier ${node.level} â€¢ ${node.topic}</div>
+              <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-dim);">Tier ${node.level} • ${node.topic}</div>
               <h3 style="font-size:15px; font-weight:700; margin:3px 0 0 0; color:#f8fafc;">${node.title}</h3>
             </div>
             ${badgeHtml}
@@ -10899,7 +10899,7 @@
           }
           populateTopicDropdown();
           renderAll();
-          alert('ðŸŽ‰ Data restored and merged successfully!');
+          alert('Data restored and merged successfully!');
         }
       } catch (err) {
         alert('Failed to parse JSON file. Please ensure it is a valid AlgoRecall backup.');
@@ -10984,7 +10984,7 @@
       if (banner) {
         banner.innerHTML = `
           <div style="font-weight:700; margin-bottom:4px; display:flex; justify-content:space-between;">
-            <span>ðŸ’¡ Mock Hint (${hint.levelTitle})</span>
+            <span>💡 Mock Hint (${hint.levelTitle})</span>
             <span style="font-size:11px; opacity:0.8;">Hint #${ans.hintsUsedCount}</span>
           </div>
           <div style="white-space:pre-wrap; line-height:1.5;">${hint.content}</div>
@@ -11667,7 +11667,7 @@
           return true;
         }).length;
 
-        alert(`ðŸŽ‰ Loaded ${targetCount} verified problems for ${presetType.toUpperCase()}! Master catalog cleanly synced to ${allProblems.length} unique questions.`);
+        alert(`Loaded ${targetCount} verified problems for ${presetType.toUpperCase()}! Master catalog cleanly synced to ${allProblems.length} unique questions.`);
       });
     });
 
@@ -11759,7 +11759,7 @@
           saveProblems();
           populateTopicDropdown();
           renderAll();
-          alert(`ðŸŽ‰ Successfully extracted and imported ${foundProblems.length} problems from URL!`);
+          alert(`Successfully extracted and imported ${foundProblems.length} problems from URL!`);
         }
         bulkModal.classList.remove('open');
       } catch (err) {
@@ -11822,7 +11822,7 @@
       bulkModal.classList.remove('open');
       document.getElementById('bulk-add-form').reset();
       renderAll();
-      alert(`ðŸŽ‰ Successfully added ${addedCount} problems!`);
+      alert(`Successfully added ${addedCount} problems!`);
     });
 
     // Monthly Assessment Buttons
